@@ -114,7 +114,16 @@ window.configSyncProbe = async () => {
   await until(() => button("enable"), "initial page missing");
   check(input("endpoint").value === "", "legacy draft reused as S3");
   for (const [key, value] of Object.entries({ endpoint: "https://s3.example.com", bucket: "private-config",
-    accessKeyId: "test-access", secretAccessKey: "test-secret", sessionToken: "test-token", backupPassword: "test-password" })) await fill(key, value);
+    accessKeyId: "test-access", secretAccessKey: "test-secret", sessionToken: "test-token" })) await fill(key, value);
+  await fill("backupPassword", "short1");
+  check(!button("test").disabled, "complete S3 connection must enable the probe");
+  check(button("enable").disabled, "short vault password must keep setup disabled");
+  const passwordHelp = [...document.querySelectorAll("button")].find((node) => node.getAttribute("aria-label") === label("backupPasswordHint"));
+  check(passwordHelp?.getAttribute("aria-label").includes("8"), "password help must expose the eight-character minimum");
+  await fill("backupPassword", "abc12345");
+  check(!button("enable").disabled, "eight-character vault password must enable setup");
+  await fill("backupPassword", "test-password");
+  check(!button("enable").disabled, "valid vault password must enable setup");
   await choose("mode", "modeBackup");
   await choose("addressing", "virtualHosted");
   await toggle("automaticSync");

@@ -1103,7 +1103,7 @@ export const ptBR = {
       defaultDevice: "Este dispositivo",
       backupPassword: "Senha do cofre",
       backupPasswordUnlock: "Senha do cofre",
-      backupPasswordHint: "Esta senha criptografa o cofre. Ela nunca sai deste dispositivo.",
+      backupPasswordHint: "Use pelo menos 8 caracteres. Esta senha criptografa o cofre e não sai deste dispositivo.",
       currentBackupPassword: "Senha atual do cofre",
       newBackupPassword: "Nova senha do cofre",
       changePasswordTitle: "Alterar senha do cofre",

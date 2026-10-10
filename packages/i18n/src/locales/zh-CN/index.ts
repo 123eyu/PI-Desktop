@@ -852,7 +852,7 @@ sklm: {
       defaultDevice: "此设备",
       backupPassword: "备份密码",
       backupPasswordUnlock: "保管库密码",
-      backupPasswordHint: "此密码用于加密保管库，不会离开本设备。",
+      backupPasswordHint: "至少输入 8 个字符。此密码用于加密保管库，不会离开本设备。",
       currentBackupPassword: "当前保管库密码",
       newBackupPassword: "新的保管库密码",
       changePasswordTitle: "更改保管库密码",

@@ -861,7 +861,7 @@ sklm: {
       defaultDevice: "Bu cihaz",
       backupPassword: "Yedekleme parolası",
       backupPasswordUnlock: "Kasa parolası",
-      backupPasswordHint: "Bu parola kasayı şifreler ve cihazdan ayrılmaz.",
+      backupPasswordHint: "En az 8 karakter kullanın. Bu parola kasayı şifreler ve bu cihazdan ayrılmaz.",
       currentBackupPassword: "Mevcut kasa parolası",
       newBackupPassword: "Yeni kasa parolası",
       changePasswordTitle: "Kasa parolasını değiştir",

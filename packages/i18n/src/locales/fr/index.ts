@@ -853,8 +853,7 @@ sklm: {
       defaultDevice: "This device",
       backupPassword: "Backup password",
       backupPasswordUnlock: "Vault password",
-      backupPasswordHint:
-        "This password encrypts the vault. It never leaves this device.",
+      backupPasswordHint: "Utilisez au moins 8 caractères. Ce mot de passe chiffre le coffre et ne quitte pas cet appareil.",
       currentBackupPassword: "Current vault password",
       newBackupPassword: "New vault password",
       changePasswordTitle: "Change vault password",
