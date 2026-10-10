@@ -204,38 +204,40 @@ Settings is a **full-window page** that replaces the app sidebar + main chrome (
 
 ### Cloud sync
 
-- **Connection**: WebDAV URL, username, app password, remote directory, device
-  label, a separate backup/vault password, and a server compatibility mode.
-  Strict CAS is the default. The test action uses only temporary remote
-  objects; strict mode must prove conditional creation and readback, while
-  append-only compatibility mode must prove bounded directory listing. Choosing
-  compatibility mode shows a persistent warning and requires confirmation
-  before save. The warning explains that all devices in the vault must use the
-  same mode, history is retained, and concurrent changes may still require
-  review.
+- **Connection**: S3 endpoint, region, private bucket, object prefix, access key
+  ID, secret access key, optional session token, addressing style, device label,
+  and separate backup/vault password. Choose two-way sync or backup-only mode
+  and whether runs are automatic. Connection testing uses random temporary
+  objects and requires reliable conditional writes; there is no fallback.
 - **Portable configuration**: supported categories are selected by default;
   credentials and project memory are explicit opt-ins. The preview reports
   supported, excluded, secret-bearing, mapping-required, and pending-approval
   counts.
-- **Safety**: the page never renders raw credentials or vault keys. Imported
-  MCP, skills, subagents, plugins, automations, and project-scoped data remain
-  pending until local activation approval and any required folder mapping are
-  complete. HTTPS remains the default. For a trusted LAN endpoint, the page
-  can explicitly acknowledge HTTP risk; public HTTP endpoints are rejected and
-  the warning explains that WebDAV credentials are not encrypted in transit.
-  Disconnect preserves local and remote data.
+- **Safety**: exported secrets and vault keys are never returned to the page.
+  Connection secrets exist only in transient password controls. Imported
+  executable/security-sensitive content keeps local approval and mapping.
+  Public HTTP and redirects are rejected; LAN HTTP follows the shared Host
+  network policy, not a page-specific checkbox. Disconnect preserves local
+  configuration and remote objects. Only the new S3 format is supported;
+  there is no legacy-data detection, migration or compatibility notice.
 - **State and recovery**: show distinct configured, locked, syncing, offline,
   unsupported-server, conflict, awaiting-activation, paused, and error states.
   Users can sync now, unlock, pause this device, approve/reject staged items,
   and disconnect. The page does not imply convergence from an old successful
   run while a pending state remains.
-- **Fast revisit and drafts**: render the last redacted state and history from
-  a short-lived local cache while the host refresh runs in the background. Keep
-  endpoint, username, remote directory, device label, compatibility mode, and
-  category choices in renderer-local storage so an unfinished form survives
-  navigation or reload. WebDAV app passwords remain in Host-owned secret
-  storage and are reused only for the same endpoint and account; vault
-  passwords are never written to renderer storage.
+- **Fast revisit and drafts**: cache redacted status/history and typed,
+  non-sensitive connection choices. S3 uses a versioned draft key; old drafts
+  are ignored. Secret keys, session tokens and vault passwords never enter
+  renderer persistence. Blank credentials reuse Host storage only for the exact
+  same connection; an explicit token-clear checkbox and new secret replacement
+  can clear the saved session token. Connection/mode changes invalidate history,
+  including late responses from the previous connection.
+- **History and restore**: show the latest 30 revisions for the saved mode and
+  disclose indefinite object retention without automatic cloud cleanup. Sync
+  restore confirms immediate propagation; backup restore confirms local-only
+  application and permits the current backup. Unsaved mode edits do not change
+  these semantics. Both retain local recovery and approval requirements.
+  Password changes are key rewrapping, not revocation of unlocked devices.
 
 ### 全局 AI (`ai` tab)
 - **Permissions** card: the global permission-mode control

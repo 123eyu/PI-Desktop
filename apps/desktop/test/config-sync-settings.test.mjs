@@ -14,6 +14,7 @@ const read = (relativePath) =>
 const settingsPage = await read("../src/features/settings/SettingsPage.tsx");
 const settingsIndex = await read("../src/lib/settings-search.ts");
 const syncPage = await read("../src/components/settings/ConfigSyncPage.tsx");
+const connectionFields = await read("../src/components/settings/ConfigSyncConnectionFields.tsx");
 const syncPreferences = await read(
   "../src/features/settings/config-sync-preferences.ts",
 );
@@ -43,13 +44,10 @@ test("cloud sync rendering follows the settings visibility gate", () => {
 test("cloud sync keeps credentials and vault operations on the host boundary", () => {
   assert.match(syncPage, /api\.configSyncConfigure\(/);
   assert.match(syncPage, /applyState\(await api\.configSyncSyncNow\(\)\)/);
-  // The plaintext opt-in is the network mode now, not a WebDAV switch: the page
-  // carries no per-endpoint HTTP acknowledgement of its own.
-  assert.doesNotMatch(syncPage, /allowInsecureHttp/);
-  assert.match(syncPage, /settings\.configSync\.remoteMode/);
-  assert.match(syncPage, /settings\.configSync\.appendOnlyWarning/);
-  assert.match(syncPage, /settings\.configSync\.appendOnlyConfirm/);
-  assert.match(syncPage, /remoteMode/);
+  // HTTP policy remains Host-owned; unsafe conditional-write fallback is gone.
+  assert.doesNotMatch(syncPage + connectionFields, /allowInsecureHttp|appendOnly|remoteMode/);
+  assert.match(connectionFields, /settings\.configSync\.modeBackup/);
+  assert.match(connectionFields, /settings\.configSync\.modeSync/);
   assert.match(syncPage, /api\.configSyncUnlock\(/);
   assert.match(syncPage, /api\.configSyncMapProject\(/);
   assert.match(syncPage, /api\.configSyncListHistory\(/);
@@ -68,7 +66,7 @@ test("cloud sync keeps a non-sensitive draft and paints cached state first", () 
   assert.match(syncPage, /getCachedConfigSyncState\(\)/);
   assert.match(syncPage, /getCachedConfigSyncHistory\(\)/);
   assert.match(syncPage, /writeConfigSyncDraft\(/);
-  assert.match(syncPage, /appPasswordSavedHint/);
+  assert.match(connectionFields, /secretSavedHint/);
   assert.doesNotMatch(syncPage, /if \(loading\) \{[\s\S]{0,180}return \(/);
   assert.match(syncPreferences, /passwords are never copied into renderer persistence/);
   assert.match(syncPreferences, /CONFIG_SYNC_DRAFT_STORAGE_KEY/);
@@ -151,7 +149,6 @@ test("the sync card reports each phase with a readable fraction", () => {
     "merge",
     "upload",
     "apply",
-    "cleanup",
   ]) {
     assert.match(
       progressModel,

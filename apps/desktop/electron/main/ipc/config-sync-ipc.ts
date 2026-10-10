@@ -8,7 +8,7 @@ export type ConfigSyncIpcDependencies = {
   sendToRenderer: (channel: string, payload?: unknown) => void;
 };
 
-/** Keep WebDAV credentials and vault passwords inside Host IPC calls. */
+/** Keep S3 credentials and vault passwords inside transient Host IPC calls. */
 export function registerConfigSyncIpc({
   registrar,
   getHost,
@@ -24,7 +24,7 @@ export function registerConfigSyncIpc({
       const host = getHost();
       if (!host) throw new Error("host unavailable");
       const result = await fn(...args);
-      if (channel !== IPC.invoke.configSyncTest) {
+      if (channel !== IPC.invoke.configSyncTest && channel !== IPC.invoke.configSyncListHistory) {
         sendToRenderer(IPC.event.configSyncChanged, result);
       }
       return result;
