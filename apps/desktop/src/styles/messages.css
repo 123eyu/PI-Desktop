@@ -219,6 +219,13 @@
 .asktool-question-body {
   display: block;
   min-width: 0;
+  /* Long prompts scroll here so header actions stay on screen (#1531).
+     Short prompts keep today's layout: no reserved scrollbar gutter. */
+  max-height: min(208px, 24vh);
+  max-height: min(208px, 24dvh);
+  overflow-x: hidden;
+  overflow-y: auto;
+  overscroll-behavior-y: contain;
 }
 
 .asktool-options {

@@ -10784,7 +10784,9 @@ This test plan spec is accepted when:
   fixture contains enough options to overflow, only that list scrolls and the
   question header, custom-answer input, and Skip / Next / Submit actions remain
   reachable. Scrolling the list does not move the conversation page or hide the
-  action row. The tool output is ordered as
+  action row. A long question prompt is bounded the same way: the question body
+  scrolls inside the card (`min(208px, 24dvh)`, with a `24vh` fallback) and the
+  header actions stay outside that scroller. The tool output is ordered as
   `question：answer`, uses `、` between multiple answers and `\n---\n`
   between questions, and
   keeps `question：` for the skipped question. Markdown renders as rich text

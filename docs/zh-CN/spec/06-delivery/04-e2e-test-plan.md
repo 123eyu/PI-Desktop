@@ -6551,7 +6551,8 @@ eleven-tool-round desktop paths are verified by
 - **预期**：一次可见一个问题；小指标显示
   输入框批准区域中已回答、当前和跳过的状态
   Plan 和 Goal 批准使用的停靠位置相同。请求没有
-  倒计时。工具输出排序为 `question：answer`，使用 `、`
+  倒计时。过长的问题正文在卡片内滚动（`min(208px, 24dvh)`，并有 `24vh` 回退），标题栏上的
+  Decline、Skip 和 Next/Submit 留在该滚动区域之外。工具输出排序为 `question：answer`，使用 `、`
   多个答案之间和问题之间的 `\n---\n` 之间，并保持
   `question：` 用于跳过的问题。拒绝所有产生空
   每个问题的占位符，仍然完成工具调用。
