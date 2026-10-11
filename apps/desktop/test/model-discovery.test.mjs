@@ -37,7 +37,7 @@ test("a models[] response with slug rows is read as a list too", () => {
         { slug: "glm-5.3" },
       ],
     }),
-    [{ modelId: "glm-5.3", displayName: "glm-5.3" }],
+    [{ modelId: "glm-5.3", displayName: "glm-5.3", contextWindow: 1_048_576 }],
   );
   // The two id keys are mutually exclusive; `id` wins if a gateway publishes both.
   assert.deepEqual(normalizeModelList("chat_completions", { models: [{ id: "m", slug: "s" }] }), [
@@ -72,6 +72,31 @@ test("google lists strip the models/ prefix", () => {
     { modelId: "gemini-2.5-flash", displayName: "gemini-2.5-flash" },
     { modelId: "gemini-2.5-pro", displayName: "Gemini 2.5 Pro" },
   ]);
+});
+
+test("a model list's own capacity report is kept, nothing is guessed when absent", () => {
+  const models = normalizeModelList("chat_completions", {
+    data: [
+      { id: "with-capacity", context_window: 1_000_000, max_output_tokens: 64_000 },
+      { id: "openrouter-style", context_length: 200_000, max_tokens: 8_192 },
+      { id: "gemini-style", inputTokenLimit: 1_048_576, outputTokenLimit: 65_536 },
+      { id: "camel-style", contextWindow: 32_000, maxTokens: 4_096 },
+      { id: "silent" },
+      { id: "zero", context_window: 0 },
+    ],
+  });
+  const byId = new Map(models.map((model) => [model.modelId, model]));
+  assert.equal(byId.get("with-capacity").contextWindow, 1_000_000);
+  assert.equal(byId.get("with-capacity").maxTokens, 64_000);
+  assert.equal(byId.get("openrouter-style").contextWindow, 200_000);
+  assert.equal(byId.get("openrouter-style").maxTokens, 8_192);
+  assert.equal(byId.get("gemini-style").contextWindow, 1_048_576);
+  assert.equal(byId.get("gemini-style").maxTokens, 65_536);
+  assert.equal(byId.get("camel-style").contextWindow, 32_000);
+  // An omitted or non-positive capacity states nothing: no guessed default.
+  assert.equal(byId.get("silent").contextWindow, undefined);
+  assert.equal(byId.get("silent").maxTokens, undefined);
+  assert.equal(byId.get("zero").contextWindow, undefined);
 });
 
 test("requests use per-style endpoints and auth headers", () => {

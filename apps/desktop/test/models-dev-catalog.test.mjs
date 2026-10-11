@@ -1850,3 +1850,65 @@ test("a host two publishers share leaves conflicting leaves unmatched", async (t
   assert.equal(alpha?.providerKey, "alpha");
   assert.equal(alpha?.limit.context, 1_000_000);
 });
+
+test("a relay's dotted version name reads the owner's dashed published record", async (t) => {
+  // `claude-sonnet-4.5` is Claude's `claude-sonnet-4-5`: a notation difference,
+  // not a distinct model, so the owner's own published record answers.
+  const catalog = await loadFixtureCatalog(t, {
+    gateway: { api: "https://gateway.example/v1", models: {} },
+    anthropic: { models: { "claude-sonnet-4-5": {
+      id: "claude-sonnet-4-5", tool_call: true, limit: { context: 200_000, output: 64_000 },
+    } } },
+  });
+  const match = catalog.findModel({
+    vendorKey: "custom", baseUrl: "https://relay.example/v1", modelId: "claude-sonnet-4.5",
+  });
+  assert.ok(match, "a dotted version alias must reach the owner's published record");
+  assert.equal(match.providerKey, "anthropic");
+  assert.equal(match.modelId, "claude-sonnet-4-5", "the wire id is never rewritten");
+  assert.equal(match.limit.context, 200_000);
+  assert.equal(match.limit.output, 64_000);
+});
+
+test("a relay's canonical generation name reads the owner's live record", async (t) => {
+  // The relay serves `deepseek-v4.1-flash` — models.dev's canonical id for
+  // DeepSeek's current flash model, which DeepSeek publishes only under version
+  // aliases. The live (non-deprecated) alias is what answers.
+  const catalog = await loadFixtureCatalog(t, {
+    gateway: { api: "https://gateway.example/v1", models: {} },
+    deepseek: { models: {
+      "deepseek-flash": {
+        id: "deepseek-flash", tool_call: true,
+        canonical_model_id: "deepseek/deepseek-v4.1-flash",
+        limit: { context: 1_000_000, output: 393_216 },
+      },
+      "deepseek-v4-flash": {
+        id: "deepseek-v4-flash", tool_call: true, status: "deprecated",
+        canonical_model_id: "deepseek/deepseek-v4.1-flash",
+        limit: { context: 1_000_000, output: 393_216 },
+      },
+    } },
+  });
+  const match = catalog.findModel({
+    vendorKey: "custom", baseUrl: "https://relay.example/v1", modelId: "deepseek-v4.1-flash",
+  });
+  assert.ok(match, "the owner's canonical id must not drop to the generic seed");
+  assert.equal(match.providerKey, "deepseek");
+  assert.equal(match.modelId, "deepseek-flash", "the live alias answers, not the deprecated one");
+  assert.equal(match.limit.context, 1_000_000);
+});
+
+test("a generation name the catalog never publishes stays unmatched", async (t) => {
+  // `gemini-3-flash` is a distinct (non-preview) model the catalog does not
+  // publish; a preview record must not answer for it.
+  const catalog = await loadFixtureCatalog(t, {
+    gateway: { api: "https://gateway.example/v1", models: {} },
+    google: { models: { "gemini-3-flash-preview": {
+      id: "gemini-3-flash-preview", tool_call: true, limit: { context: 1_000_000 },
+    } } },
+  });
+  assert.equal(catalog.findModel({
+    vendorKey: "custom", baseUrl: "https://relay.example/v1", modelId: "gemini-3-flash",
+  }), undefined);
+});
+
