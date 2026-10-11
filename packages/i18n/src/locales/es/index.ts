@@ -803,8 +803,10 @@ sklm: {
     },
     "configSync": {
       title: "Cloud sync",
-      connectionTitle: "Copia de configuración y sincronización S3",
-      connectionDescription: "Cifra la configuración portátil en un bucket S3 privado. No incluye conversaciones, archivos fuente ni estado de ejecución.",
+      connectionTitle: "Configuración de conexión",
+      connectionDescription: "Sincroniza los ajustes entre dispositivos o guárdalos en tu almacenamiento S3 privado. Los chats y archivos del proyecto permanecen locales.",
+      advancedTitle: "Configuración avanzada",
+      maintenanceTitle: "Seguridad y conexión",
       errorTitle: "Sync needs attention",
       errorDetails: "Technical details",
       backupPasswordOptional: "Leave this blank to keep the current vault password.",

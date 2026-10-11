@@ -9516,9 +9516,12 @@ must keep splitting are covered by `markdown-blocks.test.mjs`.
   1. Confirm Cloud sync remains development-build-only and has no Experimental
      badge. Open Settings and confirm only the new S3 setup is offered;
      old formats are not detected, migrated or deleted.
-  2. Enter endpoint, region, private bucket, prefix, access key, secret key,
-     optional session token and addressing style. Test conditional creation,
-     readback, matching update, stale-write rejection and probe cleanup.
+  2. Confirm initial setup shows only required connection/password fields and
+     automatic runs use the shared switch. Expand Advanced to edit region,
+     prefix, addressing, device label and optional token; collapse/reopen it
+     without losing values. Select categories before the first save, keeping
+     credentials/memory opt-in. Test conditional creation, readback, matching
+     update, stale-write rejection and probe cleanup.
      Reject ignored preconditions, weak ETags, redirects, public HTTP and 403;
      never interpret 502 as a missing object. LAN HTTP follows network policy.
   3. Configure two sync devices. Publish a provider and mapped packaged skill,
@@ -9541,6 +9544,12 @@ must keep splitting are covered by `markdown-blocks.test.mjs`.
      replacement. Invalidate history on destination/mode changes and ignore
      outstanding responses from the old connection. Unsaved mode changes must
      not alter restore confirmation or propagation flags.
+     Saved connections reopen collapsed while status, manual run and inline
+     unlock remain visible above them. Open History and Security/connection
+     to restore, change password or disconnect. Pending approvals and errors
+     remain visible. At narrow content widths the form becomes one column
+     without horizontal overflow. In light/dark themes, activate shared
+     checkboxes by label and Space; verify focus, disabled and mixed states.
   7. Restart an isolated Host and verify persisted state, then disconnect without
      deleting unrelated data. Inspect remote object bytes for known fixture
      plaintext and verify there is no automatic immutable-object GC.
@@ -9560,7 +9569,8 @@ must keep splitting are covered by `markdown-blocks.test.mjs`.
 - **Automation:** `pnpm test:e2e:config-sync` is the multi-Host harness.
   Rust `config_sync::` and `user_skills::` suites cover transport, merge,
   application and resource safety. `config-sync-user-path.test.mjs` runs the
-  real settings page with a mocked external IPC boundary and no network;
+  real settings page and shared checkbox with a mocked external IPC boundary,
+  actual styles and isolated Electron input, without network access;
   `config-sync-ipc.test.mjs` covers Main notification shape. Visibility remains
   covered by `settings-developer-only-destinations.test.mjs`.
 - **Specs:** `03-runtime/22-config-sync.md`, `04-ux/06-settings-ia.md`,

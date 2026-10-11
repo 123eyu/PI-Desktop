@@ -811,8 +811,10 @@ sklm: {
     },
     configSync: {
       title: "Bulut senkronizasyonu",
-      connectionTitle: "S3 yapılandırma yedekleme ve senkronizasyonu",
-      connectionDescription: "Taşınabilir yapılandırmayı özel bir S3 kovasında şifreleyin. Sohbetler, kaynak dosyaları ve çalışma zamanı durumu dahil edilmez.",
+      connectionTitle: "Bağlantı ayarları",
+      connectionDescription: "Uygulama ayarlarını cihazlar arasında eşitleyin veya özel S3 depolamanıza yedekleyin. Sohbetler ve proje dosyaları yerel kalır.",
+      advancedTitle: "Gelişmiş ayarlar",
+      maintenanceTitle: "Güvenlik ve bağlantı",
       errorTitle: "Senkronizasyon dikkat gerektiriyor",
       errorDetails: "Teknik ayrıntılar",
       backupPasswordOptional: "Geçerli kasa parolasını korumak için bunu boş bırakın.",

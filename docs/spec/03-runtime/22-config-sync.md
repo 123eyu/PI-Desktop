@@ -193,6 +193,17 @@ history/restore, password rewrap, and disconnect. The renderer displays
 and `error` as distinct states. Disconnect keeps local data and does not delete
 remote data.
 
+The page prioritizes status, last success, manual run, pause and inline unlock
+above connection editing. Setup shows endpoint, bucket, access key ID, secret
+key and vault password; region, prefix, addressing, device label and temporary
+token live in a closed Advanced disclosure without changing their defaults.
+Saved connections reopen collapsed; unfinished drafts reopen for editing.
+Automatic runs use the shared switch. Category choices are available before
+the first save inside connection settings, with credentials and memory still
+opt-in. History, preview, mappings and security/connection maintenance expand
+on demand; errors, manual progress and pending approvals stay visible.
+Collapsing content does not reset form values or issue a Host request.
+
 Reopening the page paints cached redacted state/history and a validated,
 non-sensitive draft, then refreshes in the background. The S3 draft key is
 `pi.desktop.configSyncS3Draft.v1`; old WebDAV drafts are ignored, not deleted.

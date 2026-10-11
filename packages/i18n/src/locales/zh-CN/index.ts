@@ -802,8 +802,10 @@ sklm: {
     },
     configSync: {
       title: "云同步",
-      connectionTitle: "S3 配置备份与同步",
-      connectionDescription: "将可移植配置加密保存到私有 S3 兼容存储桶，不包含聊天记录、源文件和运行时状态。",
+      connectionTitle: "连接设置",
+      connectionDescription: "在设备间同步应用配置，或备份到你的私有 S3 存储。不包含聊天记录和项目文件。",
+      advancedTitle: "高级设置",
+      maintenanceTitle: "安全与连接管理",
       errorTitle: "同步需要处理",
       errorDetails: "技术详情",
       backupPasswordOptional: "留空则保留当前保管库密码。",

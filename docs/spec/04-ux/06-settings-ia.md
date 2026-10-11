@@ -204,15 +204,25 @@ Settings is a **full-window page** that replaces the app sidebar + main chrome (
 
 ### Cloud sync
 
-- **Connection**: S3 endpoint, region, private bucket, object prefix, access key
-  ID, secret access key, optional session token, addressing style, device label,
-  and separate backup/vault password. Choose two-way sync or backup-only mode
-  and whether runs are automatic. Connection testing uses random temporary
-  objects and requires reliable conditional writes; there is no fallback.
-- **Portable configuration**: supported categories are selected by default;
-  credentials and project memory are explicit opt-ins. The preview reports
-  supported, excluded, secret-bearing, mapping-required, and pending-approval
-  counts.
+- **Status first**: saved devices show current state, destination, last success
+  and manual run above settings. Pause and inline password unlock remain
+  reachable without expanding connection settings; errors, manual progress and
+  pending activation are never hidden behind a disclosure.
+- **Connection**: initial setup exposes endpoint, private bucket, access key
+  ID, secret key and vault password. Mode uses the shared settings picker;
+  automatic runs use `SettingsToggle`. Advanced settings (region, object
+  prefix, addressing, device label and optional session token) start collapsed
+  with unchanged defaults. Saved connections reopen collapsed, while unfinished
+  drafts reopen for editing. Test and Save remain together at the form footer.
+  Connection testing requires reliable conditional writes; no fallback exists.
+- **Portable configuration**: a disclosure inside the same connection form
+  allows category selection before initial setup and later edits. Supported
+  categories are selected by default; credentials and memory remain explicit
+  opt-ins, with the credential warning shown when selected. All checkboxes use
+  the styled shared `Checkbox`, including disabled and mixed states.
+- **Secondary tools**: history/restore, preview, mappings and security/connection
+  maintenance start collapsed. Expanding does not perform a sync, save, or reset
+  entered values. The preview retains its complete counts.
 - **Safety**: exported secrets and vault keys are never returned to the page.
   Connection secrets exist only in transient password controls. Imported
   executable/security-sensitive content keeps local approval and mapping.

@@ -803,8 +803,10 @@ sklm: {
     },
     "configSync": {
       title: "Cloud sync",
-      connectionTitle: "S3-Konfigurationssicherung und Synchronisierung",
-      connectionDescription: "Portable Konfiguration verschlüsselt in einem privaten S3-Bucket speichern. Chats, Quelldateien und Laufzeitdaten bleiben lokal.",
+      connectionTitle: "Verbindungseinstellungen",
+      connectionDescription: "App-Einstellungen zwischen Geräten synchronisieren oder im privaten S3-Speicher sichern. Chats und Projektdateien bleiben lokal.",
+      advancedTitle: "Erweiterte Einstellungen",
+      maintenanceTitle: "Sicherheit und Verbindung",
       errorTitle: "Sync needs attention",
       errorDetails: "Technical details",
       backupPasswordOptional: "Leave this blank to keep the current vault password.",

@@ -802,8 +802,10 @@ sklm: {
     },
     configSync: {
       title: "雲端同步",
-      connectionTitle: "S3 設定備份與同步",
-      connectionDescription: "將可攜式設定加密儲存到私有 S3 相容儲存桶，不包含聊天記錄、原始碼和執行階段狀態。",
+      connectionTitle: "連線設定",
+      connectionDescription: "在裝置間同步應用程式設定，或備份到你的私有 S3 儲存空間。不包含聊天記錄和專案檔案。",
+      advancedTitle: "進階設定",
+      maintenanceTitle: "安全與連線管理",
       errorTitle: "同步需要處理",
       errorDetails: "技術詳情",
       backupPasswordOptional: "留空則保留目前的保管庫密碼。",

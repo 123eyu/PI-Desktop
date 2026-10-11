@@ -1053,8 +1053,10 @@ export const ptBR = {
     },
     configSync: {
       title: "Sincronização na nuvem",
-      connectionTitle: "Backup e sincronização de configurações via S3",
-      connectionDescription: "Criptografe configurações portáteis em um bucket S3 privado. Conversas, arquivos-fonte e estado de execução são excluídos.",
+      connectionTitle: "Configurações de conexão",
+      connectionDescription: "Sincronize as configurações entre dispositivos ou faça backup no seu armazenamento S3 privado. Conversas e arquivos do projeto ficam locais.",
+      advancedTitle: "Configurações avançadas",
+      maintenanceTitle: "Segurança e conexão",
       errorTitle: "A sincronização requer atenção",
       errorDetails: "Detalhes técnicos",
       backupPasswordOptional: "Deixe em branco para manter a senha atual do cofre.",

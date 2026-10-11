@@ -811,8 +811,10 @@ sklm: {
     },
     configSync: {
       title: "Cloud sync",
-      connectionTitle: "S3 설정 백업 및 동기화",
-      connectionDescription: "이식 가능한 설정을 비공개 S3 버킷에 암호화하여 저장합니다. 대화, 소스 파일, 런타임 상태는 제외됩니다.",
+      connectionTitle: "연결 설정",
+      connectionDescription: "기기 간 앱 설정을 동기화하거나 비공개 S3 저장소에 백업합니다. 대화와 프로젝트 파일은 로컬에 유지됩니다.",
+      advancedTitle: "고급 설정",
+      maintenanceTitle: "보안 및 연결",
       errorTitle: "Sync needs attention",
       errorDetails: "Technical details",
       backupPasswordOptional: "Leave this blank to keep the current vault password.",

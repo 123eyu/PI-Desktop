@@ -6,6 +6,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import test from "node:test";
 import { repositoryRoot, resolveElectronBinary } from "../../../scripts/e2e/boot.mjs";
+import { loadStyles } from "./helpers/styles.mjs";
 
 const root = repositoryRoot();
 const { build } = createRequire(join(root, "packages/agent-runtime/package.json"))("esbuild");
@@ -18,6 +19,7 @@ import { initReactI18next } from "react-i18next";
 import { catalogs, flattenCatalog } from "@pi-desktop/i18n";
 import { IPC } from "@pi-desktop/shared";
 import { ConfigSyncPage } from "../../apps/desktop/src/components/settings/ConfigSyncPage";
+import { Checkbox } from "../../apps/desktop/src/components/ui";
 import { selectionFromDraft } from "../../apps/desktop/src/features/settings/config-sync-form";
 import { CONFIG_SYNC_DRAFT_STORAGE_KEY } from "../../apps/desktop/src/features/settings/config-sync-preferences";
 
@@ -67,6 +69,9 @@ window.piDesktop = { platform: "darwin", channels: IPC,
       }
       data = captured;
     } else if (channel === IPC.invoke.configSyncRestore) data = state;
+    else if (channel === IPC.invoke.configSyncPause) data = state = { ...state, paused: input.paused };
+    else if (channel === IPC.invoke.configSyncUnlock) data = state = { ...state, locked: false, status: "upToDate" };
+    else if (channel === IPC.invoke.configSyncChangePassword) data = state;
     else if (channel === IPC.invoke.configSyncDisconnect) data = state = initial;
     else throw new Error("Unexpected IPC: " + channel);
     return { ok: true, data };
@@ -93,9 +98,16 @@ const fill = async (key, value) => {
   await frame();
 };
 const toggle = async (key) => {
-  const container = [...document.querySelectorAll("label")].find((node) => node.textContent.trim() === label(key));
-  check(container?.querySelector("input"), "missing checkbox " + key);
-  flushSync(() => container.querySelector("input").click()); await frame();
+  const control = [...document.querySelectorAll('input[type="checkbox"], button[role="switch"]')].find((node) =>
+    node.getAttribute("aria-label") === label(key) || node.closest("label")?.textContent.trim() === label(key));
+  check(control, "missing boolean control " + key);
+  flushSync(() => control.click()); await frame();
+};
+const disclosure = (key) => [...document.querySelectorAll("details")].find((node) =>
+  node.querySelector(":scope > summary")?.textContent.trim() === label(key));
+const expand = async (key) => {
+  const element = disclosure(key); check(element, "missing disclosure " + key);
+  if (!element.open) { element.querySelector("summary").click(); await frame(); }
 };
 const choose = async (key, value) => {
   const trigger = [...document.querySelectorAll("button")].find((node) => node.getAttribute("aria-label") === label(key));
@@ -113,6 +125,32 @@ mount();
 window.configSyncProbe = async () => {
   await until(() => button("enable"), "initial page missing");
   check(input("endpoint").value === "", "legacy draft reused as S3");
+  check(disclosure("connectionTitle")?.open, "setup must show connection fields");
+  check(disclosure("advancedTitle") && !disclosure("advancedTitle").open, "advanced fields must start collapsed");
+  check(!input("region").checkVisibility(), "advanced region leaked into setup");
+  check(input("region").value === "us-east-1" && input("prefix").value === "pi-desktop/config", "advanced defaults changed");
+  const page = document.querySelector(".settings-config-sync");
+  for (const theme of ["light", "dark"]) {
+    document.documentElement.dataset.theme = theme;
+    for (const width of [380, 900]) {
+      page.style.width = width + "px"; await frame();
+      check(page.scrollWidth <= page.clientWidth, "settings overflow at " + width + " in " + theme);
+      const columns = getComputedStyle(document.querySelector(".settings-config-sync-form")).gridTemplateColumns.split(" ");
+      check(columns.length === (width < 560 ? 1 : 2), "form columns do not follow available width");
+    }
+  }
+  page.style.removeProperty("width");
+  await expand("advancedTitle");
+  await fill("region", "test-region");
+  disclosure("advancedTitle").querySelector("summary").click(); await frame();
+  check(input("region").value === "test-region", "collapsing advanced settings lost values");
+  await expand("advancedTitle");
+  await expand("categoriesTitle");
+  await toggle("categoryProviders");
+  check(![...document.querySelectorAll('input[type="checkbox"]')].find((node) => node.closest("label")?.textContent.trim() === label("categoryCredentials")).checked, "credentials opted in by default");
+  await toggle("categoryCredentials");
+  check(document.querySelector(".settings-config-sync-warning")?.checkVisibility(), "credential opt-in warning hidden");
+  await toggle("categoryCredentials");
   for (const [key, value] of Object.entries({ endpoint: "https://s3.example.com", bucket: "private-config",
     accessKeyId: "test-access", secretAccessKey: "test-secret", sessionToken: "test-token" })) await fill(key, value);
   await fill("backupPassword", "short1");
@@ -132,6 +170,7 @@ window.configSyncProbe = async () => {
   await until(() => !button("test").disabled, "probe did not settle");
   const probe = last("configSyncTest");
   check(probe.mode === "backup" && probe.pathStyle === false && probe.automaticSync === false, "probe lost choices");
+  check(probe.region === "test-region" && probe.categories.providers === false && probe.includeSecrets === false, "hidden advanced values or scope lost");
   check(probe.secretAccessKey === "test-secret" && probe.sessionToken === "test-token" && !('backupPassword' in probe), "probe credential contract");
   await click("enable");
   await until(() => releaseSync, "first run did not start");
@@ -141,6 +180,15 @@ window.configSyncProbe = async () => {
   await until(() => document.body.textContent.includes("older-pi-desktop/config"), "history missing");
   flushSync(() => view.unmount()); mount(); await ready();
   check(input("bucket").value === "private-config", "saved connection not hydrated");
+  check(!disclosure("connectionTitle").open, "saved connection must start collapsed");
+  check(button("backupNow")?.checkVisibility(), "manual run must stay visible above settings");
+  await toggle("pauseTitle"); await ready();
+  check(button("backupNow").disabled, "paused device still permits manual run");
+  await toggle("pauseTitle"); await ready();
+  check(!button("backupNow").disabled, "resume did not restore manual run");
+  await expand("connectionTitle");
+  await expand("advancedTitle");
+  await expand("historyTitle");
   check(input("secretAccessKey").value === "", "secret returned on reopen");
   await toggle("clearSessionToken"); await click("save"); await ready();
   check(last("configSyncConfigure").sessionToken === "" && !('secretAccessKey' in last("configSyncConfigure")), "explicit token clear or key reuse lost");
@@ -162,6 +210,20 @@ window.configSyncProbe = async () => {
   await until(() => document.body.textContent.includes("older-other-prefix"), "new connection history not loaded");
   releaseHistory(); await ready();
   check(!document.body.textContent.includes("older-pi-desktop/config"), "stale history overwrote new connection");
+  await expand("maintenanceTitle");
+  await fill("currentBackupPassword", "test-password");
+  await fill("newBackupPassword", "test-password-new");
+  await click("changePassword"); await ready();
+  check(last("configSyncChangePassword").newPassword === "test-password-new", "password action lost its input");
+  check(input("currentBackupPassword").value === "" && input("newBackupPassword").value === "", "password fields not cleared");
+  disclosure("connectionTitle").open = false;
+  state = { ...state, locked: true, status: "locked" };
+  flushSync(() => { for (const callback of listeners.get(IPC.event.configSyncChanged) ?? []) callback(state); });
+  await until(() => button("unlock"), "inline unlock missing");
+  check(input("backupPassword").checkVisibility() && document.querySelectorAll('input[aria-label="' + label("backupPassword") + '"]').length === 1, "unlock password is hidden or duplicated");
+  await fill("backupPassword", "test-password-new"); await click("unlock"); await ready();
+  check(last("configSyncUnlock").backupPassword === "test-password-new", "unlock contract changed");
+  verifyNoSecrets();
   await click("disconnect");
   await until(() => button("enable") && input("endpoint").value === "", "disconnect did not clear form");
   check(localStorage.getItem(CONFIG_SYNC_DRAFT_STORAGE_KEY) === null, "disconnect retained draft");
@@ -169,6 +231,37 @@ window.configSyncProbe = async () => {
   flushSync(() => view.unmount());
   check(listeners.get(IPC.event.configSyncChanged)?.size === 0 && listeners.get(IPC.event.configSyncProgress)?.size === 0, "subscriptions leaked");
   return { passed: true };
+};
+window.checkboxProbe = async () => {
+  let checked = false;
+  const node = document.createElement("div"); document.body.append(node);
+  const checkboxView = createRoot(node);
+  const render = () => flushSync(() => checkboxView.render(<>
+    <Checkbox label="Probe selection" checked={checked} onChange={(event) => { checked = event.target.checked; render(); }} />
+    <Checkbox label="Probe mixed" indeterminate onChange={() => {}} />
+    <Checkbox label="Probe disabled" disabled defaultChecked />
+  </>));
+  render();
+  const controls = node.querySelectorAll("input");
+  for (const theme of ["light", "dark"]) {
+    document.documentElement.dataset.theme = theme;
+    const style = getComputedStyle(controls[0]);
+    check(style.appearance === "none" && style.width === "18px", "checkbox is still platform drawn in " + theme);
+    check(getComputedStyle(controls[0].parentElement).gap === "8px", "checkbox label lacks spacing");
+    controls[0].parentElement.click(); await frame();
+    check(checked, "label click did not check input");
+    await until(() => getComputedStyle(controls[0]).backgroundColor !== "rgba(0, 0, 0, 0)", "checked fill missing");
+    controls[0].parentElement.click(); await frame();
+    check(!checked, "label click did not uncheck input");
+    check(controls[1].indeterminate && getComputedStyle(controls[1], "::after").content !== "none", "mixed indicator missing");
+    controls[2].parentElement.click(); check(controls[2].checked, "disabled selection changed");
+  }
+  controls[0].focus();
+  window.checkboxKeyboardResult = async () => {
+    await until(() => checked, "Space did not toggle checkbox");
+    check(parseFloat(getComputedStyle(controls[0]).outlineWidth) >= 2, "keyboard focus ring missing");
+    checkboxView.unmount(); node.remove(); return { passed: true };
+  };
 };
 `;
 
@@ -191,7 +284,8 @@ test("S3 settings user path preserves credentials, modes, history and legacy dat
       },
       nodePaths: [join(root, "apps/desktop/node_modules")],
     });
-    await writeFile(join(temp, "index.html"), '<!doctype html><meta charset="utf-8"><meta http-equiv="Content-Security-Policy" content="default-src \'self\'; style-src \'self\' \'unsafe-inline\'"><div id="root"></div><script type="module" src="renderer.js"></script>');
+    await writeFile(join(temp, "styles.css"), (await loadStyles()).replace(/@theme(?: inline)?\s*\{/g, ":root {"));
+    await writeFile(join(temp, "index.html"), '<!doctype html><meta charset="utf-8"><meta http-equiv="Content-Security-Policy" content="default-src \'self\'; style-src \'self\' \'unsafe-inline\'"><link rel="stylesheet" href="styles.css"><div id="root"></div><script type="module" src="renderer.js"></script>');
     await writeFile(join(temp, "main.cjs"), `
 const { app, BrowserWindow, session } = require("electron");
 const path = require("node:path");
@@ -203,6 +297,10 @@ app.whenReady().then(async () => {
   try {
     await win.loadFile(path.join(__dirname, "index.html"));
     console.log("S3_SETTINGS_PROBE " + JSON.stringify(await win.webContents.executeJavaScript("window.configSyncProbe()")));
+    await win.webContents.executeJavaScript("window.checkboxProbe()");
+    win.webContents.sendInputEvent({ type: "keyDown", keyCode: "Space" });
+    win.webContents.sendInputEvent({ type: "keyUp", keyCode: "Space" });
+    console.log("CHECKBOX_PROBE " + JSON.stringify(await win.webContents.executeJavaScript("window.checkboxKeyboardResult()")));
     app.exit(0);
   } catch (error) { console.error(error?.stack ?? error); app.exit(1); }
 });`);
@@ -219,5 +317,6 @@ app.whenReady().then(async () => {
     finally { clearTimeout(timer); }
     assert.equal(code, 0, output.slice(-6000));
     assert.match(output, /S3_SETTINGS_PROBE \{"passed":true\}/);
+    assert.match(output, /CHECKBOX_PROBE \{"passed":true\}/);
   } finally { await rm(temp, { recursive: true, force: true }); }
 });

@@ -1085,8 +1085,10 @@ sklm: {
     },
     configSync: {
       title: "Cloud sync",
-      connectionTitle: "S3 configuration backup and sync",
-      connectionDescription: "Encrypt portable configuration in a private S3-compatible bucket. Chats, source files, and runtime state are excluded.",
+      connectionTitle: "Connection settings",
+      connectionDescription: "Sync app settings across devices or back them up to your private S3 storage. Chats and project files stay local.",
+      advancedTitle: "Advanced settings",
+      maintenanceTitle: "Security and connection",
       errorTitle: "Sync needs attention",
       errorDetails: "Technical details",
       backupPasswordOptional: "Leave this blank to keep the current vault password.",

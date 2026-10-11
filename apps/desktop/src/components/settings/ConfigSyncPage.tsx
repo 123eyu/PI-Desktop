@@ -1,7 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import type {
-  ConfigSyncCategory,
   ConfigSyncCategorySelection,
   ConfigSyncHistoryEntry,
   ConfigSyncPendingApproval,
@@ -9,8 +8,8 @@ import type {
   ConfigSyncState,
 } from "@pi-desktop/shared";
 import { api } from "../../lib/api";
-import { Badge, Button, Checkbox, PasswordInput, SettingsToggle } from "../ui";
-import { IconCloudDown, IconRefresh, IconShield, IconTrash } from "../icons";
+import { Badge, Button, PasswordInput, SettingsToggle } from "../ui";
+import { IconCloudDown, IconRefresh, IconShield } from "../icons";
 import { SettingsCard, SettingsRow } from "../../features/settings/primitives";
 import { configSyncProgressView } from "../../features/settings/config-sync-progress";
 import { useAppStore } from "../../stores/app-store";
@@ -26,6 +25,9 @@ import {
 } from "../../features/settings/config-sync-preferences";
 import { ConfigSyncError } from "./ConfigSyncError";
 import { ConfigSyncConnectionFields } from "./ConfigSyncConnectionFields";
+import { ConfigSyncScopeFields } from "./ConfigSyncScopeFields";
+import { ConfigSyncVaultSettings } from "./ConfigSyncVaultSettings";
+import { SettingsDisclosure } from "./SettingsDisclosure";
 import {
   type ConfigSyncForm,
   clearConfigSyncFormSecrets,
@@ -41,22 +43,6 @@ function formatStamp(value: string): string {
   const date = new Date(value);
   return Number.isNaN(date.getTime()) ? value : date.toLocaleString();
 }
-
-const CATEGORIES: Array<{
-  id: Exclude<ConfigSyncCategory, "credentials" | "memory">;
-  label: string;
-}> = [
-  { id: "application", label: "settings.configSync.categoryApplication" },
-  { id: "providers", label: "settings.configSync.categoryProviders" },
-  { id: "mcp", label: "settings.configSync.categoryMcp" },
-  { id: "skills", label: "settings.configSync.categorySkills" },
-  { id: "subagents", label: "settings.configSync.categorySubagents" },
-  { id: "instructions", label: "settings.configSync.categoryInstructions" },
-  { id: "projects", label: "settings.configSync.categoryProjects" },
-  { id: "plugins", label: "settings.configSync.categoryPlugins" },
-  { id: "automation", label: "settings.configSync.categoryAutomation" },
-];
-
 
 function statusTone(
   status: ConfigSyncState["status"],
@@ -425,7 +411,6 @@ export function ConfigSyncPage() {
   const configured = state?.configured === true;
   const locked = state?.locked === true;
   const stateReady = state !== null;
-  const categories = selection;
   const connectionReady = Boolean(form.endpoint.trim() && form.region.trim() && form.bucket.trim() && form.accessKeyId.trim());
   const vaultPasswordReady =
     form.backupPassword.length === 0
@@ -444,6 +429,7 @@ export function ConfigSyncPage() {
       className="settings-stack settings-config-sync"
       aria-busy={loading || undefined}
     >
+      <p className="settings-config-sync-intro">{t("settings.configSync.connectionDescription")}</p>
       {loading && !state ? (
         <div className="settings-config-sync-refresh" role="status">
           <IconRefresh size={14} />
@@ -453,46 +439,51 @@ export function ConfigSyncPage() {
       {error || state?.lastError ? (
         <ConfigSyncError message={error ?? state?.lastError ?? ""} />
       ) : null}
-      <SettingsCard
-        title={t("settings.configSync.connectionTitle")}
-        description={t("settings.configSync.connectionDescription")}
-      >
-        <ConfigSyncConnectionFields form={form} configured={configured} locked={locked}
-          disabled={busy !== null} onChange={updateForm} />
-        <div className="settings-config-sync-actions">
-          <Button
-            variant="secondary"
-            onClick={() => void run("test")}
-            disabled={busy !== null || loading || !stateReady || !connectionReady}
-          >
-            <IconRefresh size={14} />
-            {t("settings.configSync.test")}
-          </Button>
-          <Button
-            variant="primary"
-            onClick={() => void run("configure")}
-            disabled={
-              busy !== null || loading || !stateReady || !connectionReady || !vaultPasswordReady
-            }
-          >
-            <IconCloudDown size={14} />
-            {configured ? t("settings.configSync.save") : t("settings.configSync.enable")}
-          </Button>
-          {configured && !locked ? (
-            <Button
-              variant="secondary"
-              onClick={() => void run("sync")}
-              disabled={busy !== null || state?.paused}
-            >
-              {t(state?.mode === "backup" ? "settings.configSync.backupNow" : "settings.configSync.syncNow")}
-            </Button>
-          ) : null}
-        </div>
-      </SettingsCard>
+      {state?.configured && (
+        <SettingsCard title={t("settings.configSync.statusTitle")}>
+          <SettingsRow title={t("settings.configSync.statusLabel")}
+            detail={<>
+              <span>{state.bucket}</span>
+              {state.lastSuccessAt ? <span>{" · "}{t("settings.configSync.lastSuccess", { date: formatStamp(state.lastSuccessAt) })}</span> : null}
+            </>}>
+            <div className="settings-config-sync-actions">
+              <Badge tone={statusTone(state.status)}>{statusLabel}</Badge>
+              {!locked ? (
+                <Button variant="primary" onClick={() => void run("sync")}
+                  disabled={busy !== null || state.paused}>
+                  <IconCloudDown size={14} />
+                  {t(state.mode === "backup" ? "settings.configSync.backupNow" : "settings.configSync.syncNow")}
+                </Button>
+              ) : null}
+            </div>
+          </SettingsRow>
+          {locked ? (
+            <SettingsRow title={t("settings.configSync.unlockTitle")}
+              description={t("settings.configSync.unlockDescription")}>
+              <div className="settings-config-sync-password-actions">
+                <PasswordInput value={form.backupPassword}
+                  onChange={(event) => updateForm("backupPassword", event.target.value)}
+                  aria-label={t("settings.configSync.backupPassword")} autoComplete="current-password"
+                  showLabel={t("settings.configSync.showPassword")} hideLabel={t("settings.configSync.hidePassword")}
+                  disabled={busy !== null} />
+                <Button variant="primary" onClick={() => void run("unlock")}
+                  disabled={busy !== null || !form.backupPassword}>
+                  <IconShield size={14} />
+                  {t("settings.configSync.unlock")}
+                </Button>
+              </div>
+            </SettingsRow>
+          ) : (
+            <SettingsRow title={t("settings.configSync.pauseTitle")}
+              description={t("settings.configSync.pauseDescription")}>
+              <SettingsToggle checked={state.paused} label={t("settings.configSync.pauseTitle")}
+                disabled={busy !== null} onChange={() => void togglePause()} />
+            </SettingsRow>
+          )}
+        </SettingsCard>
+      )}
 
-      {/* A sync this page started reports itself here, above the cards: the
-          first enable is the slowest sync of all, and it runs while the status
-          card below has nothing to show yet. */}
+      {/* Progress is independent of setup, including the first configuration. */}
       {syncProgress ? (
         <div className="settings-config-sync-progress">
           <div className="settings-config-sync-progress-head">
@@ -539,136 +530,29 @@ export function ConfigSyncPage() {
         </div>
       ) : null}
 
+      <SettingsCard>
+        <SettingsDisclosure title={t("settings.configSync.connectionTitle")}
+          open={!configured || initialDraft.saved === false}>
+          <ConfigSyncConnectionFields form={form} configured={configured} locked={locked}
+            disabled={busy !== null} onChange={updateForm} />
+          <ConfigSyncScopeFields selection={selection} disabled={busy !== null} onChange={updateSelection} />
+          <div className="settings-config-sync-actions settings-config-sync-form-actions">
+            <Button variant="secondary" onClick={() => void run("test")}
+              disabled={busy !== null || loading || !stateReady || !connectionReady}>
+              <IconRefresh size={14} />
+              {t("settings.configSync.test")}
+            </Button>
+            <Button variant="primary" onClick={() => void run("configure")}
+              disabled={busy !== null || loading || !stateReady || !connectionReady || !vaultPasswordReady}>
+              <IconCloudDown size={14} />
+              {configured ? t("settings.configSync.save") : t("settings.configSync.enable")}
+            </Button>
+          </div>
+        </SettingsDisclosure>
+      </SettingsCard>
+
       {configured ? (
         <>
-          <SettingsCard title={t("settings.configSync.statusTitle")}>
-            <SettingsRow
-              title={t("settings.configSync.statusLabel")}
-              detail={
-                state?.lastSuccessAt
-                  ? t("settings.configSync.lastSuccess", {
-                      date: formatStamp(state.lastSuccessAt),
-                    })
-                  : undefined
-              }
-            >
-              <Badge tone={statusTone(state.status)}>{statusLabel}</Badge>
-            </SettingsRow>
-
-            {locked ? (
-              <SettingsRow
-                title={t("settings.configSync.unlockTitle")}
-                description={t("settings.configSync.unlockDescription")}
-              >
-                <Button
-                  variant="primary"
-                  onClick={() => void run("unlock")}
-                  disabled={busy !== null || !form.backupPassword}
-                >
-                  <IconShield size={14} />
-                  {t("settings.configSync.unlock")}
-                </Button>
-              </SettingsRow>
-            ) : (
-              <SettingsRow
-                title={t("settings.configSync.pauseTitle")}
-                description={t("settings.configSync.pauseDescription")}
-              >
-                <SettingsToggle
-                  checked={state?.paused === true}
-                  label={t("settings.configSync.pauseTitle")}
-                  onChange={() => void togglePause()}
-                />
-              </SettingsRow>
-            )}
-            {!locked ? (
-              <SettingsRow
-                title={t("settings.configSync.changePasswordTitle")}
-                description={t("settings.configSync.changePasswordDescription")}
-              >
-                <div className="settings-config-sync-password-actions">
-                  <PasswordInput
-                    value={form.currentBackupPassword}
-                    onChange={(event) =>
-                      updateForm("currentBackupPassword", event.target.value)
-                    }
-                    aria-label={t("settings.configSync.currentBackupPassword")}
-                    placeholder={t("settings.configSync.currentBackupPassword")}
-                    autoComplete="current-password"
-                    showLabel={t("settings.configSync.showPassword")}
-                    hideLabel={t("settings.configSync.hidePassword")}
-                    disabled={busy !== null}
-                  />
-                  <PasswordInput
-                    value={form.newBackupPassword}
-                    onChange={(event) =>
-                      updateForm("newBackupPassword", event.target.value)
-                    }
-                    aria-label={t("settings.configSync.newBackupPassword")}
-                    placeholder={t("settings.configSync.newBackupPassword")}
-                    autoComplete="new-password"
-                    showLabel={t("settings.configSync.showPassword")}
-                    hideLabel={t("settings.configSync.hidePassword")}
-                    disabled={busy !== null}
-                  />
-                  <Button
-                    variant="secondary"
-                    onClick={() => void changePassword()}
-                    disabled={
-                      busy !== null ||
-                      !form.currentBackupPassword ||
-                      !form.newBackupPassword
-                    }
-                  >
-                    {t("settings.configSync.changePassword")}
-                  </Button>
-                </div>
-              </SettingsRow>
-            ) : null}
-          </SettingsCard>
-
-          <SettingsCard
-            title={t("settings.configSync.categoriesTitle")}
-            description={t("settings.configSync.categoriesDescription")}
-          >
-            <div className="settings-config-sync-categories">
-              {CATEGORIES.map((category) => (
-                <Checkbox
-                  key={category.id}
-                  className="settings-config-sync-category"
-                  checked={categories[category.id] !== false}
-                  disabled={busy !== null}
-                  onChange={(event) =>
-                    updateSelection(category.id, event.target.checked)
-                  }
-                  label={t(category.label)}
-                />
-              ))}
-              <Checkbox
-                className="settings-config-sync-category"
-                checked={selection.memory}
-                disabled={busy !== null}
-                onChange={(event) =>
-                  updateSelection("memory", event.target.checked)
-                }
-                label={t("settings.configSync.categoryMemory")}
-              />
-              <Checkbox
-                className="settings-config-sync-category settings-config-sync-sensitive"
-                checked={selection.credentials}
-                disabled={busy !== null}
-                onChange={(event) =>
-                  updateSelection("credentials", event.target.checked)
-                }
-                label={t("settings.configSync.categoryCredentials")}
-              />
-            </div>
-            {selection.credentials ? (
-              <div className="settings-config-sync-warning">
-                {t("settings.configSync.credentialsWarning")}
-              </div>
-            ) : null}
-          </SettingsCard>
 
           {state?.pendingApprovals.length ? (
             <SettingsCard
@@ -721,7 +605,8 @@ export function ConfigSyncPage() {
           ) : null}
 
           {state?.preview ? (
-            <SettingsCard title={t("settings.configSync.previewTitle")}>
+            <SettingsCard>
+              <SettingsDisclosure title={t("settings.configSync.previewTitle")}>
               <div className="settings-config-sync-preview">
                 <span>
                   {t("settings.configSync.previewSupported", {
@@ -754,14 +639,14 @@ export function ConfigSyncPage() {
                   })}
                 </span>
               </div>
+              </SettingsDisclosure>
             </SettingsCard>
           ) : null}
 
           {state?.mappings.length ? (
-            <SettingsCard
-              title={t("settings.configSync.mappingsTitle")}
-              description={t("settings.configSync.mappingsDescription")}
-            >
+            <SettingsCard>
+              <SettingsDisclosure title={t("settings.configSync.mappingsTitle")}>
+                <p className="settings-config-sync-note">{t("settings.configSync.mappingsDescription")}</p>
               <div className="settings-config-sync-mappings">
                 {state.mappings.map((mapping) => (
                   <div key={mapping.logicalId} className="settings-config-sync-mapping">
@@ -776,13 +661,13 @@ export function ConfigSyncPage() {
                   </div>
                 ))}
               </div>
+              </SettingsDisclosure>
             </SettingsCard>
           ) : null}
 
-          <SettingsCard
-            title={t("settings.configSync.historyTitle")}
-            description={t("settings.configSync.historyDescription")}
-          >
+          <SettingsCard>
+            <SettingsDisclosure title={t("settings.configSync.historyTitle")}>
+              <p className="settings-config-sync-note">{t("settings.configSync.historyDescription")}</p>
             <div className="settings-config-sync-history-actions">
               <Button
                 variant="secondary"
@@ -826,27 +711,12 @@ export function ConfigSyncPage() {
                   : t("settings.configSync.historyEmpty")}
               </div>
             )}
+            </SettingsDisclosure>
           </SettingsCard>
 
-          <SettingsCard>
-            <SettingsRow
-              title={t("settings.configSync.disconnectTitle")}
-              description={t("settings.configSync.disconnectDescription")}
-            >
-              <Button
-                variant="secondary"
-                onClick={() => {
-                  if (window.confirm(t("settings.configSync.disconnectConfirm"))) {
-                    void run("disconnect");
-                  }
-                }}
-                disabled={busy !== null}
-              >
-                <IconTrash size={14} />
-                {t("settings.configSync.disconnect")}
-              </Button>
-            </SettingsRow>
-          </SettingsCard>
+          <ConfigSyncVaultSettings form={form} locked={locked} disabled={busy !== null}
+            onChange={updateForm} onChangePassword={() => void changePassword()}
+            onDisconnect={() => void run("disconnect")} />
         </>
       ) : null}
     </div>
