@@ -1053,6 +1053,7 @@ export const ptBR = {
     },
     configSync: {
       title: "Sincronização na nuvem",
+      experimental: "Experimental",
       connectionTitle: "Configurações de conexão",
       connectionDescription: "Sincronize as configurações entre dispositivos ou faça backup no seu armazenamento S3 privado. Conversas e arquivos do projeto ficam locais.",
       advancedTitle: "Configurações avançadas",

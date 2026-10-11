@@ -180,9 +180,10 @@ the whole filesystem.
 
 ## 5. Settings workflow
 
-The destination is a development-build-only surface for now: a packaged build
-omits the Settings → Cloud sync row, page, and settings-search hits, while
-the Host-owned sync behavior described here is unchanged.
+The Settings → Cloud sync destination is available in development and
+packaged builds and carries an Experimental badge on its rail row and page
+title. Its visibility does not change the Host-owned sync behavior described
+here.
 
 Settings → Cloud sync provides S3 connection fields, a vault password, device
 label, `sync` (default) or `backup` mode, automatic-run selection, categories,

@@ -86,7 +86,7 @@ atomic replacement and import journaling are not a filesystem-wide transaction.
 
 ## 5. 设置工作流
 
-该目的地当前仅在开发构建可见：打包构建会省略「设置 → 云同步」的导轨行、页面与设置搜索命中，而本文描述的 Host 行为不变。
+「设置 → 云同步」在开发版和打包版中均可用，导轨行与页面标题带有实验性徽章。开放该入口不改变本文描述的 Host 同步行为。
 
 Settings exposes S3 fields, vault password, device label, modes, automatic runs,
 categories, probing, manual run, pause, unlock, approvals, mappings, history,
