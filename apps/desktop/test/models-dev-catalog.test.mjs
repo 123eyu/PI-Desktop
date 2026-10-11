@@ -742,7 +742,9 @@ test("resellers still answer for an id no shipped publisher states", async (t) =
 
 test("route prefixes and official deployment markers resolve without rewriting served IDs", async (t) => {
   // Exact last-segment match allows `test/mimo-v2.5` → `mimo-v2.5`.
-  // Markers like `-thinking` / `-test` are part of the leaf and do not strip.
+  // Model variants like `-thinking` / `-asr` are parts of the leaf and never
+  // strip; a whitelisted deployment label (`-test`, `-1m`) still reduces to
+  // the owner's published base ID.
   const catalog = await loadFixtureCatalog(t, {
     gateway: { api: "https://gateway.example/v1", models: {} },
     google: { models: {
@@ -773,7 +775,7 @@ test("route prefixes and official deployment markers resolve without rewriting s
   assert.ok(info.capabilities.includes("vision"));
 
   assert.equal(relay("mimo-v2.5-thinking"), undefined);
-  assert.equal(relay("test/mimo-v2.5-pro-test"), undefined);
+  assert.equal(relay("test/mimo-v2.5-pro-test")?.modelId, "mimo-v2.5-pro");
   assert.equal(relay("mimo-v2.5-asr"), undefined);
   assert.equal(relay("gemini-2.5-pro-1m")?.modelId, "gemini-2.5-pro");
 });
@@ -805,9 +807,12 @@ test("a shipped publisher answers first for a row anchored to a reseller", async
   assert.equal(match.limit.output, 500_000);
 });
 
-test("ambiguous same-leaf spellings with conflicting modalities stay unmatched", async (t) => {
+test("an unanchored relay reads its family owner's record over a conflicting reseller spelling", async (t) => {
   // `mimo-v2.5` and `XiaomiMiMo/MiMo-V2.5` share a case-insensitive leaf but
-  // disagree on modalities, and neither publisher is an official/source family.
+  // disagree on modalities, so the shared-capabilities enrichment misses. The
+  // weight owner's exact record still answers an unidentified relay — the way
+  // the pre-catalog relay lookup did: a reseller's narrower copy never decides
+  // the window or modalities.
   const catalog = await loadFixtureCatalog(t, {
     gateway: { api: "https://gateway.example/v1", models: {} },
     xiaomi: { models: { "mimo-v2.5": {
@@ -821,11 +826,14 @@ test("ambiguous same-leaf spellings with conflicting modalities stay unmatched",
       limit: { context: 1_048_576, output: 131_072 },
     } } },
   });
-  assert.equal(catalog.findModel({
+  const match = catalog.findModel({
     vendorKey: "custom",
     baseUrl: "https://relay.example/v1",
     modelId: "mimo-v2.5",
-  }), undefined);
+  });
+  assert.equal(match?.providerKey, "xiaomi", "the owner's record wins the unanchored relay");
+  assert.deepEqual(match?.modalities.input, ["text", "image", "audio"]);
+  assert.equal(match?.limit.context, 1_048_576);
 });
 
 test("unique leaf enrichment coexists with exact-id borrowing and unknown misses", async (t) => {

@@ -17,6 +17,7 @@ import {
   stripReleaseSuffix,
   stripVariantSuffix,
 } from "@pi-desktop/shared";
+import { RELAY_FAMILY_PUBLISHERS } from "./pi-model-metadata.ts";
 import type {
   ModelCost,
   ModelCostTier,
@@ -1085,27 +1086,6 @@ function sameModelSpelling(catalogId: string, requested: string): boolean {
 }
 
 /**
- * Record to use when nothing identifies the row's provider.
- *
- * A relay or a gateway the catalog cannot place still serves models the catalog
- * knows, and asking for one of them by id used to answer nothing at all. What
- * every publisher of that model agrees on can be claimed instead: the same
- * intersection and median `borrowedModel` computes for an anchored row.
- *
- * One thing is deliberately not claimed. Which *wire shape* a deployment accepts
- * for reasoning is a property of that deployment — the same model behind an
- * OpenAI-compatible gateway and behind Anthropic's own API takes different
- * reasoning fields — so a record borrowed this way drops its `reasoningOptions`
- * rather than speaking for an endpoint no publisher describes. `catalogModelConfigFor`
- * still applies Anthropic's own shape to an Anthropic Messages row that is left
- * without one.
- */
-function unanchoredConsensus(entries: readonly ModelsDevModel[]): ModelsDevModel | undefined {
-  const consensus = borrowedModel(entries);
-  return consensus ? { ...consensus, reasoningOptions: undefined } : undefined;
-}
-
-/**
  * Which publisher's records answer for an id the row's own publisher lacks.
  *
  * Two preferences, in order. The app's supported publishers are read first:
@@ -1191,6 +1171,40 @@ function dropDeploymentMarker(value: string): string {
   const match = /^(.*)[-_:]([a-z0-9]+)$/i.exec(value);
   if (!match) return value;
   return DEPLOYMENT_MARKER_SUFFIXES.has(match[2].toLowerCase()) ? match[1] : value;
+}
+
+/** The last `/`-segment of a normalized id; the whole id when it has none. */
+function leafOf(normalized: string): string {
+  return normalized.slice(normalized.lastIndexOf("/") + 1);
+}
+
+/**
+ * The narrow deployment labels the legacy relay lookup was allowed to strip to
+ * reach a published base ID. Model variants such as `thinking`, `preview`,
+ * dated releases, `asr` or `pro` name distinct models and are deliberately
+ * absent: they must keep their own records or stay unmatched.
+ */
+const RELAY_DEPLOYMENT_SUFFIXES: ReadonlySet<string> = new Set([
+  "test",
+  "staging",
+  "canary",
+  "dev",
+  "1m",
+  "2m",
+  "4m",
+  "32k",
+  "64k",
+  "128k",
+  "200k",
+  "256k",
+  "512k",
+]);
+
+/** The id without one whitelisted trailing label, or undefined when it has none. */
+function relayDeploymentSuffixStrip(value: string): string | undefined {
+  const match = /^(.*)[-_:]([a-z0-9]+)$/i.exec(value);
+  if (!match || !RELAY_DEPLOYMENT_SUFFIXES.has(match[2].toLowerCase())) return undefined;
+  return match[1];
 }
 
 /**
@@ -1553,13 +1567,15 @@ export class ModelsDevCatalog {
        dropping the model to the generic shape.
 
        This only fills a miss the lookup already had — a record the preferred
-       provider does publish stays authoritative. Without that anchor the scores
-       prove nothing about identity, and an unknown endpoint keeps the existing
-       behaviour: a unique unambiguous match, official disambiguation, shared
-       capabilities, or nothing. Deployment-marker / variant-suffix fallbacks
-       are intentionally not applied here (approved #1047 matching rules). */
+       provider does publish stays authoritative. A row the catalog cannot place
+       (an unidentified relay) still answers when the model's own family names
+       a publisher the catalog ships: the weight owner's record is what
+       describes the model the relay serves, not a reseller's flags about its
+       own deployment. Deployment-marker / variant-suffix fallbacks are
+       intentionally not applied to the borrowed result (approved #1047
+       matching rules). */
     const borrowed = result ?? deploymentFallback ??
-      (preferredProvider ? this.borrowedAcrossProviders(input) : undefined);
+      (preferredProvider ? this.borrowedAcrossProviders(input) : this.unanchoredOwnerRecord(requested));
     // Cache the result (a miss included) so a repeated miss is also O(1) and
     // cannot grow the candidate index with query-dependent keys.
     this.lookupMemo.set(memoKey, borrowed);
@@ -1666,6 +1682,55 @@ export class ModelsDevCatalog {
       matches.push({ model, provider });
     }
     return borrowedModel(borrowPool(matches, requested));
+  }
+
+  /**
+   * Unanchored relay fallback: the endpoint's own publisher is unknown, so
+   * nothing owns a negative answer for this id. Resolve it the way the
+   * pre-catalog relay lookup did — the model's own family names the
+   * publisher that owns its weights, and that owner's published record is
+   * what describes the model a relay serves, not a reseller's flags about
+   * its own deployment. A relay-only `deepseek-v4-flash` reads DeepSeek's
+   * record and keeps its window and output visible instead of dropping to
+   * the generic 128k text-only seed.
+   *
+   * Two rules keep the result honest:
+   *
+   * - Only the owner's own records answer. Reseller copies and route
+   *   prefixes never participate, and a split owner answer still states
+   *   nothing.
+   * - The wire ID is never rewritten: at most one whitelisted deployment
+   *   label (`-1m`, `-test`, …) is stripped to reach the owner's published
+   *   base ID; model variants such as `-thinking` or dated releases are
+   *   distinct models and stay unmatched.
+   */
+  private unanchoredOwnerRecord(requested: string): ModelsDevModel | undefined {
+    const ownerKey = RELAY_FAMILY_PUBLISHERS[leafOf(requested).split(/[-.]/)[0] ?? ""];
+    if (!ownerKey) return undefined;
+    const ownerKeys = new Set(providerKeyCandidates(ownerKey));
+    const ownerHits = (id: string): ModelsDevModel[] =>
+      (this.lookupIndex?.candidates(id) ?? [])
+        .filter(({ model, provider }) =>
+          normalizedModelId(model.modelId) === id &&
+          ownerKeys.has(normalizedProviderKey(provider.providerKey)),
+        )
+        .map((entry) => entry.model);
+    let lookupId = leafOf(requested);
+    let hits = ownerHits(lookupId);
+    // Remove one whitelisted trailing label at a time, stopping at the
+    // nearest published base ID; never rewrite the id used on the wire.
+    while (hits.length === 0) {
+      const base = relayDeploymentSuffixStrip(lookupId);
+      if (!base) break;
+      lookupId = base;
+      hits = ownerHits(lookupId);
+    }
+    if (hits.length === 1) return hits[0];
+    if (hits.length > 1) {
+      const signature = capabilitySignature(hits[0]);
+      if (hits.every((model) => capabilitySignature(model) === signature)) return hits[0];
+    }
+    return undefined;
   }
 
   /**

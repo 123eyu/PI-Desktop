@@ -4,9 +4,10 @@
  * Two reported failures live here. A custom row pointed at
  * `https://open.bigmodel.cn/api/v1` (Zhipu's OpenAI Responses endpoint) listed
  * its models but showed a generic 128k / 8k text-only row for every one of them,
- * because the catalog only accepted that host's own published path. And a row on
- * a relay the catalog cannot place got nothing at all for models the catalog
- * describes, because one publisher's record must never answer for another.
+ * because the catalog only accepted that host's own published path. A row on a
+ * relay the catalog cannot place used to get nothing at all; it now still reads
+ * the weight owner's published record for ids the owner states, so a relay-only
+ * `deepseek-v4-flash` keeps DeepSeek's window instead of the generic seed.
  *
  * This drives the real handlers with the bundled snapshot, so it pins the whole
  * chain: discovery, endpoint resolution, catalog anchoring, and the hand-typed
@@ -184,15 +185,20 @@ test("a relay enriches official IDs, strips safe deployment labels, and preserve
 
   const byId = new Map(result.models.map((model) => [model.modelId, model]));
 
-  // No official publisher states this leaf, so a reseller must not decide it.
-  assert.equal(byId.get("deepseek-v4-flash").catalogSource, undefined);
-  // Reseller copies disagree; an unanchored relay stays on the generic shape.
+  // The weight owner (DeepSeek) publishes this id, so an unanchored relay reads
+  // the owner's record instead of dropping to the generic seed.
+  const deepseek = byId.get("deepseek-v4-flash");
+  assert.equal(deepseek.catalogSource, "models.dev");
+  assert.equal(deepseek.contextWindow, 1_000_000);
+  assert.equal(deepseek.maxTokens, 393_216);
+  // Xiaomi publishes the base id, so both the plain and the `-1m` alias read
+  // the owner's record without rewriting the served wire ID.
   for (const id of ["mimo-v2.5-pro", "mimo-v2.5-pro-1m"]) {
     const mimo = byId.get(id);
     assert.equal(mimo.modelId, id); // lookup never rewrites the served wire ID
-    assert.equal(mimo.catalogSource, undefined);
-    assert.equal(mimo.contextWindow, 128_000);
-    assert.equal(mimo.maxTokens, 8_192);
+    assert.equal(mimo.catalogSource, "models.dev");
+    assert.equal(mimo.contextWindow, 1_048_576);
+    assert.equal(mimo.maxTokens, 131_072);
   }
 
   // Matching Xiaomi reseller records agree on the published speech limits.
