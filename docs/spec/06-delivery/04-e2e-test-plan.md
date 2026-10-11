@@ -14528,6 +14528,34 @@ browser milestones are scheduled.
 - **Status**: Automated narrow-MVP scenario. Linux `sshd`, release download,
   password authentication and full R2 remain separately gated by E2E-231.
 
+#### E2E-REMOTE-HOME: Create and continue a remote project from Chat home
+
+- **Preconditions**: Isolated Desktop/Chromium profile, two connected SSH host
+  fixtures, existing local workspace, and remote directory/project IPC fixtures.
+  No production Host, user profile, credentials, or paid model calls.
+- **Steps**: Open Create project from home, select Remote, change hosts while
+  directory browsing is pending, browse and select a remote directory, then
+  create. Send text through the regular Composer and inspect the transcript.
+  Reopen the project and start New chat; repeat with an existing remote project.
+  Disconnect and retry. Review a remote permission request and resolve it.
+- **Expected**: Late responses cannot replace the newly selected Host. Creation
+  registers and creates once on the selected Host, then shows the same empty
+  home and docked transcript layout as local chats. Remote projects are listed
+  by host/project identity in the home switcher and sidebar. Empty chat reuse
+  never crosses hosts. Local workspace remains unchanged; remote paths never
+  enter local activation, attachment, preview, slash-command, or plugin calls.
+  Offline/unsupported actions fail closed, preserve drafts, and never replay.
+  History forwards opaque session cursors and Return to latest restores live rows.
+- **Specs**: `02-architecture/05-remote-agent-control.md`, `04-ux/01-ui-ia.md`.
+- **Acceptance / milestone**: Home remote-project UX; additive Desktop IPC only,
+  no Host wire protocol, persisted data, or R2 SSH acceptance change.
+- **Automation**: `remote-project-session.test.mjs`,
+  `remote-session-user-path.test.mjs`, `remote-unified-chat.test.mjs`,
+  `transcript-reading.test.mjs`, `remote-project-dialog-user-path.test.mjs`,
+  and `scripts/e2e-remote-mvp-ui.mjs`.
+- **Status**: Component/service and main-routing acceptance; real SSH release
+  validation remains the separately provisioned E2E-231 scenario.
+
 #### E2E-231: The desktop drives a remote Host over an SSH tunnel
 
 - **Preconditions**: A Linux test machine runs `sshd` and holds a project
