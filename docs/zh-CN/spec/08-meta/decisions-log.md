@@ -51,6 +51,7 @@
 | D653 | 输入框提示词增强改为可选插件 | **取代 ADR 0121：移除宿主内置提示词增强界面、设置、直接补全 IPC 与 MCP 操作。新增受 `composer.transform` 权限约束的输入框操作贡献项和插件回调；仅传当前草稿与可选模型标识，并提供输入/输出上限、审计、文件引用恢复、单步撤销及草稿/会话过期保护。`vastsa/pi-prompt-enhancement` 保持独立仓库，必须由用户主动安装；宿主不随附或默认启用。插件首次加载时，将有效旧偏好迁移到尚未设置的插件设置并写入私有标记；旧宿主值继续保留以支持回退。见 ADR 0324、E2E-218 / E2E-259 与插件 API/权限规格。** | 提示词增强是可选行为，应由单独安装的插件拥有；宿主提供狭窄、安全的转换契约及一次性旧设置迁移路径。 |
 | D654 | 核心保留确定性的首条提示标题 | **修订 D652 / ADR 0323：当会话存储标题仍是可识别占位标题时，用首条提示派生一个折叠空白、截断为 48 字符的兜底标题，通过主机 RPC 与 IPC `session/deriveTitle` 写入。host-core 只在标题仍是占位标题且来源为 `default` 时接受，派生文本也保留该来源，因此已安装的标题插件仍可替换它，只有手动重命名会退出自动替换。不调用模型、不新增权限、不改架构或协议版本；`updated_at`、转录内容与消息数都不变。见 `03-runtime/01-ipc-protocol.md`、`03-runtime/02-agent-runtime.md`、`03-runtime/06-host-rpc-protocol.md`、`03-runtime/04-data-storage.md`、`04-ux/08-component-spec.md` 与 E2E-021a。** | 移除全部自动写入会让未触碰的会话一直显示占位标题，直到插件运行，从而让离线可读性依赖安装可选软件。 |
 | D655 | 云同步在打包版开放并标记为实验性 | **修订 D649：移除设置中 `sync` 目的地的打包构建门控，并在导轨行与页面标题恢复实验性徽章。云同步和远程主机在开发版与打包版中均可使用，并带有实验性标签。S3 同步行为、协议、Host schema 与持久化数据不变。见 `04-ux/06-settings-ia.md`、`03-runtime/22-config-sync.md` 与 E2E-CONFIG-SYNC-s3-portable-configuration。** | 已实现的加密云备份对打包版用户同样有用；实验性标签可以说明其成熟度，而无需继续隐藏功能。 |
+| D656 | 隔离宿主持续拒绝的 outbox 追加，避免整队停摆 | **修订 ADR 0041 / D318 / D444 / D597：当 `session.appendMessage` 或 `session.recordUsage` 返回的错误无法归类为重复消息 ID、`PERMISSION_DENIED:` 毒行或外键孤立行时，不再结束本次 flush，而是在同一 Host 代内按有界退避重试（5 秒起、翻倍、上限 60 秒）。同一队头连续第五次失败后，该追加被移入应用自有的死信文件 `session-message-outbox.dead-letter.json`（保留载荷、sessionId、隔离时间与宿主错误；只保留最新 256 条，超出丢弃最旧并记 warn），随后继续排空后续条目，因此单条被拒追加不再长期占用 FIFO 队头、填满 1024 条上限或导致所有会话写入失败。Host 重启属于新代，会立即重试该队头。隔离条目永不自动重放，`session.delete` 会连同该会话的隔离条目一起删除。协议版本、存储架构与队列文件格式均不变。** | 一条 `stream did not contain valid UTF-8` 追加在队头滞留 14.8 小时，期间 `session.persistence.outbox.is.full` 触发 5990 次，导致所有会话的写入直到重启前全部失败；此前只有三类错误有排空出口，其余错误被永久当作瞬时错误（#1560）。 |
 
 ## B. 辅助实现默认值
 
@@ -5369,3 +5370,20 @@ Markdown 源码，不是 `text/html` 负载；对禁用行内 HTML 的外部编�
 - 由 `settings-developer-only-destinations.test.mjs`、`config-sync-settings.test.mjs` 和
   E2E-CONFIG-SYNC-s3-portable-configuration 中的打包版设置验收场景覆盖。见
   `04-ux/06-settings-ia.md` 与 `03-runtime/22-config-sync.md`。
+
+## 2026-10-11 —— 隔离宿主持续拒绝的 outbox 追加（D656）
+
+- D656 修订 ADR 0041、D318、D444 与 D597：outbox 对无法归类的宿主失败在同一 Host 代内
+  按有界退避重试（5 秒起、翻倍、上限 60 秒），同一队头连续五次失败后把该追加隔离进
+  应用自有的死信文件，并继续排空后续条目。此前三类已知出口之外的任何错误都会结束本次
+  flush，队头被永久重试，1024 条上限长期占满，导致所有会话的写入直到重启前全部失败。
+- 退避只在同一 Host 代内生效：门控比较失败该队头的 Host 实例，因此 Host 重启后会立即
+  重试暂停中的队头，而不必等完剩余窗口。
+- 被隔离的追加在 `session-message-outbox.dead-letter.json` 中保留载荷、sessionId、
+  隔离时间与宿主错误。它不会自动重放，`session.delete` 会连同该会话的隔离条目一起删除，
+  且只保留最新 256 条——被丢弃的一条会记录其 key、会话与文件路径。队列文件格式、存储
+  架构与宿主协议均不变。
+- 由 `apps/desktop/test/persistence-outbox.test.mjs`（有界重试与退避、隔离并继续排空、
+  跨重启保留死信、死信上限、会话删除）与
+  E2E-SESSION-outbox-unclassifiable-failure-does-not-stall-the-queue 覆盖。见 ADR 0041、
+  `03-runtime/04-data-storage.md` 与 `03-runtime/06-host-rpc-protocol.md`。
