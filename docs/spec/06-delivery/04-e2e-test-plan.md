@@ -9557,7 +9557,13 @@ must keep splitting are covered by `markdown-blocks.test.mjs`.
      never interpret 502 as a missing object. LAN HTTP follows network policy.
   3. Configure two sync devices. Publish a provider and mapped packaged skill,
      receive them as pending where approval is required, approve, and verify
-     visible persisted configuration and resource bytes. Exercise disjoint edits,
+     visible persisted configuration and resource bytes. Verify there is no
+     projects category and publishing project/group metadata neither registers
+     nor changes projects/groups on the receiving device. Register its workspace
+     locally, then map and approve the project skill; its resources must arrive
+     without changing local group names, roots or ordering. Existing vault
+     `projects` entities are ignored on sync/restore, preserving local projects
+     and cloud history. Exercise disjoint edits,
      same-entity conflicts and explicit choice convergence, remote deletion
      versus offline edit, and repeated polling. Credential opt-out must not
      manufacture local edits or prevent deletion convergence. No real executable

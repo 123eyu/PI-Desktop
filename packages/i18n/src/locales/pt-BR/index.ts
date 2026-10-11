@@ -1151,7 +1151,6 @@ export const ptBR = {
       categorySkills: "Habilidades",
       categorySubagents: "Subagentes",
       categoryInstructions: "Instruções e modelos de prompt",
-      categoryProjects: "Projetos e mapeamentos de pastas",
       categoryPlugins: "Intenção de instalação de plugins",
       categoryAutomation: "Definições de automação",
       categoryMemory: "Memória do projeto",
