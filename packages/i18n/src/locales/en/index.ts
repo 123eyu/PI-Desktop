@@ -1085,6 +1085,7 @@ sklm: {
     },
     configSync: {
       title: "Cloud sync",
+      experimental: "Experimental",
       connectionTitle: "Connection settings",
       connectionDescription: "Sync app settings across devices or back them up to your private S3 storage. Chats and project files stay local.",
       advancedTitle: "Advanced settings",
