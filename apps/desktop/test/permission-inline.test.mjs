@@ -186,6 +186,7 @@ test("asktool card is a stepwise, non-expiring composer question surface", () =>
   assert.match(questionBody, /overflow-y:\s*auto/);
   assert.match(questionBody, /overscroll-behavior-y:\s*contain/);
   assert.doesNotMatch(questionBody, /scrollbar-gutter/);
+  assert.match(questionBody, /overflow-wrap:\s*anywhere/);
   assert.match(
     askCardSource,
     /className="asktool-card-header-actions"[\s\S]*className="asktool-question-body"/,
@@ -205,6 +206,25 @@ test("asktool card is a stepwise, non-expiring composer question surface", () =>
   assert.match(
     messageStyleSource,
     /\.asktool-custom-input \{[^}]*background: var\(--ds-tile-deep\)/,
+  );
+});
+
+test("asktool question body opens at the top when the question index changes", () => {
+  // Next, Skip, and the step indicators only call setIndex. The question
+  // body is one scroller for the whole request, so a later long prompt keeps
+  // the previous scrollTop unless that body remounts with the index or the
+  // offset is cleared when index changes (#1531).
+  const bodyTag = askCardSource.match(
+    /<span\b[^>]*className="asktool-question-body"[^>]*>/,
+  )?.[0];
+  assert.ok(bodyTag);
+  const remountsOnIndex = /\bkey=\{index\}/.test(bodyTag);
+  const clearsScrollOnIndex =
+    /scrollTop\s*=\s*0/.test(askCardSource) &&
+    /\[\s*index\s*\]/.test(askCardSource);
+  assert.ok(
+    remountsOnIndex || clearsScrollOnIndex,
+    "question body keeps scrollTop across index changes",
   );
 });
 

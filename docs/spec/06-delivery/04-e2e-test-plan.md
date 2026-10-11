@@ -10786,8 +10786,9 @@ This test plan spec is accepted when:
   reachable. Scrolling the list does not move the conversation page or hide the
   action row. A long question prompt is bounded the same way: the question body
   scrolls inside the card (`min(208px, 24dvh)`, with a `24vh` fallback) and the
-  header actions stay outside that scroller. The tool output is ordered as
-  `question：answer`, uses `、` between multiple answers and `\n---\n`
+  header actions stay outside that scroller. Next, Skip, and the step
+  indicators open each question at the top of that body. The tool output is
+  ordered as `question：answer`, uses `、` between multiple answers and `\n---\n`
   between questions, and
   keeps `question：` for the skipped question. Markdown renders as rich text
   without activating embedded links or loading images. Selecting a formatted
