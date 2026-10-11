@@ -1325,6 +1325,11 @@ remote state before conditional publication and local application. Backup
 publishes only a local snapshot to its separate head. Publication precondition
 failures restart from the latest head, never an unconditional overwrite.
 
+`configSync.syncNow` has no aggregate request deadline: the Host owns the
+multi-step operation, and renderer route navigation does not cancel it. A
+reopened Settings page reads the Host's current `syncing` state. Individual S3
+requests remain bounded; Host shutdown is still the lifecycle boundary.
+
 `configSync.listHistory` returns at most 30 indexed entries for the saved mode.
 It returns metadata only, and is not broadcast as a `configSync.changed` state.
 Sync `restore` requires `acknowledgePropagation: true` and publishes a new

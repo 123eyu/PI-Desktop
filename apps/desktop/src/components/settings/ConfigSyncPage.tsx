@@ -113,17 +113,9 @@ export function ConfigSyncPage() {
   const hydrateSavedFields = useCallback((next: ConfigSyncState) => {
     if (formDirtyRef.current || !next.configured) return;
     const draft = draftFromState(next);
-    setForm((current) => ({
-      ...current,
-      ...initialConfigSyncForm(draft),
-      // Background status refreshes must not erase a password being entered.
-      secretAccessKey: current.secretAccessKey,
-      sessionToken: current.sessionToken,
-      clearSessionToken: current.clearSessionToken,
-      backupPassword: current.backupPassword,
-      currentBackupPassword: current.currentBackupPassword,
-      newBackupPassword: current.newBackupPassword,
-    }));
+    // A clean form contains no transient credentials. Do not restore them from
+    // a stale closure when Host broadcasts a background sync status update.
+    setForm((current) => ({ ...current, ...initialConfigSyncForm(draft) }));
     setSelection(selectionFromDraft(draft.categories));
     writeConfigSyncDraft({ ...draft, saved: true });
   }, []);
@@ -411,16 +403,18 @@ export function ConfigSyncPage() {
   const configured = state?.configured === true;
   const locked = state?.locked === true;
   const stateReady = state !== null;
+  const syncing = state?.status === "syncing";
+  const controlsBusy = busy !== null || syncing;
+  const categories = selection;
   const connectionReady = Boolean(form.endpoint.trim() && form.region.trim() && form.bucket.trim() && form.accessKeyId.trim());
   const vaultPasswordReady =
     form.backupPassword.length === 0
       ? configured && !locked
       : form.backupPassword.length >= 8;
-  // The report only exists for a sync this page started: an automatic run stays
-  // quiet, and no report outlives the request that produced it. Enabling a
-  // vault runs the same full sync as "sync now", so both operations are watched.
+  // Host progress continues independently of this view; a page reopened while
+  // syncing listens for the remaining reports and keeps duplicate actions off.
   const syncProgress =
-    (busy === "sync" || busy === "configure") && progress
+    (syncing || busy === "sync" || busy === "configure") && progress
       ? configSyncProgressView(progress)
       : null;
 
@@ -450,7 +444,7 @@ export function ConfigSyncPage() {
               <Badge tone={statusTone(state.status)}>{statusLabel}</Badge>
               {!locked ? (
                 <Button variant="primary" onClick={() => void run("sync")}
-                  disabled={busy !== null || state.paused}>
+                  disabled={controlsBusy || state.paused}>
                   <IconCloudDown size={14} />
                   {t(state.mode === "backup" ? "settings.configSync.backupNow" : "settings.configSync.syncNow")}
                 </Button>
@@ -465,9 +459,9 @@ export function ConfigSyncPage() {
                   onChange={(event) => updateForm("backupPassword", event.target.value)}
                   aria-label={t("settings.configSync.backupPassword")} autoComplete="current-password"
                   showLabel={t("settings.configSync.showPassword")} hideLabel={t("settings.configSync.hidePassword")}
-                  disabled={busy !== null} />
+                  disabled={controlsBusy} />
                 <Button variant="primary" onClick={() => void run("unlock")}
-                  disabled={busy !== null || !form.backupPassword}>
+                  disabled={controlsBusy || !form.backupPassword}>
                   <IconShield size={14} />
                   {t("settings.configSync.unlock")}
                 </Button>
@@ -477,7 +471,7 @@ export function ConfigSyncPage() {
             <SettingsRow title={t("settings.configSync.pauseTitle")}
               description={t("settings.configSync.pauseDescription")}>
               <SettingsToggle checked={state.paused} label={t("settings.configSync.pauseTitle")}
-                disabled={busy !== null} onChange={() => void togglePause()} />
+                disabled={controlsBusy} onChange={() => void togglePause()} />
             </SettingsRow>
           )}
         </SettingsCard>
@@ -534,16 +528,16 @@ export function ConfigSyncPage() {
         <SettingsDisclosure title={t("settings.configSync.connectionTitle")}
           open={!configured || initialDraft.saved === false}>
           <ConfigSyncConnectionFields form={form} configured={configured} locked={locked}
-            disabled={busy !== null} onChange={updateForm} />
-          <ConfigSyncScopeFields selection={selection} disabled={busy !== null} onChange={updateSelection} />
+            disabled={controlsBusy} onChange={updateForm} />
+          <ConfigSyncScopeFields selection={selection} disabled={controlsBusy} onChange={updateSelection} />
           <div className="settings-config-sync-actions settings-config-sync-form-actions">
             <Button variant="secondary" onClick={() => void run("test")}
-              disabled={busy !== null || loading || !stateReady || !connectionReady}>
+              disabled={controlsBusy || loading || !stateReady || !connectionReady}>
               <IconRefresh size={14} />
               {t("settings.configSync.test")}
             </Button>
             <Button variant="primary" onClick={() => void run("configure")}
-              disabled={busy !== null || loading || !stateReady || !connectionReady || !vaultPasswordReady}>
+              disabled={controlsBusy || loading || !stateReady || !connectionReady || !vaultPasswordReady}>
               <IconCloudDown size={14} />
               {configured ? t("settings.configSync.save") : t("settings.configSync.enable")}
             </Button>
@@ -576,7 +570,7 @@ export function ConfigSyncPage() {
                           size="sm"
                           variant="secondary"
                           onClick={() => void mapProject(approval.mappingKey!)}
-                          disabled={busy !== null}
+                          disabled={controlsBusy}
                         >
                           {t("settings.configSync.mapFolder")}
                         </Button>
@@ -585,7 +579,7 @@ export function ConfigSyncPage() {
                         size="sm"
                         variant="secondary"
                         onClick={() => void approve(approval.id, approval.digest, false)}
-                        disabled={busy !== null}
+                        disabled={controlsBusy}
                       >
                         {t("settings.configSync.reject")}
                       </Button>
@@ -593,7 +587,7 @@ export function ConfigSyncPage() {
                         size="sm"
                         variant="primary"
                         onClick={() => void approve(approval.id, approval.digest, true)}
-                        disabled={busy !== null}
+                        disabled={controlsBusy}
                       >
                         {t("settings.configSync.approve")}
                       </Button>
@@ -672,7 +666,7 @@ export function ConfigSyncPage() {
               <Button
                 variant="secondary"
                 onClick={() => void loadHistory()}
-                disabled={busy !== null || locked}
+                disabled={controlsBusy || locked}
               >
                 <IconRefresh size={14} />
                 {t("settings.configSync.refreshHistory")}
@@ -697,7 +691,7 @@ export function ConfigSyncPage() {
                       size="sm"
                       variant="secondary"
                       onClick={() => void restore(entry)}
-                      disabled={busy !== null || (entry.current && state.mode === "sync") || locked}
+                      disabled={controlsBusy || (entry.current && state.mode === "sync") || locked}
                     >
                       {t("settings.configSync.restore")}
                     </Button>
@@ -714,7 +708,7 @@ export function ConfigSyncPage() {
             </SettingsDisclosure>
           </SettingsCard>
 
-          <ConfigSyncVaultSettings form={form} locked={locked} disabled={busy !== null}
+          <ConfigSyncVaultSettings form={form} locked={locked} disabled={controlsBusy}
             onChange={updateForm} onChangePassword={() => void changePassword()}
             onDisconnect={() => void run("disconnect")} />
         </>

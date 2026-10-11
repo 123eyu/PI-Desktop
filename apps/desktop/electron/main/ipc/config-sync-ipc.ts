@@ -38,6 +38,8 @@ export function registerConfigSyncIpc({
   handle(IPC.invoke.configSyncTest, (input: unknown) =>
     callHost("configSync.test", input),
   );
+  // This request is Host-owned; navigating away from the Settings route must
+  // not cancel it. Host state/progress notifications remain the completion path.
   handle(IPC.invoke.configSyncSyncNow, () => callHost("configSync.syncNow"));
   handle(IPC.invoke.configSyncPause, (input: unknown) =>
     callHost("configSync.pause", input),

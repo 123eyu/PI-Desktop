@@ -9553,6 +9553,9 @@ must keep splitting are covered by `markdown-blocks.test.mjs`.
   7. Restart an isolated Host and verify persisted state, then disconnect without
      deleting unrelated data. Inspect remote object bytes for known fixture
      plaintext and verify there is no automatic immutable-object GC.
+  8. Hold an in-flight manual sync, navigate away from Settings and return.
+     Verify Host still reports `syncing`, duplicate actions stay disabled, and
+     releasing the fixture completes the operation and refreshes Host state.
 - **Expected:** Only S3 is supported, with mandatory conditional writes and
   encrypted vault contents. Identical/disjoint edits converge; conflicts and
   tombstones preserve changes; excluded categories do not imply deletion.

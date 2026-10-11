@@ -219,9 +219,15 @@ A manual run reports `capture`, `download`, `merge`, `upload`, and `apply` via
 `configSync.progress`; there is no cleanup phase. `done`/`total` count objects
 while transferring and entities otherwise. A total of 0 means unknown, and a
 `bytesTotal` of 0 means the byte size is unknown, which is the normal case for a
-download. Reports are throttled, a phase change is never dropped, and the state
-event plus the call's return value stay the terminal signal. Background polls
-report nothing: only the manual path has a caller watching.
+download. Reports are throttled and phase changes are never dropped; the Host
+state event and call return are terminal signals. Background polls report
+nothing, while a manual Host-owned sync reports progress independent of the view.
+
+`configSync.syncNow` has no aggregate RPC deadline. The Host owns the operation,
+so navigating away from Settings does not cancel it. Returning to the page reads
+the Host's `syncing` state, disables duplicate actions, and subscribes to the
+remaining progress reports. Individual S3 requests retain their own timeouts;
+normal Host/process shutdown remains the lifecycle boundary.
 
 Credentials and memory are unchecked by default. The setup preview reports
 supported, excluded, secret-bearing, mapping-required, and pending-activation

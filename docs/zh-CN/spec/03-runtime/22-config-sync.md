@@ -102,6 +102,12 @@ unit/byte totals of zero meaning unknown. No cleanup phase remains. Credentials
 and memory remain opt-in; keys and exported secrets are never returned to the
 renderer. Newly entered connection secrets/passwords are transient IPC inputs.
 
+`configSync.syncNow` has no aggregate RPC deadline. The Host owns the operation,
+so navigating away from Settings does not cancel it. Returning to the page reads
+the Host's `syncing` state, disables duplicate actions, and subscribes to the
+remaining progress reports. Individual S3 requests retain their own timeouts;
+normal Host/process shutdown remains the lifecycle boundary.
+
 Host 负责自动同步启用后的启动即时检查、30 秒本地变更防抖以及有界的五分钟远端轮询。失败网络请求使用带 jitter 且有上限的指数重试；paused、locked、不兼容、认证和错误密码状态不会启动重试循环。应用退出时 worker 会随 Host 取消；退出后没有额外 daemon。
 
 ## 6. 持久性与兼容性

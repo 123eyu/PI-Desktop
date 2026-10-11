@@ -28,3 +28,29 @@ test("history and probe results never masquerade as configuration state events",
   assert.deepEqual(events, [[IPC.event.configSyncChanged, state]]);
   assert.deepEqual(calls.at(-1), ["configSync.configure", { mode: "backup" }]);
 });
+
+test("sync IPC stays pending and completes after its renderer navigates away", async () => {
+  const handlers = new Map();
+  const events = [];
+  const state = { configured: true, status: "upToDate" };
+  let finishHostCall;
+  const hostCall = new Promise((resolve) => { finishHostCall = resolve; });
+  let hostCallSettled = false;
+  const hostResult = hostCall.then((value) => { hostCallSettled = true; return value; });
+  registerConfigSyncIpc({
+    registrar: { handle: (channel, handler) => handlers.set(channel, handler) },
+    getHost: () => ({ call: (method) => {
+      assert.equal(method, "configSync.syncNow");
+      return hostResult;
+    } }),
+    sendToRenderer: (channel, value) => events.push([channel, value]),
+  });
+  const request = handlers.get(IPC.invoke.configSyncSyncNow)();
+  await Promise.resolve();
+  // Route disposal has no cancellation handle for the Main-owned Host call.
+  assert.equal(hostCallSettled, false);
+  finishHostCall(state);
+  assert.deepEqual(await request, state);
+  assert.equal(hostCallSettled, true);
+  assert.deepEqual(events, [[IPC.event.configSyncChanged, state]]);
+});

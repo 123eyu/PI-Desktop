@@ -38,6 +38,9 @@ let releaseSync;
 let holdSync = true;
 let holdHistory = false;
 let releaseHistory;
+const emitState = () => {
+  for (const callback of listeners.get(IPC.event.configSyncChanged) ?? []) callback(state);
+};
 const history = () => [
   { revisionId: "current-" + state.prefix, createdAt: "2026-01-02T00:00:00Z", entityCount: 1, current: true },
   { revisionId: "older-" + state.prefix, createdAt: "2026-01-01T00:00:00Z", entityCount: 1, current: false },
@@ -59,7 +62,11 @@ window.piDesktop = { platform: "darwin", channels: IPC,
       state = { ...state, ...publicFields, configured: true, enabled: true, status: "upToDate" };
       data = state;
     } else if (channel === IPC.invoke.configSyncSyncNow) {
+      state = { ...state, status: "syncing" };
+      emitState();
       if (holdSync) await new Promise((resolve) => { releaseSync = resolve; });
+      state = { ...state, status: "upToDate" };
+      emitState();
       data = state;
     } else if (channel === IPC.invoke.configSyncListHistory) {
       const captured = history();
@@ -174,9 +181,20 @@ window.configSyncProbe = async () => {
   check(probe.secretAccessKey === "test-secret" && probe.sessionToken === "test-token" && !('backupPassword' in probe), "probe credential contract");
   await click("enable");
   await until(() => releaseSync, "first run did not start");
-  check(input("secretAccessKey").value === "" && input("sessionToken").value === "" && input("backupPassword").value === "", "saved secrets outlived configure");
+  const transientInputs = {
+    accessKey: input("secretAccessKey").value.length > 0,
+    sessionToken: input("sessionToken").value.length > 0,
+    vaultPassword: input("backupPassword").value.length > 0,
+  };
+  check(Object.values(transientInputs).every((present) => !present), "transient inputs remained after configure: " + JSON.stringify(transientInputs));
   check(last("configSyncConfigure").backupPassword === "test-password", "vault password missing");
-  holdSync = false; releaseSync(); await ready();
+  flushSync(() => view.unmount());
+  mount();
+  await until(() => button("backupNow")?.disabled, "re-entered settings did not restore active sync state");
+  holdSync = false;
+  releaseSync();
+  await until(() => button("backupNow") && !button("backupNow").disabled, "background sync did not complete after navigation");
+  await ready();
   await until(() => document.body.textContent.includes("older-pi-desktop/config"), "history missing");
   flushSync(() => view.unmount()); mount(); await ready();
   check(input("bucket").value === "private-config", "saved connection not hydrated");

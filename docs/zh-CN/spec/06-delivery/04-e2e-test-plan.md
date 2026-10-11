@@ -8960,6 +8960,10 @@ Follow the [current S3 acceptance scenario](/spec/06-delivery/04-e2e-test-plan#e
 - Automation: `pnpm test:e2e:config-sync`, Rust `config_sync::` and
   `user_skills::`, `config-sync-user-path.test.mjs`, `config-sync-ipc.test.mjs`.
   Full checkpoint-recovery fault injection is not claimed by these user paths.
+- Start a held manual sync, leave Settings, then return. Verify Host still
+  reports `syncing`, duplicate actions remain disabled, and releasing the local
+  fixture finishes the operation and refreshes state. The aggregate RPC has no
+  deadline; individual S3 requests remain bounded.
 - Acceptance: F (persistence), Security, Quality. Candidate validation required.
 
 ### E2E-DIALOG-long-text-boundaries
