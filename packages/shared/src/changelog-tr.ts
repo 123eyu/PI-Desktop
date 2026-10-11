@@ -5,6 +5,7 @@ export const trEntries: ChangelogEntry[] = [
     "version": "0.18.0",
     "date": "2026-10-09",
     "highlights": [
+      "Ana sayfadan SSH çalışma alanı projeleri oluşturup adlandırın; klasörleri ayrı bir iletişim kutusunda seçin, model istekleri ve kimlik bilgileri bilgisayarınızda kalsın.",
       "TypeSafe Jev sınıflandırıcısını Hizmet Ekle'den kurun ve kaydetmeden önce API anahtarını doğrulayın.",
       "Bulut eşitlemesi paketlenmiş sürümün ayarlarında kullanılabilir ve deneysel olarak işaretlenir. Proje listeleri her cihazda yerel olarak kalır.",
       "Yerelleştirilmiş açıklamalar ve anahtar kurulumundan sonra model keşfiyle eklenti kaynaklı API anahtarlı hizmetleri ekleyin.",

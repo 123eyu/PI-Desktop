@@ -252,7 +252,6 @@ export function RemoteHostsPage() {
                 <Button variant="secondary" onClick={() => setSelectedHost(host)}>
                   {remoteT("sessions")}
                 </Button>
-                {host.transport === "ssh" && <Button variant="ghost" onClick={() => setSelectedHost(host)}>{remoteT("sync")}</Button>}
                 <Button variant="ghost" disabled={reconnecting !== null} onClick={() => void reconnect(host)}>
                   {reconnecting === host.hostKey ? remoteT("loading") : remoteT("reconnect")}
                 </Button>

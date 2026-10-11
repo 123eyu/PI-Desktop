@@ -101,6 +101,7 @@ import {
 
 type ProjectEntry = {
   path: string;
+  displayPath?: string;
   key: string;
   name: string;
   sessions: SessionSummary[];
@@ -708,6 +709,8 @@ export function Sidebar({
       const meta = projectMetaFor(rawPath, projectMeta);
       byPath.set(normalized, {
         path: rawPath,
+        displayPath: openProjects.find((project) => normalizeProjectPath(project.path) === normalized)?.remote?.path
+          ?? (normalizeProjectPath(workspace?.path) === normalized ? workspace?.remote?.path : undefined),
         key: normalized,
         name: projectName(rawPath, meta.name ?? name),
         sessions: [],
@@ -1941,7 +1944,7 @@ export function Sidebar({
             type="button"
             id={projectId}
             className="sidebar-session-group-title project-toggle"
-            tooltip={entry.path}
+            tooltip={entry.displayPath ?? entry.path}
             tooltipDelayMs={500}
             tooltipClassName="ui-tooltip-path"
             ariaLabel={entry.name}
@@ -1983,7 +1986,7 @@ export function Sidebar({
             {entry.active ? <span className="sidebar-project-active-dot" aria-label={t("project.active", { defaultValue: "Active" })} /> : null}
           </TooltipButton>
           <span id={`${projectId}-path-description`} className="sr-only">
-            {entry.path}
+            {entry.displayPath ?? entry.path}
             {". "}
             {t("project.reorder", { name: entry.name, defaultValue: "Reorder {{name}}" })}
           </span>

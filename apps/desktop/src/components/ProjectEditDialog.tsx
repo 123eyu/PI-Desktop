@@ -5,7 +5,7 @@ import { useTranslation } from "react-i18next";
 import type { ProjectGroupRecord, ProjectGroupRoot } from "@pi-desktop/shared";
 import { api } from "../lib/api";
 import { MAX_PROJECT_NAME_CHARS } from "../lib/sidebar-preferences";
-import { Button, TooltipButton } from "./ui";
+import { Button, Input, TooltipButton } from "./ui";
 import {
   IconClose,
   IconFolder,
@@ -145,6 +145,7 @@ export function ProjectEditDialog({
   }, [onClose]);
 
   const addFolders = async () => {
+    if (group?.remote) return;
     if (busyRef.current || folderPickerInFlightRef.current) return;
     folderPickerInFlightRef.current = true;
     setFolderPickerBusy(true);
@@ -172,7 +173,9 @@ export function ProjectEditDialog({
     busyRef.current = true;
     setBusy(true);
     try {
-      const result = await api.updateProjectGroup(group.id, trimmedName, folders);
+      const result = group.remote
+        ? await api.renameProjectGroup(group.id, trimmedName)
+        : await api.updateProjectGroup(group.id, trimmedName, folders);
       onSaved(result.group);
       onClose();
     } catch (error) {
@@ -242,7 +245,7 @@ export function ProjectEditDialog({
                   {name.length}/{MAX_PROJECT_NAME_CHARS}
                 </span>
               </div>
-              <input
+              <Input
                 ref={inputRef}
                 id="project-edit-name"
                 className="field-input project-create-dialog-name-field"
@@ -268,16 +271,17 @@ export function ProjectEditDialog({
                     <span className="project-create-dialog-count">{folders.length}</span>
                   ) : null}
                 </h3>
-                <span className="project-create-dialog-source" data-project-source="local">
+                <span className="project-create-dialog-source" data-project-source={group?.remote ? "remote" : "local"}>
                   <IconMonitor size={15} aria-hidden />
-                  {t("project.createComputer")}
+                  {group?.remote ? t("remote:remote") : t("project.createComputer")}
                 </span>
               </div>
 
-              {folders.length > 0 ? (
+              {!loading && folders.length > 0 ? (
                 <div className="project-create-dialog-folder-list" role="list">
                   {folders.map((path) => {
                     const primary = samePath(path, primaryPath);
+                    const displayPath = group?.remote?.path ?? path;
                     return (
                       <div
                         className={`project-create-folder-row${primary ? " is-primary" : ""}`}
@@ -287,9 +291,9 @@ export function ProjectEditDialog({
                         <span className="project-create-folder-icon" aria-hidden>
                           <IconFolder size={17} />
                         </span>
-                        <span className="project-create-folder-copy" title={path}>
-                          <span className="project-create-folder-name">{folderName(path)}</span>
-                          <span className="project-create-folder-path">{folderParent(path)}</span>
+                        <span className="project-create-folder-copy" title={displayPath}>
+                          <span className="project-create-folder-name">{folderName(displayPath)}</span>
+                          <span className="project-create-folder-path">{group?.remote ? displayPath : folderParent(displayPath)}</span>
                         </span>
                         {primary ? (
                           <span className="project-create-primary-tag">
@@ -309,7 +313,7 @@ export function ProjectEditDialog({
                             primary
                               ? t("project.editPrimaryLocked")
                               : t("project.createRemoveFolder")
-                          }: ${folderName(path)}`}
+                          }: ${folderName(displayPath)}`}
                           disabled={loading || busy || primary}
                           onClick={() =>
                             setFolders((current) =>
@@ -325,7 +329,7 @@ export function ProjectEditDialog({
                 </div>
               ) : null}
 
-              <button
+              {!group?.remote ? <Button
                 type="button"
                 aria-label={t("project.createAddFolder")}
                 className={`project-create-add-folder${folders.length === 0 ? " is-empty" : ""}`}
@@ -340,7 +344,7 @@ export function ProjectEditDialog({
                     {t("project.createAddFolder")}
                   </span>
                 </span>
-              </button>
+              </Button> : null}
             </section>
           </div>
 

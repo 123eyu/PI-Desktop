@@ -58,8 +58,9 @@ function fakeAdapter(options = {}) {
       for (const listener of listeners) listener(envelope);
     },
     client: {
-      request: async (method, params) => {
-        requests.push({ method, params });
+      request: async (method, params, timeoutMs) => {
+        requests.push({ method, params, ...(timeoutMs ? { timeoutMs } : {}) });
+        if (options.request && method.startsWith("workspace/")) return options.request(method, params);
         if (method === "session/list") {
           return { sessions: options.sessions ?? [] };
         }
@@ -352,4 +353,40 @@ test("bootstrapHost closes its unadopted outcome when shutdown rejects its queue
   assert.ok(result.error);
   assert.equal(adoptions, 0);
   assert.equal(forwardCloses, 1, "a queued action rejected before entry still owns its bootstrap outcome");
+});
+
+test("workspace execution keeps model configuration local and extends only the tool deadline", async () => {
+  const { dir, cleanup } = await tmpDir();
+  const adapter = fakeAdapter({ request: async () => ({ ok: true, content: "remote result" }) });
+  const boot = createRemoteHostsBoot({ dataDir: dir, encryption: reversibleEncryption(), router: createBackendRouter(),
+    emit: () => {}, clientInfo: { name: "test", version: "1" }, buildAdapter: () => adapter });
+  try {
+    await boot.addHost({ hostKey: "ssh", label: "SSH", url: "wss://fixture", deviceToken: "fixture-only" });
+    const request = { hostKey: "ssh", path: "/workspace", sessionId: "local", turnId: "turn", toolCallId: "read", toolName: "Read", args: { path: "README.md" }, timeoutMs: 30_000 };
+    assert.deepEqual(await boot.executeWorkspaceTool(request), { ok: true, content: "remote result" });
+    const call = adapter.requests.find(row => row.method === "workspace/toolExecute");
+    assert.equal(call.params.hostKey, undefined);
+    assert.equal(call.timeoutMs, 45_000);
+    assert.equal(call.params.sessionId, "local");
+    assert.ok(!adapter.requests.some(row => /provider|session\/create|project\/register/.test(row.method)));
+    await assert.rejects(boot.executeWorkspaceTool({ ...request, path: "relative" }), { errorCode: "INVALID_ARGUMENT" });
+    await assert.rejects(boot.executeWorkspaceTool({ ...request, toolName: "Plugin" }), { errorCode: "INVALID_ARGUMENT" });
+    await assert.rejects(boot.executeWorkspaceTool({ ...request, timeoutMs: 0 }), { errorCode: "INVALID_ARGUMENT" });
+  } finally { await boot.closeAll(); await cleanup(); }
+});
+
+test("failed workspace execution cancels once and never replays a side effect", async () => {
+  const { dir, cleanup } = await tmpDir();
+  const adapter = fakeAdapter({ request: async (method) => {
+    if (method === "workspace/toolExecute") throw new Error("disconnected");
+    return { ok: true };
+  } });
+  const boot = createRemoteHostsBoot({ dataDir: dir, encryption: reversibleEncryption(), router: createBackendRouter(),
+    emit: () => {}, clientInfo: { name: "test", version: "1" }, buildAdapter: () => adapter });
+  try {
+    await boot.addHost({ hostKey: "ssh", label: "SSH", url: "wss://fixture", deviceToken: "fixture-only" });
+    await assert.rejects(boot.executeWorkspaceTool({ hostKey: "ssh", path: "/workspace", sessionId: "local", turnId: "turn", toolCallId: "write", toolName: "Write", args: { path: "out", content: "new" } }), /disconnected/);
+    assert.equal(adapter.requests.filter(row => row.method === "workspace/toolExecute").length, 1);
+    assert.equal(adapter.requests.filter(row => row.method === "workspace/toolAbort").length, 1);
+  } finally { await boot.closeAll(); await cleanup(); }
 });

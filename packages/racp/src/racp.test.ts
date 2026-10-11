@@ -375,3 +375,38 @@ describe("RACP-WS remote-host profile", () => {
 
 /** Type-only assertion that the envelope import stays used. */
 export type _Envelope = RacpEventEnvelope;
+
+describe("owner-only workspace tool boundary", () => {
+  it("routes execute/shell/abort without model or session operations, and rejects viewer/extra fields", async () => {
+    const calls: unknown[] = [];
+    const shell = { id: "bash" as const, label: "Bash", dialect: "posix" as const, available: true, isDefault: true };
+    const h = await harness({ operations: { workspaceTools: {
+      async execute(input, owner) { calls.push({ input, owner }); return { ok: true, content: "remote result" }; },
+      async abort(input, owner) { calls.push({ input, owner }); },
+      async shell() { return shell; },
+      async disconnect(connectionId) { calls.push({ disconnected: connectionId }); },
+    } } });
+    const { client } = await h.connect(OWNER_TOKEN);
+    expect(client.initialized?.capabilities.workspaceTools).toBe(true);
+    const input = { path: "/workspace", sessionId: "local-session", turnId: "local-turn", toolCallId: "call-1", toolName: "Read", args: { path: "a.txt" } };
+    expect(await client.request("workspace/toolExecute", input)).toEqual({ ok: true, content: "remote result" });
+    expect(await client.request("workspace/toolShell", {})).toEqual({ shell });
+    await client.request("workspace/toolAbort", { sessionId: "local-session", toolCallId: "call-1" });
+    expect(calls).toHaveLength(2);
+    await expect(client.request("workspace/toolExecute", { ...input, providerApiKey: "fixture-only" })).rejects.toMatchObject({ code: "INVALID_ARGUMENT" });
+    await expect(client.request("workspace/toolExecute", { ...input, toolName: "provider.getSecret" })).rejects.toMatchObject({ code: "INVALID_ARGUMENT" });
+    const viewer = await h.connect(VIEWER_TOKEN);
+    await expect(viewer.client.request("workspace/toolExecute", input)).rejects.toMatchObject({ code: "FORBIDDEN" });
+    await expect(viewer.client.request("workspace/toolShell", {})).rejects.toMatchObject({ code: "FORBIDDEN" });
+    expect(h.runtime.prompts).toHaveLength(0);
+    await client.close();
+    await flush();
+    expect(calls).toHaveLength(3);
+    await viewer.client.close();
+  });
+  it("fails closed when the paired Host lacks the tool service", async () => {
+    const h = await harness(); const { client } = await h.connect(OWNER_TOKEN);
+    await expect(client.request("workspace/toolShell", {})).rejects.toMatchObject({ code: "CAPABILITY_UNAVAILABLE" });
+    await client.close();
+  });
+});

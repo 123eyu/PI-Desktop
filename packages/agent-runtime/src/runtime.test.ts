@@ -167,6 +167,7 @@ function createRuntime(
     compactionSettings: ContextCompactionSettings;
     compactionStrategy: CompactionStrategy;
     projectPath: string;
+    remoteWorkspace: { hostKey: string; path: string };
     scratchDir: string;
     customSystemPrompt: import("./custom-system-prompt.js").CustomSystemPrompt;
     projectInstructions: import("./project-instructions.js").ProjectInstructions;
@@ -197,6 +198,7 @@ function createRuntime(
     compactionSettings: overrides.compactionSettings,
     compactionStrategy: overrides.compactionStrategy,
     projectPath: overrides.projectPath,
+    remoteWorkspace: overrides.remoteWorkspace,
     scratchDir: overrides.scratchDir,
     customSystemPrompt: overrides.customSystemPrompt,
     pluginTools: overrides.pluginTools,
@@ -11732,5 +11734,24 @@ describe("inline image placement", () => {
     } finally {
       await runtime.dispose();
     }
+  });
+});
+
+
+describe("local runtime with a remote tool workspace", () => {
+  it("keeps the local model and dispatches workspace tools through the Host without local instruction probes", async () => {
+    const call = vi.fn(async (method: string) => {
+      if (method === "tools.execute") return { ok: true, content: "remote contents" };
+      throw new Error(`Unexpected local workspace access: ${method}`);
+    });
+    const runtime = createRuntime({ host: { call }, remoteWorkspace: { hostKey: "ssh", path: "/remote/project" }, scratchDir: "/local/scratch" });
+    const result = await runtimeTool(runtime, "Read").execute("remote-read", { path: "README.md" }, undefined, undefined);
+    expect(result.content).toContainEqual({ type: "text", text: "remote contents" });
+    expect(call.mock.calls.map(([method]) => method)).toEqual(["tools.execute"]);
+    const internals = runtime as unknown as { projectPath: string; provider: RuntimeProviderConfig; agent: Agent };
+    expect(internals.projectPath).toBe("/remote/project");
+    expect(internals.provider.id).toBe(provider.id);
+    expect(internals.agent.state.systemPrompt).not.toContain("/local/scratch");
+    await runtime.dispose();
   });
 });

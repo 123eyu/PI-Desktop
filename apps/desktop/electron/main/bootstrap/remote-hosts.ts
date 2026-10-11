@@ -6,6 +6,8 @@ import {
   type RemoteHostBootstrapRequest, type RemoteHostBootstrapResult,
   type RemoteHostCreateSessionRequest, type RemoteHostSummary, type RemoteHostBrowseProjectsResult,
   type RemoteHostSyncProvidersRequest, type RemoteHostSyncProvidersResult, type SessionSummary,
+  type CommandShellOption, isCommandShellOption,
+  type WorkspaceFilesRequest,
 } from "@pi-desktop/shared";
 import { wsClientTransport } from "@pi-desktop/racp";
 import type { HostRpcPort } from "@pi-desktop/agent-host";
@@ -23,6 +25,11 @@ export { sshMetadataOf, sshHostRecord, transportOf } from "../remote/remote-host
 export type { RemoteHostSummary };
 
 export type RemoteHostAdapterFactory = (record: RemoteHostRecord) => RacpRemoteHostClient;
+export type RemoteWorkspaceToolInput = {
+  hostKey: string; path: string; sessionId: string; turnId: string;
+  toolCallId: string; toolName: string; args: unknown; timeoutMs?: number;
+  expectedCommandShellId?: string; expectedCommandShellDialect?: string;
+};
 export type BootRemoteHostsOptions = {
   dataDir: string;
   encryption: EncryptionPort;
@@ -56,6 +63,10 @@ export interface RemoteHostsBoot {
   registerProject(hostKey: string, path: string): Promise<RacpProjectSummary & { path?: string }>;
   createSession(request: RemoteHostCreateSessionRequest): Promise<SessionSummary>;
   syncProviders(request: RemoteHostSyncProvidersRequest): Promise<RemoteHostSyncProvidersResult>;
+  executeWorkspaceTool(request: RemoteWorkspaceToolInput): Promise<unknown>;
+  abortWorkspaceTool(request: { hostKey: string; sessionId: string; toolCallId: string }): Promise<void>;
+  workspaceCommandShell(hostKey: string): Promise<CommandShellOption>;
+  workspaceFiles(hostKey: string, input: WorkspaceFilesRequest): Promise<unknown>;
   readonly registry: RemoteHostRegistry;
 }
 let activeRemoteHostsBoot: RemoteHostsBoot | null = null;
@@ -258,6 +269,61 @@ export function createRemoteHostsBoot(options: BootRemoteHostsOptions): RemoteHo
     projects: catalog.projects,
     browseProjects: catalog.browseProjects,
     registerProject: catalog.registerProject,
+    async workspaceFiles(hostKey, input) {
+      const host = connectedHost(hostKey);
+      if (!host) throw unavailable();
+      const result = await host.adapter.client.request("workspace/files", input);
+      if (connectedHost(hostKey) !== host) throw unavailable();
+      return result;
+    },
+    async workspaceCommandShell(hostKey) {
+      const host = connectedHost(hostKey);
+      if (!host) throw unavailable();
+      const { shell } = await host.adapter.client.request<{ shell: unknown }>("workspace/toolShell", {});
+      if (connectedHost(hostKey) !== host) throw unavailable();
+      if (!isCommandShellOption(shell) || !shell.available) {
+        throw Object.assign(new Error("remote command shell unavailable"), { errorCode: "COMMAND_SHELL_INVALID" });
+      }
+      return shell;
+    },
+    async executeWorkspaceTool(input) {
+      const host = connectedHost(input.hostKey);
+      if (!host) throw unavailable();
+      const { hostKey: _hostKey, ...request } = input;
+      if (!request.path.startsWith("/") || request.path.includes("\0")
+        || !["Read", "Glob", "Grep", "Write", "Edit", "Bash"].includes(request.toolName)) {
+        throw Object.assign(new Error("invalid remote workspace tool"), { errorCode: "INVALID_ARGUMENT" });
+      }
+      const timeoutMs = input.timeoutMs ?? 60_000;
+      if (!Number.isSafeInteger(timeoutMs) || timeoutMs < 1 || timeoutMs > 21_600_000) {
+        throw Object.assign(new Error("invalid remote tool timeout"), { errorCode: "INVALID_ARGUMENT" });
+      }
+      try {
+        const result = await host.adapter.client.request("workspace/toolExecute", request, timeoutMs + 15_000);
+        if (connectedHost(input.hostKey) !== host) throw unavailable();
+        if (!result || typeof result !== "object" || !("ok" in result)
+          || typeof result.ok !== "boolean" || !("content" in result)) {
+          throw Object.assign(new Error("remote host returned an invalid tool result"), { errorCode: "INVALID_ARGUMENT" });
+        }
+        return result;
+      } catch (error) {
+        // A timeout/disconnection never replays a side effect. Cancel on the
+        // original connection only; a replacement connection owns no such call.
+        if (connectedHost(input.hostKey) === host) {
+          try { await host.adapter.client.request("workspace/toolAbort", {
+            sessionId: input.sessionId, toolCallId: input.toolCallId,
+          }); } catch (abortError) { log("warn", "remote tool abort failed", { error: String(abortError) }); }
+        }
+        throw error;
+      }
+    },
+    async abortWorkspaceTool(input) {
+      const host = connectedHost(input.hostKey);
+      if (!host) throw unavailable();
+      await host.adapter.client.request("workspace/toolAbort", {
+        sessionId: input.sessionId, toolCallId: input.toolCallId,
+      });
+    },
     async createSession(input) {
       const session = await catalog.createSession(input);
       changed();

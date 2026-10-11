@@ -155,7 +155,7 @@ export function createRacpRemoteHostClient(
     ...(options.log ? { log: options.log } : {}),
   });
   const client: RemoteHostClient = {
-    request: (method, params) => racp.request(method, params),
+    request: (method, params, timeoutMs) => racp.request(method, params, timeoutMs),
     state: () => visibleState,
     subscribeReconnect(listener) { reconnectListeners.add(listener); return () => { reconnectListeners.delete(listener); }; },
     subscribeState(listener) { stateListeners.add(listener); return () => { stateListeners.delete(listener); }; },

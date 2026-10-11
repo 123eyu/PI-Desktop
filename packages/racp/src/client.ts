@@ -139,22 +139,22 @@ export class RacpClient {
     this.setState("disconnected");
   }
 
-  request<T = unknown>(method: string, params?: unknown): Promise<T> {
+  request<T = unknown>(method: string, params?: unknown, timeoutMs?: number): Promise<T> {
     const transport = this.transport;
     if (!transport || this.stateValue !== "connected") {
       return Promise.reject(new RacpError("HOST_DISCONNECTED", `not connected (${this.stateValue})`, { retriable: true }));
     }
-    return this.send<T>(transport, method, params);
+    return this.send<T>(transport, method, params, timeoutMs);
   }
 
-  private send<T>(transport: ClientTransport, method: string, params: unknown): Promise<T> {
+  private send<T>(transport: ClientTransport, method: string, params: unknown, timeoutMs?: number): Promise<T> {
     this.counter += 1;
     const id = `c${this.counter}`;
     return new Promise<T>((resolve, reject) => {
       const timer = setTimeout(() => {
         this.pending.delete(id);
         reject(new RacpError("TIMEOUT", `${method} timed out`, { retriable: true }));
-      }, this.options.requestTimeoutMs ?? 15_000);
+      }, timeoutMs ?? this.options.requestTimeoutMs ?? 15_000);
       timer.unref?.();
       this.pending.set(id, { resolve: resolve as (value: unknown) => void, reject, timer, method });
       try {

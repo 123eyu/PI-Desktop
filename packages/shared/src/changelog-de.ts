@@ -5,6 +5,7 @@ export const deEntries: ChangelogEntry[] = [
     "version": "0.18.0",
     "date": "2026-10-09",
     "highlights": [
+      "SSH-Arbeitsbereichsprojekte auf der Startseite benennen und Ordner in einem eigenen Dialog wählen; Modellanfragen und Zugangsdaten bleiben auf Ihrem Computer.",
       "Richten Sie den Jev-Klassifizierer von TypeSafe über „Dienst hinzufügen“ ein; der API-Schlüssel wird vor dem Speichern geprüft.",
       "Cloud-Synchronisierung ist in den Einstellungen der installierten Version verfügbar und als experimentell gekennzeichnet. Projektlisten bleiben auf dem jeweiligen Gerät.",
       "Fügen Sie über „Dienst hinzufügen“ Plugin-eigene API-Schlüssel-Dienste hinzu, mit lokalisierten Beschreibungen und Modellerkennung nach der Einrichtung.",
