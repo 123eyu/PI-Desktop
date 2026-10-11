@@ -811,6 +811,7 @@ sklm: {
     },
     configSync: {
       title: "Bulut senkronizasyonu",
+      experimental: "Deneysel",
       connectionTitle: "Bağlantı ayarları",
       connectionDescription: "Uygulama ayarlarını cihazlar arasında eşitleyin veya özel S3 depolamanıza yedekleyin. Sohbetler ve proje dosyaları yerel kalır.",
       advancedTitle: "Gelişmiş ayarlar",

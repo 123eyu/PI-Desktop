@@ -2966,8 +2966,8 @@ identify the platform validation still needed.
   15. Archive one project session, open it from Projects, and return to Projects.
   16. Return to the app shell and open Plugins.
 - **Expected**: The rail contains exactly General, AI, Shortcuts, Instructions, Models, Skills, MCP, Subagents, Projects, Cloud sync, Remote Hosts, and Info in that order, each with its semantic Lucide icon (Sliders / Sparkles / Keyboard / FileText / Bot / BookOpen / Server / Bot / Archive / CloudDownload / Globe / Info). The flat directory is visually grouped under four muted, non-interactive headings — Preferences / 偏好 for General, AI, and Shortcuts; Agent / 智能体 for Instructions and Models; Workspace / 工作区 for Projects; About / 关于 for Info — with whitespace and no divider lines between groups; searching keeps the destination results flat and hides empty groups together with their headings. Appearance remains in General, while Permissions, Defaults, and the Command shell row live under 全局 AI; an available selected shell is represented by the selector without a duplicate Configured status, while default, fallback, and no-effective-shell states remain explicit; Context management has no settings card; Keyboard shortcuts and global instructions have their own destinations; Developer lives under Info; Projects shows active, closed, and archived durable rows without a visibility toggle, grouping them under the always-visible Pinned / All projects / Archived strips (D168/D267/D455) with per-section counts in a one-column workbench. The destination renders no hero block and no page-level counter run: the intro is one quiet description line, and each group strip's count agrees with its rendered rows; a click selects a row without leaving Settings; sorting by Name reorders rows inside every section without hiding any; search matches project fields and session titles and reports a match count, a session-title result selects its owning project, lists sessions in the inspector by latest activity with relative update times, and reveals history in batches of eight; clearing the search restores the complete index. The inspector menu closes on Escape and on an outside press. Bootstrap completion and background refreshes do not return Settings or Extensions to the chat home; the destination changes only after an explicit navigation action. Restore keeps the archive open and activation returns to chat with the restored project retained in the sidebar. Opening an archived session succeeds before clearing its archived state, returns to chat with that session selected, and makes it visible in the project sidebar; returning to Project archive no longer shows that session as archived. The home sidebar and global page results have no standalone Projects destination; Settings search finds Projects; Plugins remains an independent app-shell destination.
-  A packaged build omits Cloud sync from the rail and settings search; see
-  `04-ux/06-settings-ia.md`.
+  Cloud sync and Remote Hosts appear in packaged Settings with Experimental
+  badges on their navigation rows and page titles; see `04-ux/06-settings-ia.md`.
 - **Specs linked**: `04-ux/06-settings-ia.md`, `04-ux/01-ui-ia.md`, `03-runtime/11-provider-model-system.md`
 - **Acceptance**: B (model configuration), F (project persistence)
 - **Milestone**: M4
@@ -9513,9 +9513,10 @@ must keep splitting are covered by `markdown-blocks.test.mjs`.
   ETags and conditional PUT. No real model provider or running desktop instance.
   A live S3 run is separately opt-in and requires explicit authorization.
 - **Steps:**
-  1. Confirm Cloud sync remains development-build-only and has no Experimental
-     badge. Open Settings and confirm only the new S3 setup is offered;
-     old formats are not detected, migrated or deleted.
+  1. In a packaged build, confirm Cloud sync appears in Settings navigation
+     and search with Experimental badges on its row and page title. Open the
+     destination and confirm only the new S3 setup is offered; old formats are
+     not detected, migrated or deleted.
   2. Confirm initial setup shows only required connection/password fields and
      automatic runs use the shared switch. Expand Advanced to edit region,
      prefix, addressing, device label and optional token; collapse/reopen it
@@ -10008,8 +10009,8 @@ This test plan spec is accepted when:
 - Expect **full-page** Codex settings (no app sidebar/nav). Left rail has Back
   to app, search, and exactly General / AI / Shortcuts / Instructions / Models /
   Skills / MCP / Subagents / Projects, Cloud sync / Remote Hosts / Info in that
-  order (a packaged build leaves Cloud sync out); content pane shows the
-  selected destination.
+  order; packaged builds show both Cloud sync and Remote Hosts with Experimental
+  badges. The content pane shows the selected destination.
 - Return to the app shell and expect Plugins to remain an independent
   sidebar-footer destination.
 - Drag the empty 46px top band over either the rail or content pane; the native
@@ -10220,8 +10221,8 @@ This test plan spec is accepted when:
 - Expect the working theme selector without inert toggle or open-target rows.
 - Expect Appearance in General and Permissions + Defaults in AI. The rail
   contains General, AI, Shortcuts, Instructions, Models, Skills, MCP,
-  Subagents, Projects, Cloud sync (development builds only), and Info; Remote
-  Hosts appears only in developer mode. Voice may appear between AI and
+  Subagents, Projects, Cloud sync and Remote Hosts (both Experimental in all
+  builds), and Info. Voice may appear between AI and
   builds with developer mode on; plugin-contributed destinations follow the
   core groups. There is no Import destination.
 - Resize between 800px, 1200px, and 1600px widths; the content cards fill the
@@ -16817,9 +16818,10 @@ the latest destination. These assertions measure work counts, not device FPS.
 - Automated coverage: `pnpm test:e2e:settings-scroll` mounts the production
   SettingsPage, store, translations, and built CSS in isolated Electron. Only
   preload data is stubbed; search navigation uses SearchDialog's public store
-  entry points. It also checks that Cloud sync stays a development-build-only
-  destination with no developer-mode gate and no Experimental badge, that
-  Remote hosts keeps its badge, and the fallback to General. This covers
+  entry points. The development UI path checks both destinations and their
+  Experimental badge surfaces; `settings-developer-only-destinations.test.mjs`
+  separately verifies packaged visibility/search and developer-only fallback.
+  This covers
   renderer interaction, not host persistence or the
   full global-search dialog.
 

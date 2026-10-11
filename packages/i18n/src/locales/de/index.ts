@@ -803,6 +803,7 @@ sklm: {
     },
     "configSync": {
       title: "Cloud sync",
+      experimental: "Experimentell",
       connectionTitle: "Verbindungseinstellungen",
       connectionDescription: "App-Einstellungen zwischen Geräten synchronisieren oder im privaten S3-Speicher sichern. Chats und Projektdateien bleiben lokal.",
       advancedTitle: "Erweiterte Einstellungen",
