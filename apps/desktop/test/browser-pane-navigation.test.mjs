@@ -183,6 +183,31 @@ test("a denied local file on a blank tab publishes an error without creating a g
   });
 });
 
+test("temporary and secondary-root HTML previews use the supplied roots without retaining old scope", async (t) => {
+  const temp = mkdtempSync(join(tmpdir(), "pi-browser-artifacts-"));
+  const primary = join(temp, "primary"), secondary = join(temp, "secondary"), scratch = join(temp, "scratch");
+  for (const root of [primary, secondary, scratch]) {
+    mkdirSync(root);
+    writeFileSync(join(root, "animation.html"), "<button>Run animation</button>");
+  }
+  const pane = new BrowserPane(() => {});
+  t.after(() => { pane.dispose(); rmSync(temp, { recursive: true }); });
+  for (const [file, roots] of [
+    [join(scratch, "animation.html"), [scratch]],
+    [join(secondary, "animation.html"), [primary, secondary, scratch]],
+  ]) {
+    const loading = pane.navigateAndWait(file, roots);
+    const wc = pane.getWebContents();
+    assert.ok(wc, "an allowed HTML artifact creates the native preview");
+    wc.url = pathToFileURL(realpathSync(file)).href;
+    assert.equal(wc.pendingLoads.at(-1).url, wc.url);
+    wc.pendingLoads.shift().resolve();
+    assert.equal((await loading).url, wc.url);
+  }
+  assert.equal(await pane.navigateAndWait(join(scratch, "animation.html"), []), null);
+  assert.equal(pane.getState().loadError, "LOCAL_FILE_NOT_ALLOWED");
+});
+
 test("late native navigation events cannot publish after the session is invalidated", async () => {
   const published = [];
   const pane = new BrowserPane((state) => published.push(state));

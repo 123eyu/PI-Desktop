@@ -4524,12 +4524,33 @@ window; opening a normal panel afterward must still work.
   file preview via `openPath`. The view uses an isolated persist partition
   (no session bleed from the app shell). Both in-root forms open; neither
   outside form reaches the guest load, the submitted address remains visible,
-  and the browser explains in the active locale that only existing workspace
-  files can open.
+  and the browser explains in the active locale that only existing files in
+  the session's project folders or scratch directory can open.
 - **Specs linked**: `03-runtime/01-ipc-protocol.md` §13a, ADR 0019, ADR 0168
 - **Acceptance**: Quality, Security
 - **Milestone**: M5
 - **Status**: Draft (manual)
+
+#### E2E-CHAT-html-artifacts: Open generated pages from ordinary and project conversations
+
+- **Preconditions**: Isolated Electron profile, real Host storage and loopback
+  model fixture; no credentials or paid provider requests.
+- **Steps**: Open assistant Markdown links to ordinary-session scratch HTML,
+  primary project HTML, secondary project-folder HTML and project scratch HTML.
+  Repeat with a `file:` URL containing Unicode/spaces. Interact with the
+  rendered page. Try a missing file, an outside file and a positioned HTML
+  source reference. Send a prompt that invokes BrowserPreview through the real
+  sidecar in an ordinary and a project conversation. Disable Browser and click
+  again. Switch conversations between cases.
+- **Expected**: Valid pages render and execute in the side browser at their
+  canonical path. Missing/restricted files report errors without guest loads.
+  A line reference opens source, not execution. Disabled Browser remains
+  disabled and reports an error. BrowserPreview uses its originating session's
+  roots and delivers a valid resource tab. No visible-project fallback.
+- **Automation**: `node scripts/e2e-chat-html-artifacts.mjs`, after building
+  Host, runtime and Electron. Captures and synthetic profiles are retained in
+  `PI_TEST_OUTPUT` (or the OS temporary directory).
+- **Status**: Electron user-path covered on Windows; other OSes pending.
 
 #### E2E-BROWSER-capture-resize: Capture preserves live placement and restores the latest viewport
 

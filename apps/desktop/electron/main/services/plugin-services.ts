@@ -31,7 +31,7 @@ import {
   type RuntimeProviderConfig,
 } from "@pi-desktop/agent-runtime";
 import { createFsConsentService } from "../plugin-fs-consent";
-import { pluginWorkspaceInfo } from "../workspace-roots";
+import { pluginWorkspaceInfo, projectFolderPaths } from "../workspace-roots";
 import { createDesktopConsentService } from "../plugin-desktop-consent";
 import { PluginRuntime } from "../plugin-runtime";
 import { createSpeechService } from "./speech-service";
@@ -601,19 +601,16 @@ export function createPluginServices({
       })().catch((error) => logger.app("plugin", "warn", "browser.link.open.failed", { data: String(error) }));
     },
     isPluginLoaded: (pluginId) => Boolean(plugins.getLoaded(pluginId)),
-    getFileRoot: async (sessionId) => {
-      if (sessionId) {
-        try {
-          const res = (await getHost()?.call("session.get", { id: sessionId })) as
-            | { session: { projectPath?: string } | null }
-            | undefined;
-          const path = res?.session?.projectPath?.trim();
-          if (path) return path;
-        } catch {
-          // Fall through to the visible workspace.
-        }
-      }
-      return getWorkspacePath();
+    getFileRoots: async (sessionId) => {
+      if (!sessionId) return projectFolderPaths(getWorkspacePath());
+      const res = await getHost()?.call<{ session: { projectPath?: string } | null }>(
+        "session.get", { id: sessionId },
+      );
+      if (!res?.session) throw new Error("Browser preview session is unavailable.");
+      return [
+        ...projectFolderPaths(res.session.projectPath?.trim() || null),
+        join(dataDir, "scratch", sessionId),
+      ];
     },
     getScratchDir: (sessionId) => {
       if (!sessionId) return null;

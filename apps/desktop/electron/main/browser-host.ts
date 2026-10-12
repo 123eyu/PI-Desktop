@@ -59,7 +59,7 @@ export type BrowserHostDeps = {
   createPane: (onState: (state: BrowserState) => void, onOpenUrl: (url: string) => void) => BrowserPane;
   onOpenUrl?: (url: string, sessionId?: string) => void;
   isPluginLoaded: (pluginId: string) => boolean;
-  getFileRoot: (sessionId?: string) => Promise<string | null>;
+  getFileRoots: (sessionId?: string) => Promise<readonly string[]>;
   getScratchDir?: (sessionId?: string) => string | null;
   onState: (state: BrowserState) => void;
   onRevealView?: (sessionId: string, tabId?: string) => void;
@@ -349,9 +349,9 @@ export class BrowserHost {
         throw error;
       }
     };
-    let root: string | null;
+    let roots: readonly string[];
     try {
-      root = await this.deps.getFileRoot(page.sessionId || undefined);
+      roots = await this.getFileRoots(page.sessionId || undefined);
     } catch (error) {
       if (!current()) return null;
       assertVisible();
@@ -366,7 +366,7 @@ export class BrowserHost {
     assertVisible();
     let state: BrowserState | null;
     try {
-      state = await page.pane.navigateAndWait(target, root);
+      state = await page.pane.navigateAndWait(target, roots);
     } catch (error) {
       if (!current()) return null;
       page.navigating = false;
@@ -460,7 +460,11 @@ export class BrowserHost {
   }
 
   /** The renderer-created resource tab is the preview's only navigation owner. */
-  async previewWorkspaceFile(_sessionId: string, _path: string, _root: string): Promise<{ ok: true } | { ok: false; content: string }> {
+  getFileRoots(sessionId?: string): Promise<readonly string[]> {
+    return this.deps.getFileRoots(sessionId);
+  }
+
+  async previewFile(): Promise<{ ok: true } | { ok: false; content: string }> {
     if (!this.deps.isPluginLoaded(BROWSER_PLUGIN_ID)) return {
       ok: false, content: "BrowserPreview: the Browser plugin is disabled. Enable pi.browser in Plugins to preview HTML.",
     };

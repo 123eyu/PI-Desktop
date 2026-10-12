@@ -3156,7 +3156,7 @@ Do not invent objections or turn speculative risks into blockers. Stop when the 
       if (scheduledToolDescriptions[toolName]) return scheduledToolDescriptions[toolName];
       switch (toolName) {
         case "BrowserPreview":
-          return "Open a workspace HTML file in PI-Desktop's built-in browser panel. `path` is workspace-relative (e.g. \"demo/index.html\"). The preview live-reloads on later edits to the file or its sibling assets, so call once per page.";
+          return "Open an HTML file in PI-Desktop's built-in browser panel. `path` may be relative to a project folder or this session's scratch directory, or an absolute path inside those roots. No project is required for scratch previews. The preview live-reloads on later edits to the file or its sibling assets, so call once per page.";
         case "Read":
           return (
             "Read a bounded window from an existing regular text file, never a directory. " +
@@ -3222,7 +3222,7 @@ Do not invent objections or turn speculative risks into blockers. Stop when the 
         ),
       },
       BrowserPreview: {
-        path: pathParam("File to preview; workspace-relative."),
+        path: pathParam("File to preview inside the session's project folders or scratch directory."),
         file_path: aliasParam("path"),
       },
       Glob: {

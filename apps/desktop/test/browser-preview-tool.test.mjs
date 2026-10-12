@@ -53,10 +53,9 @@ test("main serves BrowserPreview from its originating session workspace", () => 
     mainSource.indexOf("sidecar = s;"),
   );
   assert.match(handler, /async \(\{ args, sessionId \}\)/);
-  assert.match(handler, /host\?\.call\("session\.get", \{ id: sessionId \}\)/);
-  assert.match(handler, /res\?\.session\?\.projectPath/);
+  assert.match(handler, /browserHost\.getFileRoots\(sessionId\)/);
   assert.doesNotMatch(handler, /workspace\.get/);
-  assert.match(handler, /browserHost\.previewWorkspaceFile\(sessionId, raw, root\)/);
+  assert.match(handler, /browserHost\.previewFile\(\)/);
   assert.ok(
     handler.indexOf("resolveLocalFile(raw, root)") <
       handler.indexOf("sendToRenderer(IPC.event.browserPreview"),
@@ -64,7 +63,7 @@ test("main serves BrowserPreview from its originating session workspace", () => 
   assert.doesNotMatch(handler, /browserPane\.navigate/);
   assert.match(
     handler,
-    /sendToRenderer\(IPC\.event\.browserPreview, \{\s*sessionId,\s*path: raw,\s*\}\)/,
+    /sendToRenderer\(IPC\.event\.browserPreview, \{\s*sessionId,\s*path: file,\s*\}\)/,
   );
   assert.match(protocolSource, /browserPreview: "pi-desktop\/browser\/event\/preview"/);
 });

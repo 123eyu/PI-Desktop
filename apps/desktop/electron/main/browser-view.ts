@@ -14,7 +14,7 @@ import { isAllowedHttpUrl, parseAllowedExternalUrl } from "./safe-open-external"
  * the active panel surface or a blocking overlay opens (the view always
  * composites above renderer content).
  *
- * Besides http(s) URLs, the pane renders HTML files inside the workspace
+ * Besides http(s) URLs, the pane renders HTML files inside session-owned roots
  * (agent-generated pages) with live reload: the loaded file's directory is
  * watched so edits to the page or its sibling assets refresh the preview.
  */
@@ -99,7 +99,7 @@ export class BrowserPane {
   private capturing = false;
   private captureTail: Promise<void> = Promise.resolve();
   private onState: (state: BrowserState) => void;
-  private fileRoot: string | null = null;
+  private fileRoots: readonly string[] = [];
   private watcher: FSWatcher | null = null;
   private watchedDir: string | null = null;
   private reloadTimer: NodeJS.Timeout | null = null;
@@ -191,18 +191,19 @@ export class BrowserPane {
     this.nativeNavigationPending = false;
   }
 
-  navigate(raw: string, fileRoot: string | null = null): BrowserState | null {
-    void this.navigateAndWait(raw, fileRoot);
+  navigate(raw: string, fileRoots: string | readonly string[] | null = null): BrowserState | null {
+    void this.navigateAndWait(raw, fileRoots);
     return this.getState();
   }
 
   async navigateAndWait(
     raw: string,
-    fileRoot: string | null = null,
+    fileRoots: string | readonly string[] | null = null,
     timeoutMs = 15_000,
   ): Promise<BrowserState | null> {
-    if (fileRoot) this.fileRoot = fileRoot;
-    const localPath = resolveLocalFile(raw, this.fileRoot);
+    this.fileRoots = typeof fileRoots === "string" ? [fileRoots] : fileRoots ?? [];
+    const localPath = this.fileRoots.map((root) => resolveLocalFile(raw, root))
+      .find((path) => path !== null);
     const localInput = /^file:/i.test(raw.trim()) || isAbsolute(raw.trim());
     const target = localPath
       ? pathToFileURL(localPath).toString()
@@ -415,12 +416,7 @@ export class BrowserPane {
   }
 
   private isAllowedFileUrl(url: string): boolean {
-    if (!this.fileRoot) return false;
-    try {
-      return isWithinRoot(resolve(fileURLToPath(url)), this.fileRoot);
-    } catch {
-      return false;
-    }
+    return this.fileRoots.some((root) => resolveLocalFile(url, root) !== null);
   }
 
   private ensureView(): WebContentsView {
@@ -459,7 +455,7 @@ export class BrowserPane {
         return;
       }
       // Relative links inside a previewed page may point at sibling files;
-      // anything escaping the workspace root stays blocked.
+      // anything escaping the session's project/scratch roots stays blocked.
       if (/^file:/i.test(url) && this.isAllowedFileUrl(url)) {
         this.nativeNavigationPending = this.hasCurrentStateEventScope();
         return;

@@ -1809,9 +1809,15 @@ Command sources:
 
 Work panel channels are Electron-main implementations. User-driven workspace
 operations resolve the visible root from `workspace.get` and fail closed
-without one. Agent-driven BrowserPreview routing resolves the originating
-conversation through `session.get`, so a background preview never inherits the
-visible session's workspace.
+without one. Browser navigation and Agent-driven BrowserPreview resolve the
+owning conversation through `session.get`, allowing its project-group folders
+and its own `<data_dir>/scratch/<sessionId>` directory. A temporary conversation
+needs no workspace to preview its generated HTML. A missing session fails
+explicitly; a background preview never inherits the visible session's roots.
+BrowserPreview emits the validated absolute path to the existing resource-tab
+owner. Realpath containment applies to initial and in-page local navigation.
+Other sessions' scratch files and attachments do not gain execution permission
+from their separate read-only file-reference access.
 
 ### workspace
 
@@ -1873,6 +1879,8 @@ Renderer IPC kept for the Plan-safe preview facade and URL fallback:
 - `fs/resolveRef({ref, sessionId?})` → `FsChatRefResolveResult`
   (`{ match: FsChatRefMatch | null, reason?: "outside-allowed-roots" }`, the match naming the answering `root`
   (`workspace` / `scratch` / `attachments`), the `relativePath` relative to that
+  root, optional `sessionScratch: true` for the current session's own scratch
+  (not the wider read-only scratch containment store), the
   root, the absolute `absolutePath`, `matchedBy` (`exact-relative` /
   `exact-absolute` / `path-suffix` / `basename`), and — for a `workspace` match
   — `projectRoot` (`{ path, name, primary }`), which names the project folder
