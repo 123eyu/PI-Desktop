@@ -10,8 +10,9 @@ Use a Desktop and Host bundle built from the same candidate.
 
 1. Open **Settings → Remote Hosts (Experimental)**. Developer mode is not required.
 2. Add an SSH host using your existing SSH key/configuration, or password where
-   supported. Bootstrap downloads the same-version platform bundle and verifies
-   the published checksum. The server needs Node and outbound release access.
+   supported. Remote download is preferred; only a classified download failure
+   permits one bounded, locally verified upload. New bundles include Node 22+
+   and do not require remote Node or outbound release access.
 3. Return to Chat home and open **Create project**. Choose the connected Host,
    open the directory-selection dialog, and choose or enter the remote directory.
    Name the project locally, exactly as for a local project.
@@ -28,8 +29,8 @@ configuration, project registration and session creation are not prerequisites.
 Legacy remote-Agent histories still use their original backend. Trusted-extension
 model providers remain local; an extension workspace `pi.exec` needs a remote
 adapter and currently fails explicitly, while a local model helper can specify
-its local cwd. Remote terminal and legacy session features retain their existing
-capability boundaries. This is not full R2 acceptance.
+its local cwd. There is no interactive terminal UI (ADR 0108); local Agent Bash
+commands still run against the remote workspace. This is not full R2 acceptance.
 
 **Release prerequisite:** automatic SSH install uses published release assets.
 Building this branch does not update an existing release. Publish a matching
@@ -48,6 +49,7 @@ cargo build -p host-core --locked
 node apps/pi-host/scripts/bundle.mjs --host-core "$PWD/target/debug/pi-desktop-host-core" --out "$PWD/apps/pi-host/dist-bundle/candidate"
 PI_HOST_E2E_BUNDLE="$PWD/apps/pi-host/dist-bundle/candidate" node scripts/e2e-remote-mvp.mjs
 node scripts/e2e-remote-mvp-ui.mjs
+PI_HOST_CORE_BINARY="$PWD/target/debug/pi-desktop-host-core" node scripts/e2e-local-agent-remote-tools.mjs
 ```
 
 Set `--out <directory>` to place the Host bundle elsewhere, and use the actual

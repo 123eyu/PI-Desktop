@@ -15,10 +15,12 @@ on Desktop, with the remote machine executing tools only.
 ## Decision
 
 Keep the Agent runtime, provider resolution, credentials, model requests,
-transcripts, project names, project instructions, project memory and sessions
-on Desktop. Extend the existing Rust-owned logical project-group KV boundary
-with a remote workspace binding. An opaque project identity selects the group;
-the actual remote path is never interpreted as a local filesystem path.
+transcripts, project names, project-group instructions, project memory and
+sessions on Desktop. Root repository instructions are read from the remote
+workspace and merged after local global defaults, without remote HOME defaults
+or nested traversal. Extend the existing Rust-owned logical project-group KV
+boundary with a remote workspace binding. An opaque project identity selects
+the group; the actual remote path is never interpreted as a local filesystem path.
 
 After the normal local permission and execution-admission gates, host-core
 relays supported workspace tools through Electron Main to the paired Host.
@@ -70,3 +72,10 @@ from a local directory before filesystem access. Execution has cancellation and
 cleanup owners on both sides, and permission approval stays on Desktop.
 Validation must include a local model fixture and a real remote tool boundary,
 plus project rename/restart isolation and cancelled/disconnected calls.
+
+[ADR 0326](0326-verified-ssh-host-installation.md) defines verified install and
+separate daily startup. The additive `workspace/files` instructions operation
+returns root repository entries only. A lost mutation reply is explicitly
+`REMOTE_MUTATION_OUTCOME_UNKNOWN`, non-retriable; it requires inspection, not
+automatic re-execution. Real Linux SSH and matching new release publication
+remain independent qualification gates.

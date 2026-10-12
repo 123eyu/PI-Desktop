@@ -14638,12 +14638,11 @@ browser milestones are scheduled.
   while idle, then attempt it while a turn runs. 6) Open the files tab and the
   diff tab for the remote session. 7) Advertise relay from the desktop, run a
   turn that calls the desktop MCP tool, then close the desktop during a
-  second call. 8) Open a terminal on the remote session and run a command.
-  9) Kill the SSH session mid-turn with the terminal open, restore it, and
-  let the desktop reconnect. 10) Inspect the remote tool catalog. 11) Attempt
-  to connect from a non-loopback address on the remote machine, then with a
-  reused pairing token. 12) Point the bootstrap at the tampered bundle, then
-  at the other version, and reconnect.
+  second call. 8) Kill the SSH session mid-turn, restore it, and let the desktop
+  reconnect. 9) Inspect the remote tool catalog. 10) Attempt to connect from a
+  non-loopback address on the remote machine, then with a reused pairing token.
+  11) Point the bootstrap at the tampered bundle, then at the other version,
+  and reconnect.
 - **Expected**: Files change only on the remote machine and the command runs
   there; the approval card appears in the desktop with the local vocabulary;
   the remote host-core binds loopback only; `session/configure` succeeds while
@@ -14651,16 +14650,12 @@ browser milestones are scheduled.
   remote session root and a path outside it returns
   `PATH_OUTSIDE_WORKSPACE`; the desktop MCP tool executes on the desktop and
   its result reaches the remote transcript, while the second call fails with
-  `TOOL_FAILED` and the turn continues; the terminal runs on the remote
-  machine inside the session root; the turn continues through the SSH drop,
-  the desktop resumes by cursor without a duplicate, and the terminal output
-  resumes from the replay ring; the remote catalog lists the relayed MCP tool
-  but not the workspace-requiring plugin tool; the non-loopback peer and the
-  reused pairing token are rejected; the tampered bundle is refused before
-  start with a Settings toast that names the checksum failure rather than a
-  bare SSH exit code; a refused SSH login surfaces ssh's last stderr line in
-  that toast; the version mismatch returns `PROTOCOL_MISMATCH` and offers the
-  re-download; and the local session is untouched throughout.
+  `TOOL_FAILED` and the turn continues; reconnect resumes by cursor without a
+  duplicate. The remote catalog lists the relayed MCP tool but not the
+  workspace-requiring plugin tool. Non-loopback peers and reused pairing tokens
+  are rejected. Tampered bundles are refused before start; SSH login failures
+  are surfaced safely; version mismatch offers a matching-release recovery.
+  The local session is untouched throughout.
 - **Specs linked**: `02-architecture/05-remote-agent-control.md` §§5.2 and
   6.3, `03-runtime/19-remote-agent-control-protocol.md` §§6.2, 9.4, and
   11.1, `05-security/02-remote-control-security.md` §§3.4, 4.3, 5.1, and 7,
@@ -14668,6 +14663,42 @@ browser milestones are scheduled.
 - **Acceptance**: E (tools & permissions), Security, Recovery, Quality
 - **Milestone**: Post-MVP (rollout R2)
 - **Status**: Draft; remote harness with a Linux SSH target required
+
+#### E2E-REMOTE-SSH-OPTIMIZATION: Verified deployment, local Agent and recovery
+
+- **Preconditions**: Isolated Desktop profile and a Linux x64/arm64 SSH target
+  with `sshd`, POSIX shell, archive/hash tools and kernel `flock`; no system Node,
+  systemd, public listener, production credential or paid model. A controlled
+  release fixture serves a matching Host archive and digest.
+- **Steps**: Install through SSH with remote download; repeat bootstrap and verify
+  immutable installed files are reused. In a separate isolated account, block
+  remote release access and verify one bounded Desktop-download/SSH-upload path.
+  Corrupt the archive and alter an installed file; verify integrity failures do
+  not fall back or replace a working install. Reboot/kill the Host and repeat
+  readiness; rotate Host identity and revoke a device token. Create a local
+  project bound to the remote workspace, use local model credentials and remote
+  `AGENTS.md` with local global instructions, then run Read and permissioned Bash.
+  Drop SSH during Write and inspect the remote file before any manual retry.
+  Exercise offline project browsing and the Settings connection status labels.
+- **Expected**: Bundled Node starts the Host without a system Node or remote
+  release access. Reuse validates the external release receipt and installed
+  manifest; failed staging leaves the previous `current` intact. Daily readiness
+  starts/reuses the same Host without re-pairing, resetting credentials, killing
+  another client’s Host or replaying tools. Identity/authentication failures stop
+  automatic retry. Local model requests, API keys, sessions and permissions stay
+  local; workspace tools/files and root-only repository instructions come from
+  the remote canonical root. A lost mutation reply reports
+  `REMOTE_MUTATION_OUTCOME_UNKNOWN` and is not replayed or executed locally.
+- **Automation**: `remote-host-supervisor.test.mjs`, SSH bootstrap shell,
+  packaging, artifact transfer, concurrent readiness/auth lifecycle and UI
+  contract suites; `PI_HOST_CORE_BINARY=<candidate binary> node
+  scripts/e2e-local-agent-remote-tools.mjs` covers local model/instructions
+  through real loopback RACP and Rust Read/Bash, but is not SSH qualification.
+- **Acceptance**: Security, Recovery, Quality; release remains gated on the
+  real Linux SSH run and a new matching Desktop/Host release. This scenario does
+  not claim reverse-relay, interactive-terminal or complete R2 acceptance.
+- **Status**: Candidate implementation; Linux SSH and release qualification
+  pending.
 
 #### E2E-REMOTE-HOST-ssh-password-authentication
 

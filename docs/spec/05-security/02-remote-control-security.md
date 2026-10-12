@@ -149,11 +149,25 @@ pairing only binds a desktop device to the Host it started.
   device as `owner` of that Host.
 - The Host binds loopback only and accepts a device token only from a
   loopback peer; a non-loopback bind requires TLS and the same device token.
-- The bootstrap script, uploaded over SSH, downloads the `pi-host` bundle for
-  the remote platform at the desktop's version from GitHub Releases, verifies
-  the SHA-256 published with the release, and installs it under the user's
-  home; the desktop never uploads executable bytes itself. A machine without
-  outbound access to GitHub cannot be bootstrapped in the first version.
+- Resolve the same-version published target and trusted release SHA-256 over
+  HTTPS. Prefer remote download; only `download-failed` permits one bounded
+  Desktop download, local verification and SSH upload of the same artifact.
+  Authentication, integrity and version failures MUST NOT authorize fallback.
+  Remote verification precedes extraction/install on either path. This limited
+  executable-upload exception amends the original prohibition under
+  [ADR 0326](../../adr/0326-verified-ssh-host-installation.md); it does not permit
+  arbitrary executable uploads or bypass SSH host-key checks. SHA-256 is relative
+  to the trusted release, not an independent signature-verification scheme.
+- New bundles include native Node >=22 and `SHA256SUMS`. Stage privately, reject
+  unsafe manifest entries and special files, verify installed files, and switch
+  content-addressed `current` atomically under deployment/install locks. Reuse
+  requires an external receipt matching version, archive digest and manifest
+  digest plus read-only file verification; version equality alone is insufficient.
+  System Node and remote GitHub access are not required for new bundles, but
+  supported Linux ABI, POSIX/hash/archive tools and Linux `flock` still are.
+- Daily readiness MUST NOT reinstall, re-pair or reset credentials. Validate
+  loopback readiness/version and saved Host ID before forwarding, then validate
+  the RACP identity. A legacy descriptor without Host ID remains readable.
 - Revoking the device token on the Host, or removing the Host from the
   desktop, ends the pairing; a new pairing needs a new SSH bootstrap.
 - Provider configuration is copied only after explicit selection and consent,
@@ -221,6 +235,20 @@ Remote paths never reach local attachment hydration, local instruction filesyste
 resolution or mutation realpath probes. Trusted extensions still register local
 model providers. Their implicit workspace `pi.exec` is rejected for a remote root;
 local provider helpers must explicitly supply a local working directory.
+
+Root repository instructions are returned by owner-only `workspace/files`
+`operation: "instructions"`, bounded to 32 KiB of UTF-8 file content plus an
+explicit truncation notice. Selection is root-only in recognized-name precedence,
+and a symlink escaping the root is skipped. Desktop validates the response and
+merges it after local global defaults; remote HOME defaults and nested directory
+traversal are excluded. Instruction text is untrusted repository data, not a grant
+of tool, filesystem or credential authority.
+
+Loss of a Write/Edit/Bash transport reply yields the Desktop-side
+`REMOTE_MUTATION_OUTCOME_UNKNOWN` error with `retriable: false`, not an automatic
+retry or a rollback claim. Readiness for browse/files does not replay tools.
+Remote picker and Settings errors use allowlisted localized categories rather
+than raw SSH stderr, tokens, password/private-key paths or forwarded URLs.
 
 ## 4. Authorization model
 

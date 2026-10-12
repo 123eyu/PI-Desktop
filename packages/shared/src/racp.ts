@@ -105,7 +105,7 @@ export type RacpRequestContext = Static<typeof RacpRequestContextSchema>;
 
 export const WorkspaceFilesRequestSchema = Type.Object({
   path: Type.String({ minLength: 1, maxLength: 4096 }),
-  operation: Type.Union([Type.Literal("list"), Type.Literal("read"), Type.Literal("index"), Type.Literal("resolve"), Type.Literal("image"), Type.Literal("diff")]),
+  operation: Type.Union([Type.Literal("list"), Type.Literal("read"), Type.Literal("index"), Type.Literal("resolve"), Type.Literal("image"), Type.Literal("diff"), Type.Literal("instructions")]),
   ref: Type.Optional(Type.String({ maxLength: 4096 })),
   mimeType: Type.Optional(Type.String({ maxLength: 256 })),
 }, { additionalProperties: false });
