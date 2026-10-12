@@ -5633,6 +5633,7 @@ eleven-tool-round desktop paths are verified by
 | B / F / Security — 提供商复制 | E2E-PROVIDER-copy-config-without-credentials |
 | B / F / Quality — 已选模型顺序 | E2E-MODEL-selected-order-persists |
 | E / F / Quality — MCP 服务器超时覆盖 | E2E-261 |
+| C / D / Quality — 折叠项目后重置会话历史 | E2E-263 |
 | A — 应用程序启动 | E2E-001、E2E-002、E2E-003、E2E-004、E2E-067、E2E-076、E2E-079、E2E-092、E2E-097、E2E-143、E2E-150、E2E-168、E2E-204、E2E-217 |
 | B——模型配置 | E2E-005、E2E-005G、E2E-006、E2E-007、E2E-038、E2E-050、E2E-052、E2E-055、E2E-066、E2E-080、E2E-082、E2E-151、E2E-005J、E2E-199、E2E-201、E2E-202、E2E-203、E2E-209、E2E-166 |
 | C — 对话和直播 | E2E-CHAT-running-status-survives-output-pauses、E2E-008、E2E-008d、E2E-008a、E2E-009、E2E-010、E2E-011、E2E-011a、E2E-011b、E2E-031、E2E-040、E2E-047、E2E-048、E2E-048c、E2E-048A、E2E-049、E2E-052、 E2E-053、E2E-054、E2E-055、E2E-059、E2E-059a、E2E-060c、E2E-060d、E2E-061、E2E-061a、E2E-062、E2E-064、E2E-065、E2E-068、E2E-071、 E2E-073、E2E-074、E2E-075、E2E-081、E2E-083、E2E-084、E2E-086、E2E-087、E2E-088、E2E-088b、E2E-089、E2E-090、E2E-094、E2E-095、E2E-096、 E2E-097、E2E-098、E2E-099、E2E-102、E2E-102a、E2E-102b、E2E-106、E2E-109、E2E-111、E2E-114、E2E-116、E2E-117、E2E-118、E2E-119、 E2E-120、E2E-121、E2E-代理-001、E2E-142、E2E-144、E2E-145、E2E-146、E2E-147、E2E-151、E2E-199、E2E-250、E2E-166、E2E-SUBAGENT-resume-a-settled-delegation |
@@ -9480,6 +9481,16 @@ Follow the [current S3 acceptance scenario](/spec/06-delivery/04-e2e-test-plan#e
 - **预期：** 即使文件管理器视图可用，带位置的引用仍打开宿主只读文件选项卡。文件请求保留行列号，查看器滚动到视口中间的目标行；打开路径和文件内容与引用目标一致。
 - **规格：** `04-ux/08` §11.8；ADR 0262。
 - **状态：** `node scripts/e2e-file-ref-line-scroll.mjs` 在隔离 Electron 中挂载生产 `LinkifiedText` 与 `FilesTab`，并通过文件系统 IPC fixture 提供文件内容；不访问真实项目文件或模型服务。
+
+#### E2E-263：折叠项目后重置已加载的会话历史
+
+- **前提：** 侧边栏中保留一个至少有 12 条未置顶会话的项目，并可展开该项目组。
+- **步骤：** 1. 展开项目，确认最新的 10 条会话和“加载更多”控件可见。2. 点击“加载更多”，确认 12 条会话全部显示。3. 折叠项目后再次展开。4. 检查显示的会话和“加载更多”数量。
+- **预期：** 重新展开项目后只显示最新的 10 条未置顶会话，“加载更多”显示剩余的 2 条。折叠只清除该项目已加载更多的状态；会话选择和其他项目组不变。
+- **规格：** `04-ux/08-component-spec.md` §3.9；`04-ux/09-interaction-patterns.md` §1.6。
+- **验收：** C / D / Quality。
+- **里程碑：** MVP 后维护。
+- **覆盖：** `scripts/e2e/sidebar-row-states.mjs` 使用 Host fixture 项目和真实 CDP 指针点击验证完整用户流程。`sidebar-project-sessions.test.mjs` 覆盖初始页面、加载更多、折叠重置和项目隔离；`app-store-sidebar.test.mjs` 验证侧边栏折叠与加载更多使用对应状态转换。
 
 ### 导入扩展时发现 GUI 环境下的可执行文件回归（#1173）
 
