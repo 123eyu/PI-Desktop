@@ -14699,6 +14699,9 @@ browser milestones are scheduled.
   `AGENTS.md` with local global instructions, then run Read and permissioned Bash.
   Drop SSH during Write and inspect the remote file before any manual retry.
   Exercise offline project browsing and the Settings connection status labels.
+  Repoint the fixture release so the paired Host no longer matches the desktop,
+  then select a remote folder and verify the Host is realigned over the same
+  verified install, re-paired in place and connected without removing it.
 - **Expected**: Bundled Node starts the Host without a system Node or remote
   release access. Reuse validates the external release receipt and installed
   manifest; failed staging leaves the previous `current` intact. Daily readiness
@@ -14707,8 +14710,13 @@ browser milestones are scheduled.
   automatic retry. Local model requests, API keys, sessions and permissions stay
   local; workspace tools/files and root-only repository instructions come from
   the remote canonical root. A lost mutation reply reports
-  `REMOTE_MUTATION_OUTCOME_UNKNOWN` and is not replayed or executed locally.
-- **Automation**: `remote-host-supervisor.test.mjs`, SSH bootstrap shell,
+  `REMOTE_MUTATION_OUTCOME_UNKNOWN` and is not replayed or executed locally. A
+  Host that falls behind the desktop release is realigned over the same verified
+  install and re-paired in place — once per release per host, and again on an
+  explicit user reconnect — while a Host that still cannot serve this desktop
+  keeps the upgrade message instead of looping or dropping the pairing.
+- **Automation**: `remote-host-realign.test.mjs`,
+  `remote-host-supervisor.test.mjs`, SSH bootstrap shell,
   packaging, artifact transfer, concurrent readiness/auth lifecycle and UI
   contract suites; `PI_HOST_CORE_BINARY=<candidate binary> node
   scripts/e2e-local-agent-remote-tools.mjs` covers local model/instructions

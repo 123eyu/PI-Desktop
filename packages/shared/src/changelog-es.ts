@@ -18,6 +18,7 @@ export const esEntries: ChangelogEntry[] = [
       "Los plugins pueden inspeccionar o rechazar redirecciones de red; las llamadas fetch existentes siguen las redirecciones de forma predeterminada.",
       "Detén un subagente en ejecución desde su tarjeta o panel de detalles, o todos los de la sesión actual, sin detener al coordinador.",
       "Consulta la duración total de la sesión, el tiempo acumulado de respuesta del modelo y su proporción en el panel de uso del contexto.",
+      "Un Host remoto emparejado que se queda atrás respecto a la versión de escritorio ahora se actualiza mediante la misma instalación SSH verificada y se vuelve a emparejar en el mismo lugar, en lugar de solo pedirle que lo actualice.",
     ],
   },
   {

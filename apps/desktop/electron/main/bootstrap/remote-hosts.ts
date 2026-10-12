@@ -14,6 +14,7 @@ import type { HostRpcPort } from "@pi-desktop/agent-host";
 import type { BackendRouter } from "../remote/backend-router.js";
 import { makeRemoteSessionId, parseRemoteSessionId } from "../remote/backend-router.js";
 import { createRacpRemoteHostClient, exchangePairingToken, type RacpRemoteHostClient } from "../remote/racp-remote-host-client.js";
+import { createRemoteHostRealigner, type RemoteHostRealignResult } from "../remote/remote-host-realign.js";
 import { createSshBootstrap, type SshBootstrapDeps } from "../remote/ssh-bootstrap.js";
 import { createSshTunnelManager, type SshTunnelManager } from "../remote/ssh-tunnel.js";
 import { createRemoteHostConnection, type RemoteHostConnection } from "../remote/remote-host-connection.js";
@@ -88,6 +89,30 @@ function requiresUserAction(error: unknown): boolean {
   const fields = error as { errorCode?: string; code?: string };
   return ["HOST_AUTH_FAILED", "REMOTE_AUTH_FAILED", "HOST_VERSION_MISMATCH", "CAPABILITY_UNAVAILABLE"]
     .includes(fields.errorCode ?? fields.code ?? "");
+}
+
+/** The one failure that a version realignment can fix (ADR 0327). */
+function isHostVersionMismatch(error: unknown): boolean {
+  if (!error || typeof error !== "object") return false;
+  const fields = error as { errorCode?: string; code?: string };
+  return (fields.errorCode ?? fields.code ?? "") === "HOST_VERSION_MISMATCH";
+}
+
+/**
+ * A paired Host can run the right release and still predate the additive
+ * workspace services a remote project needs — the bundle is reused by release
+ * receipt, not by the capabilities it happens to contain. The handshake is the
+ * only place that is observable, so it is checked once per connect rather than
+ * on every `workspace/*` call. Adapters that report no capabilities (tests,
+ * legacy callers) are left alone.
+ */
+function assertWorkspaceCapabilities(adapter: RacpRemoteHostClient): void {
+  const capabilities = adapter.workspaceCapabilities?.();
+  if (!capabilities || (capabilities.workspaceTools && capabilities.workspaceFiles)) return;
+  throw Object.assign(
+    new Error("the remote Host predates the workspace tools and files this Desktop release requires"),
+    { errorCode: "HOST_VERSION_MISMATCH", retriable: false },
+  );
 }
 
 export function createRemoteHostsBoot(options: BootRemoteHostsOptions): RemoteHostsBoot {
@@ -165,6 +190,19 @@ export function createRemoteHostsBoot(options: BootRemoteHostsOptions): RemoteHo
     log, ...options.sshBootstrap,
   });
 
+  /**
+   * Re-provision one paired Host onto this desktop's release, in place. It
+   * reuses the verified bootstrap the pairing path uses, so the artifact must
+   * still match the published SHA-256 and pass the installed manifest check;
+   * only the trigger differs (ADR 0327).
+   */
+  const realigner = createRemoteHostRealigner({
+    version: options.clientInfo.version,
+    bootstrap: (request, execOptions) => bootstrap.bootstrap(request, execOptions),
+    upsert: (record) => registry.upsert(record),
+    log,
+  });
+
   function closeHost(host: OpenHost): Promise<void> {
     const existing = hostClosings.get(host);
     if (existing) return existing;
@@ -183,13 +221,20 @@ export function createRemoteHostsBoot(options: BootRemoteHostsOptions): RemoteHo
     opened.delete(key);
     if (host) await closeHost(host);
   }
-  async function openHost(record: RemoteHostRecord): Promise<OpenHost> {
+  async function openHostOnce(record: RemoteHostRecord): Promise<OpenHost> {
     assertOpen();
     const ssh = sshMetadataOf(record);
     if (record.metadata?.transport === "ssh" && !ssh) {
       throw Object.assign(new Error("invalid SSH host metadata"), { errorCode: "INVALID_ARGUMENT" });
     }
-    const url = ssh ? (await tunnels.open(record.hostKey, ssh, record.sshSecret)).url : record.url;
+    // Readiness compares the running Host against the release this desktop
+    // expects, not the version recorded at pairing time: a stale descriptor
+    // must not mask a Host that is behind, which is the case realignment
+    // repairs.
+    const expected = ssh ? { ...ssh, version: options.clientInfo.version } : undefined;
+    const url = expected
+      ? (await tunnels.open(record.hostKey, expected, record.sshSecret)).url
+      : record.url;
     if (closed) { await tunnels.close(record.hostKey); throw unavailable(); }
     const adapter = buildAdapter({ ...record, url });
     const connection = createRemoteHostConnection({
@@ -209,6 +254,7 @@ export function createRemoteHostsBoot(options: BootRemoteHostsOptions): RemoteHo
       opened.set(record.hostKey, live);
       await adapter.connect();
       assertOpen();
+      assertWorkspaceCapabilities(adapter);
       await connection.open();
       assertOpen();
       opened.set(record.hostKey, live);
@@ -222,6 +268,61 @@ export function createRemoteHostsBoot(options: BootRemoteHostsOptions): RemoteHo
       throw error;
     } finally {
       openingHosts.delete(live);
+    }
+  }
+
+  /**
+   * Re-provision a paired Host onto this desktop's release and re-pair it in
+   * place. `force` is the user's explicit reconnect, which must not be silently
+   * throttled. Returns the refreshed record, or `null` when the attempt was not
+   * allowed or did not succeed.
+   */
+  async function realignHost(record: RemoteHostRecord, force: boolean): Promise<RemoteHostRecord | null> {
+    const decision = realigner.decide(record, { force });
+    if (decision !== "attempt") {
+      log("info", "remote host realignment not attempted", {
+        hostKey: record.hostKey, decision, version: options.clientInfo.version,
+      });
+      return null;
+    }
+    log("info", "remote host realignment started", {
+      hostKey: record.hostKey, version: options.clientInfo.version,
+    });
+    assertOpen();
+    await closeLive(record.hostKey);
+    await tunnels.close(record.hostKey);
+    assertOpen();
+    const controller = new AbortController();
+    const task = realigner.realign(record, { force, signal: controller.signal });
+    bootstraps.set(controller, task);
+    let result: RemoteHostRealignResult | null;
+    try { result = await task; }
+    finally { bootstraps.delete(controller); }
+    if (!result) return null;
+    try {
+      assertOpen();
+      await tunnels.adopt(record.hostKey, result.outcome.ssh, result.outcome.forward);
+    } catch (error) {
+      // `adopt` never took ownership, so this call still owns the forward.
+      await result.outcome.forward.close().catch(() => undefined);
+      throw error;
+    }
+    return result.record;
+  }
+
+  /**
+   * Open one host, and when it is refused for its version, bring it up to this
+   * release and open it again. A second failure is surfaced unchanged: a
+   * realignment that cannot help must never hide the reason the user sees.
+   */
+  async function openHost(record: RemoteHostRecord, forceRealign = false): Promise<OpenHost> {
+    try {
+      return await openHostOnce(record);
+    } catch (error) {
+      if (closed || !isHostVersionMismatch(error)) throw error;
+      const realigned = await realignHost(record, forceRealign);
+      if (!realigned) throw error;
+      return await openHostOnce(realigned);
     }
   }
   function summaryOf(record: RemoteHostRecord): RemoteHostSummary {
@@ -392,7 +493,9 @@ export function createRemoteHostsBoot(options: BootRemoteHostsOptions): RemoteHo
       if (!record) throw unavailable();
       await closeLive(key);
       await tunnels.close(key);
-      await openHost(record);
+      // An explicit reconnect is the user asking again, so it may realign a
+      // Host the automatic throttling has already given up on for this release.
+      await openHost(record, true);
       return summaryOf(record);
     }),
     async bootstrapHost(request) {

@@ -18,6 +18,7 @@ export const deEntries: ChangelogEntry[] = [
       "Plugins können Netzwerkweiterleitungen prüfen oder ablehnen; bestehende Fetch-Aufrufe folgen Weiterleitungen weiterhin standardmäßig.",
       "Stoppen Sie einen laufenden Unteragenten direkt über seine Karte oder Detailansicht oder alle Unteragenten der aktuellen Sitzung, ohne den Hauptagenten zu stoppen.",
       "Sehen Sie die gesamte Sitzungsdauer, die kumulierte Modellantwortzeit und deren Anteil an der Sitzung im Kontextverbrauchsfenster.",
+      "Ein gekoppelter entfernter Host, der hinter der Desktop-Version zurückbleibt, aktualisiert sich jetzt über dieselbe verifizierte SSH-Installation und wird an Ort und Stelle neu gekoppelt, statt Sie nur zum Aktualisieren aufzufordern.",
     ],
   },
   {

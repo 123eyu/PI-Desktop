@@ -18,6 +18,7 @@ export const frEntries: ChangelogEntry[] = [
       "Les plugins peuvent inspecter ou refuser les redirections réseau ; les appels fetch existants continuent de les suivre par défaut.",
       "Arrêtez un sous-agent en cours depuis sa carte ou ses détails, ou tous ceux de la session en cours, sans arrêter le coordinateur.",
       "Consultez la durée totale de la session, le temps de réponse cumulé du modèle et sa part dans le panneau d'utilisation du contexte.",
+      "Un Host distant appairé qui reste en retard sur la version du bureau se met désormais à niveau via la même installation SSH vérifiée et se réappaire sur place, au lieu de simplement vous demander de le mettre à jour.",
     ],
   },
   {
