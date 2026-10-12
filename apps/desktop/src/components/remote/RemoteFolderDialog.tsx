@@ -3,6 +3,7 @@ import { createPortal } from "react-dom";
 import { useTranslation } from "react-i18next";
 import type { RemoteHostBrowseProjectsResult } from "@pi-desktop/shared";
 import { api } from "../../lib/api";
+import { remoteHostErrorKey } from "../../lib/remote-host-errors";
 import { useBlockingOverlay } from "../../lib/blocking-overlay";
 import { Button, Field, Input, TooltipButton } from "../ui";
 import { IconChevronRight, IconClose, IconFolder } from "../icons";
@@ -35,7 +36,7 @@ export function RemoteFolderDialog({ hostKey, hostLabel, initialPath, onChoose, 
       setDirectory(result);
       setPath(result.path);
     } catch (error) {
-      if (request === generation.current) setError(error instanceof Error ? error.message : String(error));
+      if (request === generation.current) setError(t(remoteHostErrorKey(error)));
     } finally {
       if (request === generation.current) setBrowsing(false);
     }

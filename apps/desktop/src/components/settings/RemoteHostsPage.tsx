@@ -13,6 +13,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import type { RemoteHostSshAuth, RemoteHostSummary } from "@pi-desktop/shared";
 import { api } from "../../lib/api";
+import { remoteHostErrorKey } from "../../lib/remote-host-errors";
 import { useAppStore } from "../../stores/app-store";
 import { Badge, Button, Field, Input, PasswordInput, SegmentedControl, cx } from "../ui";
 import { RemoteHostSessions } from "./RemoteHostSessions";
@@ -26,6 +27,13 @@ type PairForm = {
 };
 
 const EMPTY_FORM: PairForm = { url: "", pairingToken: "", label: "" };
+
+function remoteHostStatusKey(host: RemoteHostSummary) {
+  if (host.status === "connecting") return "settings.remoteHosts.statusConnecting";
+  if (host.status === "reconnecting") return "settings.remoteHosts.statusReconnecting";
+  if (host.status === "action-required") return "settings.remoteHosts.statusActionRequired";
+  return host.connected ? "settings.remoteHosts.statusOnline" : "settings.remoteHosts.statusOffline";
+}
 
 type SshForm = {
   label: string;
@@ -73,10 +81,10 @@ export function RemoteHostsPage() {
       setError(null);
     } catch (caught) {
       if (!alive.current || generation !== refreshGeneration.current) return;
-      const message = caught instanceof Error ? caught.message : String(caught);
+      const message = t(remoteHostErrorKey(caught));
       setError(message);
     }
-  }, []);
+  }, [t]);
 
   useEffect(() => {
     alive.current = true;
@@ -93,7 +101,7 @@ export function RemoteHostsPage() {
       await api.reconnectRemoteHost(host.hostKey);
       if (alive.current) await refresh();
     } catch (caught) {
-      if (alive.current) setError(caught instanceof Error ? caught.message : String(caught));
+      if (alive.current) setError(t(remoteHostErrorKey(caught)));
     } finally {
       if (alive.current) setReconnecting(null);
     }
@@ -115,7 +123,7 @@ export function RemoteHostsPage() {
         setForm(EMPTY_FORM);
         await refresh();
       } catch (caught) {
-        const message = caught instanceof Error ? caught.message : String(caught);
+        const message = t(remoteHostErrorKey(caught));
         showToast(t("settings.remoteHosts.pairFailed", { message }), { variant: "error" });
       } finally {
         setPairing(false);
@@ -134,7 +142,7 @@ export function RemoteHostsPage() {
         });
         await refresh();
       } catch (caught) {
-        const message = caught instanceof Error ? caught.message : String(caught);
+        const message = t(remoteHostErrorKey(caught));
         showToast(t("settings.remoteHosts.removeFailed", { message }), { variant: "error" });
       } finally {
         setRemoving(null);
@@ -187,7 +195,7 @@ export function RemoteHostsPage() {
         setSshForm(EMPTY_SSH_FORM);
         await refresh();
       } catch (caught) {
-        const message = caught instanceof Error ? caught.message : String(caught);
+        const message = t(remoteHostErrorKey(caught));
         showToast(t("settings.remoteHosts.sshFailed", { message }), { variant: "error" });
       } finally {
         setInstalling(false);
@@ -239,15 +247,13 @@ export function RemoteHostsPage() {
                 <div className="settings-remote-host-name">{host.label}</div>
                 <div className="settings-remote-host-meta">
                   {host.transport === "ssh"
-                    ? `${t("settings.remoteHosts.transportSsh")} · ${host.url}`
+                    ? t("settings.remoteHosts.transportSsh")
                     : host.url}
                 </div>
               </div>
               <span className="settings-remote-host-card-actions">
-                <Badge tone={host.connected ? "success" : "neutral"}>
-                  {host.connected
-                    ? t("settings.remoteHosts.statusOnline")
-                    : t("settings.remoteHosts.statusOffline")}
+                <Badge tone={host.connected ? "success" : host.status === "action-required" ? "warning" : "neutral"}>
+                  {t(remoteHostStatusKey(host))}
                 </Badge>
                 <Button variant="secondary" onClick={() => setSelectedHost(host)}>
                   {remoteT("sessions")}

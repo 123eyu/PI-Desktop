@@ -305,6 +305,11 @@ export class RacpClient {
         this.transport = null;
         this.rejectPending(new RacpError("HOST_DISCONNECTED", "reconnect failed", { retriable: true }));
         transport?.close(1000, "reconnect failed");
+        const failure = toRacpError(error, "HOST_DISCONNECTED");
+        if (!failure.retriable) {
+          this.setState("error", failure);
+          return;
+        }
         this.setState("reconnecting");
       }
     }
@@ -330,6 +335,8 @@ export class RacpClient {
 
 function toRacpError(error: unknown, fallbackCode: string): RacpError {
   if (error instanceof RacpError) return error;
-  const code = (error as { errorCode?: string })?.errorCode ?? fallbackCode;
-  return new RacpError(code, error instanceof Error ? error.message : String(error), { retriable: true });
+  const fields = error && typeof error === "object" ? error as { errorCode?: string; retriable?: boolean } : undefined;
+  const code = fields?.errorCode ?? fallbackCode;
+  const retriable = fields?.retriable ?? !["HOST_AUTH_FAILED", "REMOTE_AUTH_FAILED", "HOST_VERSION_MISMATCH", "TOKEN_INVALID", "TOKEN_EXPIRED", "TOKEN_REVOKED"].includes(code);
+  return new RacpError(code, error instanceof Error ? error.message : String(error), { retriable });
 }

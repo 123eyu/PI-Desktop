@@ -69,3 +69,10 @@ test("the remote-hosts destination is marked experimental", () => {
   assert.doesNotMatch(page, /experimentalGateway/);
   assert.doesNotMatch(page, /SettingsCard/);
 });
+
+test("remote host inventory renders non-binary connection states with localized labels", () => {
+  assert.match(page, /statusConnecting/);
+  assert.match(page, /statusReconnecting/);
+  assert.match(page, /statusActionRequired/);
+  assert.match(page, /statusOffline/);
+});
