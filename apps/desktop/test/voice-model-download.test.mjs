@@ -81,13 +81,25 @@ test("a mid-stream source failure rejects and leaves neither the final file nor 
 
 test("an unwritable .part path surfaces a download failure instead of crashing the process", async (t) => {
   const dir = await tmpDir(t);
-  setBehavior(() => responseFrom([[1, 2, 3]]));
+  let sourceCancelled = false;
+  setBehavior(() => ({
+    headers: { get: () => "3" },
+    body: new ReadableStream({
+      start(controller) {
+        controller.enqueue(new Uint8Array([1, 2, 3]));
+      },
+      cancel() {
+        sourceCancelled = true;
+      },
+    }),
+  }));
   // A directory sitting at the .part path makes the WriteStream's open fail
   // asynchronously — the exact "unhandled stream error" shape that used to
   // take down the Electron main process.
   await mkdir(join(dir, "ggml-small-q8_0.bin.part"));
 
   await assert.rejects(consume(downloadModel(MODEL, dir)));
+  assert.equal(sourceCancelled, true, "a write failure cancels the open response body");
   const entries = await readdir(dir);
   assert.deepEqual(entries, ["ggml-small-q8_0.bin.part"], "final path never created");
 });

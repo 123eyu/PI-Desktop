@@ -90,6 +90,9 @@ export async function* downloadModel(
     await rename(partPath, targetPath);
     yield 1;
   } catch (error) {
+    // A sink error can win the race while reader.read() is still waiting.
+    // Cancel the response so a failed disk write does not keep downloading.
+    await reader.cancel(error).catch(() => {});
     writer.destroy();
     await writerClosed;
     // Clean up the partial download; the final path is never touched.
