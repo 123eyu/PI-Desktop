@@ -100,7 +100,7 @@ jobs:
       - name: Install virtual display
         run: |
           sudo apt-get update
-          sudo apt-get install --no-install-recommends --yes xauth xvfb
+          sudo apt-get install --no-install-recommends --yes openbox xauth xvfb
 
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
@@ -119,6 +119,9 @@ jobs:
 
       - name: Build Desktop bundle
         run: pnpm --filter @pi-desktop/desktop build
+
+      - name: Run browser capture/resize E2E
+        run: xvfb-run --auto-servernum sh -c 'openbox >/dev/null 2>&1 & exec node scripts/e2e-browser-capture-resize.mjs'
 
       - name: Build host-core
         run: cargo build -p host-core --locked

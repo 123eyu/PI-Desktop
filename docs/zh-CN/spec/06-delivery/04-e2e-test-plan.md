@@ -2471,6 +2471,7 @@ MainChat 弥补了缺口。 Maximized/fullscreen 调用保留最新的
   截图视口在完成前保持稳定，完成后 `innerWidth`/`innerHeight` 与最新请求尺寸一致。同一页面的截图串行执行，
   不阻塞其他标签。失败截图会解除尺寸锁定；隐藏或关闭页面不会意外显示页面，也不会把排队截图转发到其他页面。
   重建或释放销毁的 guest 后不残留孤立原生视图。无需重复截图来修复布局。
+- **超时恢复**：任一截图 API 超过 30 秒仍未完成时，以 `TIMEOUT` 失败，分离卡住的 CDP 会话并释放该页面的截图队列；后续截图可以重新连接并继续。
 - **关联规范**：英文源规格中的 [E2E-BROWSER-capture-resize](../../../spec/06-delivery/04-e2e-test-plan.md#e2e-browser-capture-resize-capture-preserves-live-placement-and-restores-the-latest-viewport)。
 - **状态**：原生 Electron 截图/尺寸及窗口切换期间的位置验证由 `node scripts/e2e-browser-capture-resize.mjs` 自动执行（保留产物）。`apps/desktop/test/browser-capture-resize.test.mjs` 覆盖生产 Host/Pane/CDP 路径、失败、排队、标签关闭、guest 重建及面板裁剪。
 
@@ -5636,6 +5637,7 @@ eleven-tool-round desktop paths are verified by
 | A / C — Unicode stdio 成帧 | E2E-RPC-unicode-separators |
 | C / G / Quality — Plugins navigation | E2E-NAV-plugins-button-goes-back |
 | C / D / Quality — 侧边栏行状态 | E2E-LAYOUT-sidebar-row-states |
+| E / Quality — 浏览器截图超时恢复 | E2E-BROWSER-capture-resize |
 | A / C / Quality — 侧栏材质与设置返回 | E2E-LAYOUT-sidebar-settings |
 | C / Quality — 目的页加载与焦点 | E2E-087b |
 | A / H / Quality — 渲染器进程崩溃恢复 | E2E-RUNTIME-renderer-crash-recovery |
