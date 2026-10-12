@@ -124,7 +124,11 @@ export const fr = {
     "manualHint": "Téléchargez la nouvelle version à partir de la page des versions.",
     "error": "Impossible de vérifier les mises à jour : {{message}}",
     "dismiss": "Ignorer",
-    "devDisabled": "Les mises à jour sont désactivées dans les versions de développement."
+    "devDisabled": "Les mises à jour sont désactivées dans les versions de développement.",
+    "cardDesc": "Gardez PI-Desktop à jour pour bénéficier des correctifs et des nouvelles fonctionnalités.",
+    "backgroundLabel": "Téléchargement en arrière-plan",
+    "backgroundHint": "Une fois le téléchargement terminé, un redémarrage vous sera proposé ; vous pouvez continuer à utiliser l'application entre-temps.",
+    "retry": "Réessayer",
   },
   "nav": {
     "pinnedSessions": "Épinglées",
@@ -1597,6 +1601,7 @@ sklm: {
     "defaultUpdated": "Fournisseur d'IA par défaut mis à jour",
     "providerRemoved": "Fournisseur d'IA supprimé",
     "application": "Application",
+    "aboutVersion": "Version {{version}}",
     "logs": "Journaux",
     "openLogs": "Ouvrir les journaux",
     "feedback": "Signaler un problème",

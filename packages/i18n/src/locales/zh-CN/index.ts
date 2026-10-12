@@ -127,6 +127,10 @@ export const zhCN = {
     error: "检查更新失败：{{message}}",
     dismiss: "忽略",
     devDisabled: "开发版本不支持自动更新。",
+    cardDesc: "保持 PI-Desktop 为最新版本，以获取修复与新功能。",
+    backgroundLabel: "正在后台下载",
+    backgroundHint: "下载完成后会提示重启，期间可以继续使用。",
+    retry: "重试",
   },
   nav: {
     pinnedSessions: "置顶",
@@ -1592,6 +1596,7 @@ sklm: {
     defaultUpdated: "默认 AI 服务已更新",
     providerRemoved: "AI 服务已删除",
     application: "应用",
+    aboutVersion: "版本 {{version}}",
     logs: "日志",
     openLogs: "打开日志",
     feedback: "问题反馈",

@@ -124,7 +124,11 @@ export const es = {
     "manualHint": "Descargue la nueva versión desde la página de lanzamientos.",
     "error": "No se pudieron buscar actualizaciones: {{message}}",
     "dismiss": "Descartar",
-    "devDisabled": "Las actualizaciones están deshabilitadas en las compilaciones de desarrollo."
+    "devDisabled": "Las actualizaciones están deshabilitadas en las compilaciones de desarrollo.",
+    "cardDesc": "Mantén PI-Desktop actualizado para recibir correcciones y funciones nuevas.",
+    "backgroundLabel": "Descargando en segundo plano",
+    "backgroundHint": "Cuando termine la descarga se te pedirá reiniciar; mientras tanto puedes seguir usando la aplicación.",
+    "retry": "Reintentar",
   },
   "nav": {
     "pinnedSessions": "Fijadas",
@@ -1597,6 +1601,7 @@ sklm: {
     "defaultUpdated": "Proveedor de IA predeterminado actualizado",
     "providerRemoved": "Proveedor de IA eliminado",
     "application": "Aplicación",
+    "aboutVersion": "Versión {{version}}",
     "logs": "Registros",
     "openLogs": "Abrir registros",
     "feedback": "Informar un problema",

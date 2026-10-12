@@ -132,6 +132,10 @@ export const en = {
     error: "Couldn't check for updates: {{message}}",
     dismiss: "Dismiss",
     devDisabled: "Updates are disabled in development builds.",
+    cardDesc: "Keep PI-Desktop up to date for the latest fixes and features.",
+    backgroundLabel: "Downloading in the background",
+    backgroundHint: "You'll be prompted to restart once the download finishes; you can keep using the app meanwhile.",
+    retry: "Retry",
   },
   nav: {
     "pinnedSessions": "Pinned",
@@ -1617,6 +1621,7 @@ sklm: {
     defaultUpdated: "Default AI provider updated",
     providerRemoved: "AI provider removed",
     application: "Application",
+    aboutVersion: "Version {{version}}",
     logs: "Logs",
     openLogs: "Open logs",
     feedback: "Report a problem",

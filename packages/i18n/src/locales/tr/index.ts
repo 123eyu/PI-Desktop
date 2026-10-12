@@ -134,6 +134,10 @@ export const tr = {
     error: "Güncellemeler denetlenemedi: {{message}}",
     dismiss: "Kapat",
     devDisabled: "Geliştirme derlemelerinde güncellemeler kapalıdır.",
+    cardDesc: "Düzeltmeler ve yeni özellikler için PI-Desktop'u güncel tutun.",
+    backgroundLabel: "Arka planda indiriliyor",
+    backgroundHint: "İndirme bittiğinde yeniden başlatmanız istenir; bu sırada uygulamayı kullanmaya devam edebilirsiniz.",
+    retry: "Tekrar dene",
   },
   nav: {
     "pinnedSessions": "Sabitlenmiş",
@@ -1607,6 +1611,7 @@ sklm: {
     defaultUpdated: "Varsayılan AI servisi güncellendi",
     providerRemoved: "AI servisi kaldırıldı",
     application: "Uygulama",
+    aboutVersion: "Sürüm {{version}}",
     logs: "Günlükler",
     openLogs: "Günlükleri aç",
     feedback: "Sorun bildir",
