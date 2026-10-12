@@ -124,7 +124,11 @@ export const de = {
     "manualHint": "Laden Sie die neue Version von der Release-Seite herunter.",
     "error": "Konnte nicht nach Updates suchen: {{message}}",
     "dismiss": "Verwerfen",
-    "devDisabled": "Updates sind in Entwicklungs-Builds deaktiviert."
+    "devDisabled": "Updates sind in Entwicklungs-Builds deaktiviert.",
+    "cardDesc": "Halten Sie PI-Desktop aktuell, um Korrekturen und neue Funktionen zu erhalten.",
+    "backgroundLabel": "Wird im Hintergrund heruntergeladen",
+    "backgroundHint": "Nach Abschluss des Downloads werden Sie zum Neustart aufgefordert; Sie können die App währenddessen weiter verwenden.",
+    "retry": "Erneut versuchen",
   },
   "nav": {
     "pinnedSessions": "Angeheftet",
@@ -1599,6 +1603,7 @@ sklm: {
     "defaultUpdated": "Standard-AI-Anbieter aktualisiert",
     "providerRemoved": "AI-Anbieter entfernt",
     "application": "Anwendung",
+    "aboutVersion": "Version {{version}}",
     "logs": "Protokolle",
     "openLogs": "Protokolle öffnen",
     "feedback": "Ein Problem melden",

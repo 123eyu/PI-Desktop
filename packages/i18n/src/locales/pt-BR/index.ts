@@ -123,7 +123,11 @@ export const ptBR = {
     manualHint: "Baixe a nova versão na página de lançamentos.",
     error: "Não foi possível verificar atualizações: {{message}}",
     dismiss: "Dispensar",
-    devDisabled: "As atualizações estão desativadas em compilações de desenvolvimento."
+    devDisabled: "As atualizações estão desativadas em compilações de desenvolvimento.",
+    cardDesc: "Mantenha o PI-Desktop atualizado para receber correções e novos recursos.",
+    backgroundLabel: "Baixando em segundo plano",
+    backgroundHint: "Quando o download terminar, você será avisado para reiniciar; nesse íntervalo pode continuar usando o aplicativo.",
+    retry: "Tentar novamente",
   },
   nav: {
     pinnedSessions: "Fixadas",
@@ -1569,6 +1573,7 @@ export const ptBR = {
     defaultUpdated: "Provedor de IA padrão atualizado",
     providerRemoved: "Provedor de IA excluído",
     application: "Aplicativo",
+    aboutVersion: "Versão {{version}}",
     logs: "Logs",
     openLogs: "Abrir logs",
     feedback: "Relatar um problema",
