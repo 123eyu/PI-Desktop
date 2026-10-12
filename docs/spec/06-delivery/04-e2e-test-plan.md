@@ -1065,11 +1065,17 @@ identify the platform validation still needed.
 - **Expected**: `providers.lookupModel` answers a hand-typed id from the local snapshot only — no provider network request and no host call — and a hit seeds the binding the way a picked model is seeded (published context window, max output tokens, thinking levels, `contextWindowSource: "catalog"`) while the stored id stays exactly what the user typed. A miss, a failed call, or an id the current discovery already described leaves the previous behavior intact: one usable row, the generic seed, and no stalled or duplicated list.
   A record published under another spelling of that id — a route prefix, a dated
   stamp, a marker the deployment appends — is a hit too: the row is upgraded in
-  place as soon as the answer arrives, without waiting for a save.
+  place as soon as the answer arrives, without waiting for a save. In a live
+  discovered row, a positive safe integer context/input or output limit reported by
+  the endpoint takes precedence over the catalog for that field; omitted fields
+  independently use catalog metadata. For an unanchored relay, a published
+  owner record outranks reseller matches; dotted/dashed version aliases and one
+  whitelisted deployment label keep the served ID intact, and conflicting
+  owner records do not supply guessed limits.
 - **Specs linked**: `03-runtime/12-provider-config-schema.md`, `03-runtime/13-model-catalog-and-selection.md`
 - **Acceptance**: B (multi-model provider configuration)
 - **Milestone**: M2
-- **Status**: Documented; covered by `apps/desktop/test/model-custom-lookup.test.mjs` and `apps/desktop/test/provider-lookup-model-handler.test.mjs`
+- **Status**: Documented; covered by `apps/desktop/test/model-custom-lookup.test.mjs`, `apps/desktop/test/provider-lookup-model-handler.test.mjs`, and `apps/desktop/test/provider-endpoint-metadata.test.mjs`
 
 #### E2E-PROVIDER-configured-models-search: The chosen pane's search narrows the configured list
 
