@@ -5,7 +5,7 @@ import {
   type RacpEventEnvelope, type RacpItemSummary, type RacpProjectSummary, type RacpSession,
   type RemoteHostBootstrapRequest, type RemoteHostBootstrapResult,
   type RemoteHostCreateSessionRequest, type RemoteHostSummary, type RemoteHostBrowseProjectsResult,
-  type RemoteHostSyncProvidersRequest, type RemoteHostSyncProvidersResult, type SessionSummary,
+  type RemoteHostConnectionStatus, type RemoteHostSyncProvidersRequest, type RemoteHostSyncProvidersResult, type SessionSummary,
   type CommandShellOption, isCommandShellOption,
   type WorkspaceFilesRequest,
 } from "@pi-desktop/shared";
@@ -21,6 +21,7 @@ import { createRemoteHostRegistry, type EncryptionPort, type RemoteHostRecord, t
 import { sshMetadataOf, sshHostRecord, transportOf } from "../remote/remote-host-metadata.js";
 import { createRemoteSessionCatalog } from "../remote/remote-session-catalog.js";
 import { syncRemoteProviders } from "../remote/remote-provider-transfer.js";
+import { workspaceExecutionError } from "../remote/remote-workspace-outcome.js";
 export { sshMetadataOf, sshHostRecord, transportOf } from "../remote/remote-host-metadata.js";
 export type { RemoteHostSummary };
 
@@ -55,6 +56,7 @@ export interface RemoteHostsBoot {
   addHost(record: RemoteHostRecord): Promise<RemoteHostSummary>;
   bootstrapHost(request: RemoteHostBootstrapRequest): Promise<RemoteHostBootstrapResult>;
   reconnectHost(hostKey: string): Promise<RemoteHostSummary>;
+  ensureReady(hostKey: string): Promise<RemoteHostSummary>;
   removeHost(hostKey: string): Promise<void>;
   sessionSummaries(): SessionSummary[];
   sessions(hostKey: string): Promise<SessionSummary[]>;
@@ -81,14 +83,24 @@ function unavailable(): Error {
   return Object.assign(new Error("remote host is unavailable"), { errorCode: "AGENT_UNAVAILABLE" });
 }
 
+function requiresUserAction(error: unknown): boolean {
+  if (!error || typeof error !== "object") return false;
+  const fields = error as { errorCode?: string; code?: string };
+  return ["HOST_AUTH_FAILED", "REMOTE_AUTH_FAILED", "HOST_VERSION_MISMATCH", "CAPABILITY_UNAVAILABLE"]
+    .includes(fields.errorCode ?? fields.code ?? "");
+}
+
 export function createRemoteHostsBoot(options: BootRemoteHostsOptions): RemoteHostsBoot {
   const log = options.log ?? (() => undefined);
   const registry = createRemoteHostRegistry({ dataDir: options.dataDir, encryption: options.encryption, log });
   const tunnels = options.tunnels ?? createSshTunnelManager({ log });
   const opened = new Map<string, OpenHost>();
+  const actionRequired = new Set<string>();
   const openingHosts = new Set<OpenHost>();
   const hostClosings = new WeakMap<OpenHost, Promise<void>>();
   const operations = new Map<string, Promise<unknown>>();
+  const readiness = new Map<string, Promise<RemoteHostSummary>>();
+  const bootstraps = new Map<AbortController, Promise<unknown>>();
   let closed = false;
   let opening: Promise<number> | undefined;
   let closing: Promise<void> | undefined;
@@ -140,6 +152,8 @@ export function createRemoteHostsBoot(options: BootRemoteHostsOptions): RemoteHo
         first = false;
         return wsClientTransport({ url, token: record.deviceToken })();
       },
+      expectedHostId: ssh?.hostId,
+      onStateChange: () => { if (!closed) changed(); },
       clientInfo: options.clientInfo,
       reconnect: { enabled: true, baseDelayMs: 500, maxDelayMs: 15_000, maxAttempts: 10 },
       log,
@@ -147,7 +161,7 @@ export function createRemoteHostsBoot(options: BootRemoteHostsOptions): RemoteHo
   });
   const bootstrap = createSshBootstrap({
     version: options.clientInfo.version,
-    exchangePairing: ({ url, pairingToken, label }) => exchangePairingToken({ url, pairingToken, label, clientInfo: options.clientInfo, log }),
+    exchangePairing: ({ url, pairingToken, label, expectedHostId }) => exchangePairingToken({ url, pairingToken, label, expectedHostId, clientInfo: options.clientInfo, requireWorkspace: true, log }),
     log, ...options.sshBootstrap,
   });
 
@@ -191,6 +205,8 @@ export function createRemoteHostsBoot(options: BootRemoteHostsOptions): RemoteHo
     openingHosts.add(live);
     try {
       assertOpen();
+      actionRequired.delete(record.hostKey);
+      opened.set(record.hostKey, live);
       await adapter.connect();
       assertOpen();
       await connection.open();
@@ -200,6 +216,7 @@ export function createRemoteHostsBoot(options: BootRemoteHostsOptions): RemoteHo
       assertOpen();
       return live;
     } catch (error) {
+      if (requiresUserAction(error)) actionRequired.add(record.hostKey);
       if (opened.get(record.hostKey) === live) opened.delete(record.hostKey);
       await closeHost(live);
       throw error;
@@ -208,8 +225,12 @@ export function createRemoteHostsBoot(options: BootRemoteHostsOptions): RemoteHo
     }
   }
   function summaryOf(record: RemoteHostRecord): RemoteHostSummary {
+    const state = opened.get(record.hostKey)?.adapter.state();
+    const status: RemoteHostConnectionStatus = state === "connected" || state === "connecting" || state === "reconnecting"
+      ? state
+      : state === "error" || actionRequired.has(record.hostKey) ? "action-required" : "disconnected";
     return { hostKey: record.hostKey, label: record.label, url: opened.get(record.hostKey)?.url ?? record.url,
-      connected: Boolean(connectedHost(record.hostKey)), transport: transportOf(record) };
+      connected: status === "connected", status, transport: transportOf(record) };
   }
   async function addRecord(record: RemoteHostRecord): Promise<RemoteHostSummary> {
     assertOpen();
@@ -223,8 +244,28 @@ export function createRemoteHostsBoot(options: BootRemoteHostsOptions): RemoteHo
     return summaryOf(record);
   }
 
+  const ensureReady = (key: string): Promise<RemoteHostSummary> => {
+    const pending = readiness.get(key);
+    if (pending) return pending;
+    const task = serial(key, async () => {
+      const record = (await registry.list()).find((item) => item.hostKey === key);
+      assertOpen();
+      if (!record) throw unavailable();
+      if (!connectedHost(key)) {
+        await closeLive(key);
+        assertOpen();
+        await openHost(record);
+      }
+      return summaryOf(record);
+    });
+    readiness.set(key, task);
+    void task.finally(() => { if (readiness.get(key) === task) readiness.delete(key); }).catch(() => undefined);
+    return task;
+  };
+
   return {
     registry,
+    ensureReady,
     open() {
       if (opening) return opening;
       opening = (async () => {
@@ -251,6 +292,7 @@ export function createRemoteHostsBoot(options: BootRemoteHostsOptions): RemoteHo
     closeAll() {
       if (closing) return closing;
       closed = true;
+      for (const controller of bootstraps.keys()) controller.abort();
       const hosts = new Set([...opened.values(), ...openingHosts]);
       opened.clear();
       closing = (async () => {
@@ -258,7 +300,7 @@ export function createRemoteHostsBoot(options: BootRemoteHostsOptions): RemoteHo
         // Forward creation is itself an operation we must cancel, not await
         // before disposal. The same fence prevents all late registrations.
         const disposal = tunnels.dispose();
-        await Promise.allSettled([...cleanup, disposal, ...operations.values()]);
+        await Promise.allSettled([...cleanup, disposal, ...operations.values(), ...bootstraps.values()]);
         await disposal;
       })();
       return closing;
@@ -267,9 +309,13 @@ export function createRemoteHostsBoot(options: BootRemoteHostsOptions): RemoteHo
     sessionSummaries: () => catalog.summaries(),
     sessions: catalog.sessions,
     projects: catalog.projects,
-    browseProjects: catalog.browseProjects,
+    async browseProjects(hostKey, path) {
+      await ensureReady(hostKey);
+      return catalog.browseProjects(hostKey, path);
+    },
     registerProject: catalog.registerProject,
     async workspaceFiles(hostKey, input) {
+      await ensureReady(hostKey);
       const host = connectedHost(hostKey);
       if (!host) throw unavailable();
       const result = await host.adapter.client.request("workspace/files", input);
@@ -277,6 +323,7 @@ export function createRemoteHostsBoot(options: BootRemoteHostsOptions): RemoteHo
       return result;
     },
     async workspaceCommandShell(hostKey) {
+      await ensureReady(hostKey);
       const host = connectedHost(hostKey);
       if (!host) throw unavailable();
       const { shell } = await host.adapter.client.request<{ shell: unknown }>("workspace/toolShell", {});
@@ -314,7 +361,7 @@ export function createRemoteHostsBoot(options: BootRemoteHostsOptions): RemoteHo
             sessionId: input.sessionId, toolCallId: input.toolCallId,
           }); } catch (abortError) { log("warn", "remote tool abort failed", { error: String(abortError) }); }
         }
-        throw error;
+        throw workspaceExecutionError(input.toolName, error);
       }
     },
     async abortWorkspaceTool(input) {
@@ -350,7 +397,10 @@ export function createRemoteHostsBoot(options: BootRemoteHostsOptions): RemoteHo
     }),
     async bootstrapHost(request) {
       assertOpen();
-      const outcome = await bootstrap.bootstrap(request);
+      const controller = new AbortController();
+      const task = bootstrap.bootstrap(request, { signal: controller.signal });
+      bootstraps.set(controller, task);
+      const outcome = await task.finally(() => { bootstraps.delete(controller); });
       let adopted = false;
       try {
         return await serial(outcome.hostKey, async () => {
@@ -377,6 +427,7 @@ export function createRemoteHostsBoot(options: BootRemoteHostsOptions): RemoteHo
       await closeLive(key);
       await tunnels.close(key);
       await registry.remove(key);
+      actionRequired.delete(key);
       catalog.forget(key);
       changed();
     }),

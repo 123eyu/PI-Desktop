@@ -14,10 +14,12 @@ const { HostProcess, createHostSessionPort } = await import("../packages/host-ru
 const { AgentHost } = await import("../packages/agent-host/dist/index.js");
 const { bindRacpWebSocket, RacpServer, MemoryCredentialStore, DeviceTokenAuthenticator, hashToken, newDeviceToken } = await import("../packages/racp/dist/index.js");
 const { createWorkspaceTools } = await import("../apps/pi-host/dist/workspace-tools.js");
+const { createWorkspaceFiles } = await import("../apps/pi-host/dist/workspace-files.js");
 const { createHostOperations } = await import("../apps/pi-host/dist/host-operations.js");
 const OWNER_TOKEN = newDeviceToken();
 const { createRemoteHostsBoot } = await import("../apps/desktop/electron/main/bootstrap/remote-hosts.ts");
 const { createRemoteWorkspaceToolRelay } = await import("../apps/desktop/electron/main/remote/remote-workspace-tools.ts");
+const { loadRemoteWorkspaceInstructions } = await import("../apps/desktop/electron/main/remote/remote-workspace-instructions.ts");
 const { createBackendRouter } = await import("../apps/desktop/electron/main/remote/backend-router.ts");
 
 assert.ok(process.env.PI_HOST_CORE_BINARY, "PI_HOST_CORE_BINARY must name the current candidate Rust binary");
@@ -25,6 +27,8 @@ const root = await mkdtemp(join(process.env.PI_SCRATCH_DIR ?? tmpdir(), "local-a
 const remoteRoot = join(root, "remote-workspace");
 await mkdir(remoteRoot); await mkdir(join(root, "desktop"));
 await writeFile(join(remoteRoot, "README.md"), "REMOTE_READ_FIXTURE\n");
+await writeFile(join(remoteRoot, "AGENTS.md"), "REMOTE_REPOSITORY_INSTRUCTIONS_FIXTURE\n");
+await writeFile(join(remoteRoot, "CLAUDE.md"), "LOWER_PRIORITY_INSTRUCTIONS_MUST_NOT_LOAD\n");
 const KEY = "local-model-fixture-key-never-forwarded";
 let modelCalls = 0;
 let modelError;
@@ -43,6 +47,10 @@ const model = createServer(async (req, res) => {
     let body = ""; for await (const chunk of req) body += chunk;
     const input = JSON.parse(body);
     assert.equal(input.model, "local-fixture");
+    const context = JSON.stringify(input.messages);
+    assert.ok(context.includes("REMOTE_REPOSITORY_INSTRUCTIONS_FIXTURE"), "RACP repository instructions enter local model context");
+    assert.ok(context.includes("LOCAL_GLOBAL_INSTRUCTIONS_FIXTURE"), "local global defaults remain local model context");
+    assert.ok(!context.includes("LOWER_PRIORITY_INSTRUCTIONS_MUST_NOT_LOAD"), "repository precedence is preserved");
     modelCalls++;
     res.writeHead(200, { "content-type": "text/event-stream" });
     const frame = (delta, finish_reason = null) => res.write(`data: ${JSON.stringify({ id: `local-${modelCalls}`, object: "chat.completion.chunk", created: 1, model: input.model, choices: [{ index: 0, delta, finish_reason }] })}\n\n`);
@@ -76,11 +84,14 @@ try {
   const authenticator = new DeviceTokenAuthenticator(credentials);
   const operations = createHostOperations({ getHost: () => host, runtime: { isBusy: () => false, async compact() { throw new Error("no remote model"); } } });
   operations.workspaceTools = { ...tools, async execute(input, owner) { wireCalls.push(structuredClone(input)); return tools.execute(input, owner); } };
+  operations.workspaceFiles = createWorkspaceFiles();
   h = { server: new RacpServer({ agentHost, operations, authenticator, hostId: "tool-host", serverVersion: "fixture", log: () => {} }), remotePrompts: () => remotePrompts };
   binding = await bindRacpWebSocket({ server: h.server, authenticator, host: "127.0.0.1", port: 0, log: () => {} });
   boot = createRemoteHostsBoot({ dataDir: join(root, "desktop"), router: createBackendRouter(), clientInfo: { name: "local-agent-fixture", version: "fixture" }, emit: () => {}, encryption: { isAvailable: () => true, encryptString: value => Buffer.from(value), decryptString: value => value.toString() } });
   assert.equal((await boot.addHost({ hostKey: "fixture", label: "Fixture", url: `ws://127.0.0.1:${binding.address.port}/v1/racp/ws`, deviceToken: OWNER_TOKEN })).connected, true);
   const shell = await boot.workspaceCommandShell("fixture");
+  const projectInstructions = await loadRemoteWorkspaceInstructions(boot.workspaceFiles,
+    { hostKey: "fixture", path: remoteRoot }, { entries: [{ source: "local-global", content: "LOCAL_GLOBAL_INSTRUCTIONS_FIXTURE" }] });
   localHost = new HostProcess({ binaryPath: resolve(process.env.PI_HOST_CORE_BINARY), dataDir: join(root, "local-host"), onStderr: () => {} });
   await localHost.handshake();
   const created = await localHost.call("project.group.createRemote", { name: "Locally named remote project", remote: { hostKey: "fixture", path: remoteRoot } });
@@ -98,6 +109,7 @@ try {
   const done = new Promise((resolveDone, rejectDone) => { ended = envelope => { if (envelope.event.type === "error") rejectDone(new Error(JSON.stringify(envelope.event))); if (envelope.event.type === "agent_end") resolveDone(); }; });
   runtime = new DesktopAgentRuntime({
     sessionId: localSession.session.id, mode: "agent", thinkingLevel: "off", commandShell: shell,
+    projectInstructions,
     remoteWorkspace: { hostKey: "fixture", path: remoteRoot },
     provider: { id: "local-provider", name: "Local fixture", modelId: "local-fixture", baseUrl: `http://127.0.0.1:${model.address().port}/v1`, apiStyle: "chat_completions", apiKey: KEY, authKind: "api_key", supportsReasoning: false, supportedThinkingLevels: ["off"] },
     host: { call: (method, params) => localHost.call(method, params), onNotification: handler => localHost.onNotification(handler) },
@@ -121,7 +133,7 @@ try {
   await assert.rejects(boot.executeWorkspaceTool({ ...wireCalls[0], hostKey: "fixture" }), "duplicate tool id cannot replay");
   await boot.removeHost("fixture");
   await assert.rejects(boot.executeWorkspaceTool({ ...wireCalls[0], toolCallId: "after-disconnect", hostKey: "fixture" }), { errorCode: "AGENT_UNAVAILABLE" });
-  console.log("PASS local model/key + local Rust project/permission relay + real RACP/Rust Read/Bash, no remote providers/projects/sessions, no replay/fallback");
+  console.log("PASS local model/key/instructions + local Rust project/permission relay + real RACP/Rust Read/Bash, no remote providers/projects/sessions, no replay/fallback");
 } finally {
   clearTimeout(deadline);
   await runtime?.dispose(); relay?.dispose(); await localHost?.dispose(); await boot?.closeAll(); h?.server.close(); await binding?.close(); await host?.dispose();

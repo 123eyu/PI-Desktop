@@ -159,17 +159,32 @@ Bootstrap runs over the user's own SSH session, never over RACP:
    the `ssh` client through an askpass helper, never as an argument, and is
    stored encrypted in the desktop's secure storage so the host can reconnect
    after a restart.
-2. It uploads a small bootstrap script that downloads the `pi-host` bundle
-   for the remote platform at the desktop's version from GitHub Releases,
-   verifies the published SHA-256, and installs it under the user's home. A
-   machine without outbound access to GitHub cannot be bootstrapped in the
-   first version.
+2. It resolves the matching Desktop version and published Linux target, fetches
+   the named release SHA-256 over HTTPS, and uploads a small bootstrap script.
+   Remote download is preferred. Only `download-failed` permits one bounded,
+   locally verified download and SSH upload of that same artifact; integrity or
+   SSH authentication failure does not. The remote side verifies the archive
+   before installing. Bundles include native Node >=22 and a file manifest, so
+   system Node and remote GitHub access are not prerequisites for new bundles.
+   Verified content-addressed installs switch `current` atomically under locks.
+   Reuse checks the external release/manifest receipt and every installed file.
+   [ADR 0326](../../adr/0326-verified-ssh-host-installation.md) explicitly amends
+   the original no-executable-upload and remote-only-download restrictions.
+   Trust is release SHA-256 over HTTPS, not independent signature verification.
 3. It starts `pi-host` bound to loopback and receives a single-use pairing
    token over the SSH channel.
 4. It forwards a local port to the Host's loopback port and connects
    `RACP-WS` with the header profile, exchanging the pairing token for a
    device token that the desktop stores in its secure storage.
 5. The Host records the desktop device as `owner` of that Host.
+
+Daily reconnect is not bootstrap: SSH readiness starts/reuses the installed Host
+without reinstalling, `--pair`, or resetting device credentials. It discovers
+the current loopback port, checks version and saved Host ID, then rebuilds the
+forward; RACP initialization/reconnect also checks Host identity. Older SSH
+descriptors without a Host ID remain readable. Disconnect does not kill a Host
+that other clients may use. Readiness is used for offline browse/files/shell
+discovery; tool execution itself never reconnects and replays a failed call.
 
 Provider configuration is copied only after explicit selection and consent in
 Settings. Electron Main reads the selected eligible secrets and sends a bounded
@@ -196,6 +211,23 @@ through `workspace/toolAbort`. The remote canonical workspace/browse boundary
 is independently enforced. No failed remote call falls back to the local runner,
 and no mutation is automatically retried. The opaque local project identity is
 never resolved as a directory on either machine.
+
+`workspace/files` with `operation: "instructions"` loads only recognized root
+repository instructions, contained by the remote canonical root. Desktop merges
+them after its own local global defaults before launching the local Agent. It
+does not load remote HOME defaults, local same-named directories, or recursively
+traverse nested instructions. Offline paired Hosts remain selectable in the
+directory picker and can request readiness. Approved localized error categories
+The Settings inventory exposes an additive `RemoteHostSummary.status` of
+`connected`, `connecting`, `reconnecting`, `disconnected` or `action-required`;
+older summaries without this field continue to render from `connected`. The
+status contains no SSH diagnostics or credential material.
+replace raw SSH diagnostics and incidental forwarded URLs in the UI.
+
+A lost transport reply for Write/Edit/Bash is reported as
+`REMOTE_MUTATION_OUTCOME_UNKNOWN` with `retriable: false`; inspect remote state
+before an explicit retry. This does not claim rollback or exactly-once execution
+after an uncertain outcome.
 
 Existing remote Agent histories remain reachable through their previous backend.
 Their session capabilities and opaque history cursors remain enforced; this does

@@ -41,7 +41,7 @@ window.piDesktop = { platform: "darwin", channels: IPC, on() { return () => {}; 
    case IPC.invoke.remoteHostList: return { hosts: [{ hostKey: "h1", label: "Server 1", connected: true }, { hostKey: "h2", label: "Server 2", connected: true }, { hostKey: "offline", label: "Offline", connected: false }] };
    case IPC.invoke.remoteHostBrowseProjects:
     if (input.hostKey === "h1") return new Promise((resolve) => { releaseOldBrowse = () => resolve({ path: "/old", entries: [{ name: "stale", path: "/old/stale" }] }); });
-    if (input.path === "/missing") throw new Error("Directory not found");
+    if (input.path === "/missing") throw Object.assign(new Error("private diagnostic ppt1.secret"), { errorCode: "REMOTE_PATH_NOT_FOUND" });
     return { path: input.path ?? "/home/user", parent: input.path === "/home/user/app" ? "/home/user" : "/home", entries: input.path === "/home/user/app" ? [] : [{ name: "app", path: "/home/user/app" }] };
    case IPC.invoke.projectGroupCreateRemote: return new Promise((resolve) => { releaseCreate = () => resolve({ group: { ...group, name: input.name } }); });
    case IPC.invoke.projectSet: return { workspace: { path: input, name: group.name, remote: group.remote, projectGroup: group } };
@@ -75,7 +75,7 @@ window.remoteProjectProbe = async () => {
  button("Remote").click();
  await until(() => document.querySelector('select')?.value === "h1", "hosts did not load");
  check(document.querySelector("#project-create-name").value === "My server app", "remote source lost editable local name");
- check(!document.querySelector('option[value="offline"]'), "disconnected host offered");
+ check(document.querySelector('option[value="offline"]'), "disconnected paired host not offered");
  check(document.querySelectorAll('select').length === 1, "host project catalog still required");
  check(!calls.some((entry) => entry.channel === IPC.invoke.remoteHostProjects), "host project catalog was fetched");
  check(!calls.some((entry) => entry.channel === IPC.invoke.remoteHostBrowseProjects), "browse loaded inside project form");
@@ -86,6 +86,12 @@ window.remoteProjectProbe = async () => {
  await until(() => !picker(), "Escape did not close picker"); await settle();
  check(document.querySelector('.project-create-dialog'), "Escape closed parent project dialog");
  check(document.activeElement === button("Browse folders"), "cancel did not restore browse focus");
+ choose(document.querySelector("select"), "offline");
+ button("Browse folders").click();
+ await until(() => picker()?.querySelector(".remote-project-browser-path")?.textContent === "/home/user", "offline paired host did not browse after restore");
+ check(calls.some((entry) => entry.channel === IPC.invoke.remoteHostBrowseProjects && entry.input.hostKey === "offline"), "offline browse did not reach recovery entry");
+ button("Cancel", picker()).click();
+ await until(() => !picker(), "offline browse cancel failed");
  choose(document.querySelector("select"), "h2");
  button("Browse folders").click();
  await until(() => picker()?.querySelector(".remote-project-browser-path")?.textContent === "/home/user", "new host did not load");
@@ -102,7 +108,8 @@ window.remoteProjectProbe = async () => {
  await until(() => picker()?.querySelector(".remote-project-browser-path")?.textContent === "/home/user", "parent navigation failed");
  input(picker().querySelector("input"), "/missing");
  picker().querySelector('form').dispatchEvent(new Event("submit", { bubbles: true, cancelable: true }));
- await until(() => picker()?.querySelector('[role="alert"]')?.textContent.includes("Directory not found"), "directory error missing");
+ await until(() => picker()?.querySelector('[role="alert"]')?.textContent.includes("remote directory"), "safe directory error missing");
+ check(!document.body.textContent.includes("ppt1.secret"), "raw remote diagnostic leaked");
  check(button("Use this folder", picker()).disabled, "failed directory still selectable");
  input(picker().querySelector("input"), "/home/user/app");
  picker().querySelector('form').dispatchEvent(new Event("submit", { bubbles: true, cancelable: true }));
