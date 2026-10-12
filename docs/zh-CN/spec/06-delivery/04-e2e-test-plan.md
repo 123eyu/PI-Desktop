@@ -8337,6 +8337,15 @@ runner 会在运行时的隔离临时目录中生成六个插件形态 fixture�
   states). DOM/CDP clicks are not native hit-test proof. Native pointer, drag
   and visual checks remain required; branch runs are exploratory only.
 
+### E2E-WORK-PANEL-overflow-tab-drag-exclusion
+
+- **前提条件**：在 Windows 上打开桌面会话，并创建足够多的工作面板标签，使横向标签栏发生溢出。
+- **步骤**：将标签栏分别滚到两端，切换到另一个对话再切回，用键盘重排标签，然后逐个关闭标签，直到只剩一个和没有标签。使用原生 `WM_NCHITTEST` 检查相邻侧边栏与对话标题栏、可见标签、标题栏操作按钮和多余空白。
+- **预期**：视口外的标签不会阻挡可见滚动视口以外的原生拖动。相邻标题栏和未使用的标题栏空白返回 `HTCAPTION`；可见标签和操作返回 `HTCLIENT`。切换、重排和关闭标签后，这些命中区域保持正确。
+- **链接规格**：`04-ux/07-ui-design-system.md` §10
+- **验收**：品质
+- **状态**：Windows 原生回归由 `scripts/e2e-work-panel-drag.mjs`（`pnpm test:e2e:work-panel-drag`）覆盖；macOS/Linux 原生拖动尚未验证。
+
 #### E2E-LAYOUT-sidebar-project-group-fold
 
 - **前提条件**：通过宿主预置四个保留的侧边栏项目分组：一个横跨四个日期桶共五个会话，一个只有单个会话，一个没有任何会话，一个带十个已固定会话。未设置 `prefers-reduced-motion`。
