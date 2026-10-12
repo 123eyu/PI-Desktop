@@ -3,6 +3,12 @@ import { REMOTE_DEPLOY_LOCK_SCRIPT } from "./remote-deploy-lock.js";
 import type { SshTransport } from "./ssh-transport.js";
 
 export type RemoteHostSupervisorOptions = {
+  /**
+   * Release the running Host must report. It is the release this desktop
+   * expects — not the version recorded when the host was paired — so a Host
+   * left behind by an upgrade is refused here and handed to realignment
+   * (ADR 0327).
+   */
   version: string;
   expectedHostId?: string;
   readyTimeoutSec?: number;
@@ -105,11 +111,13 @@ export function parseRemoteHostReady(stdout: string, options: RemoteHostSupervis
       typeof version !== "string" || !version.trim()) {
     throw failure("Remote Host reported invalid readiness");
   }
-  if (version.replace(/^v/, "") !== options.version.replace(/^v/, "")) {
-    throw failure("Remote Host version does not match the installed descriptor", "HOST_VERSION_MISMATCH");
-  }
+  // Identity is a trust boundary and takes precedence: a different Host must
+  // never be mistaken for an older release that can be automatically replaced.
   if (options.expectedHostId !== undefined && hostId !== options.expectedHostId) {
     throw failure("Remote Host identity changed", "HOST_AUTH_FAILED");
+  }
+  if (version.replace(/^v/, "") !== options.version.replace(/^v/, "")) {
+    throw failure("the running remote Host does not match the release this Desktop expects", "HOST_VERSION_MISMATCH");
   }
   return { hostId, host, port, version };
 }

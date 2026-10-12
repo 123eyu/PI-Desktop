@@ -18,6 +18,7 @@ export const trEntries: ChangelogEntry[] = [
       "Eklentiler ağ yönlendirmelerini inceleyebilir veya reddedebilir; mevcut fetch çağrıları varsayılan olarak yönlendirmeleri izlemeyi sürdürür.",
       "Çalışan bir alt ajanı kartından veya ayrıntı panelinden ya da geçerli oturumdaki tüm alt ajanları koordinatörü durdurmadan durdurabilirsiniz.",
       "Bağlam kullanımı panelinde toplam oturum süresini, birikimli model yanıt süresini ve oturum içindeki payını görün.",
+      "Masaüstü sürümünün gerisinde kalan eşleştirilmiş bir uzak Host artık aynı doğrulanmış SSH kurulumuyla kendini günceller ve yerinde yeniden eşleştirilir.",
     ],
   },
   {

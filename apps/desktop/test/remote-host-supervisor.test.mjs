@@ -24,6 +24,7 @@ test("readiness validates loopback, integral port, identity and version without 
   }
   assert.throws(() => parseRemoteHostReady(line(ready), { version: "other" }), { errorCode: "HOST_VERSION_MISMATCH", retriable: false });
   assert.throws(() => parseRemoteHostReady(line(ready), { version: VERSION, expectedHostId: "other" }), { errorCode: "HOST_AUTH_FAILED", retriable: false });
+  assert.throws(() => parseRemoteHostReady(line({ ...ready, version: "older" }), { version: VERSION, expectedHostId: "other" }), { errorCode: "HOST_AUTH_FAILED", retriable: false }, "identity mismatch must not authorize automatic upgrade");
   assert.throws(() => buildRemoteHostSupervisorScript(0));
 });
 

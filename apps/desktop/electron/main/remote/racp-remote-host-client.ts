@@ -96,7 +96,21 @@ export type RacpRemoteHostClient = {
   /** Open the transport and initialize the RACP session. */
   connect(): Promise<void>;
   /** Close the transport; safe to call before {@link connect} and after failure. */
+  /**
+   * Workspace capabilities the live handshake advertised, or `undefined`
+   * before `connection/initialize` completes. Callers use the distinction to
+   * tell "not known yet" from "this Host does not offer them", which is the
+   * same-version mismatch the desktop must realign (ADR 0327).
+   */
+  workspaceCapabilities?(): RemoteWorkspaceCapabilities | undefined;
+  /** Close the transport; safe to call before {@link connect} and after failure. */
   close(): Promise<void>;
+};
+
+/** The two additive services a remote workspace install must advertise. */
+export type RemoteWorkspaceCapabilities = {
+  workspaceTools: boolean;
+  workspaceFiles: boolean;
 };
 
 /**
@@ -127,8 +141,16 @@ export function createRacpRemoteHostClient(
     try { options.onStateChange?.(state); }
     catch (error) { options.log?.("warn", "remote state listener threw", { error: String(error) }); }
   };
-  const requireWorkspace = (capability?: "workspaceTools" | "workspaceFiles") => {
+  const workspaceCapabilities = (): RemoteWorkspaceCapabilities | undefined => {
     const capabilities = racp.initialized?.capabilities;
+    if (!capabilities) return undefined;
+    return {
+      workspaceTools: capabilities.workspaceTools === true,
+      workspaceFiles: capabilities.workspaceFiles === true,
+    };
+  };
+  const requireWorkspace = (capability?: keyof RemoteWorkspaceCapabilities) => {
+    const capabilities = workspaceCapabilities();
     const supported = capability ? capabilities?.[capability] === true
       : capabilities?.workspaceTools === true && capabilities?.workspaceFiles === true;
     if (!supported) {
@@ -207,6 +229,7 @@ export function createRacpRemoteHostClient(
   return {
     client,
     state: () => visibleState,
+    workspaceCapabilities,
     async connect() {
       closed = false;
       await racp.connect();
