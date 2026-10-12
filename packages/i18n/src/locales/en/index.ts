@@ -1720,6 +1720,7 @@ sklm: {
     editSaving: "Saving…",
     editCancel: "Cancel",
     editPrimaryLocked: "The Primary folder cannot be removed",
+    editSetPrimary: "Set as Primary folder",
     editInstructions: "Project instructions",
     instructionsSaved: "Project instructions saved",
     editMemory: "Project memory",

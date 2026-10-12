@@ -1670,6 +1670,7 @@ export const ptBR = {
     editSaving: "Salvando…",
     editCancel: "Cancelar",
     editPrimaryLocked: "A pasta Principal não pode ser removida",
+    editSetPrimary: "Definir como pasta principal",
     editInstructions: "Instruções do projeto",
     instructionsSaved: "Instruções do projeto salvas",
     editMemory: "Memória do projeto",

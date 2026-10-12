@@ -724,6 +724,14 @@ export function ProjectsPage() {
           onClose={() => setEditProjectFor(null)}
           onSaved={(group) => {
             renameProject(group.primaryPath, group.name);
+            // Promoting another folder to primary moves the group's identity,
+            // while the row that is still open keeps the same display name.
+            if (
+              normalizeProjectPath(editProjectFor.path) !==
+              normalizeProjectPath(group.primaryPath)
+            ) {
+              renameProject(editProjectFor.path, group.name);
+            }
             setDurableProjects((current) =>
               current.map((item) =>
                 item.id === group.id || item.id === editProjectFor.groupId ? group : item,

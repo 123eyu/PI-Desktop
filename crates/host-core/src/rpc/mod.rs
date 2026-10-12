@@ -1946,10 +1946,11 @@ async fn handle_request(
                 .filter_map(Value::as_str)
                 .map(str::to_string)
                 .collect::<Vec<_>>();
+            let primary = params.get("primary").and_then(Value::as_str);
             let st = state.lock().await;
             let group = st
                 .db
-                .update_project_group(group_id, name, &folders)
+                .update_project_group(group_id, name, &folders, primary)
                 .map_err(|e| rpc_err(1002, e.to_string(), "INVALID_PARAMS"))?;
             Ok(json!({ "group": group }))
         }
@@ -5717,6 +5718,65 @@ mod tests {
         assert_eq!(updated["group"]["roots"].as_array().unwrap().len(), 2);
     }
 
+    #[tokio::test]
+    async fn project_group_update_rpc_switches_the_primary_folder() {
+        let data_dir = tempfile::tempdir().unwrap();
+        let primary = data_dir.path().join("primary");
+        let extra = data_dir.path().join("extra");
+        fs::create_dir_all(&primary).unwrap();
+        fs::create_dir_all(&extra).unwrap();
+        let mut app_state = AppState::open(data_dir.path()).unwrap();
+        app_state.handshook = true;
+        let state = Arc::new(Mutex::new(app_state));
+        let created = handle_request(
+            state.clone(),
+            "project.group.create",
+            json!({ "name": "Switchable", "folders": [primary, extra] }),
+            mpsc::unbounded_channel().0,
+        )
+        .await
+        .unwrap();
+        let group_id = created["group"]["id"].as_str().unwrap().to_string();
+        let primary_path = created["group"]["primaryPath"]
+            .as_str()
+            .unwrap()
+            .to_string();
+        let extra_path = created["group"]["roots"][1]["path"]
+            .as_str()
+            .unwrap()
+            .to_string();
+
+        let switched = handle_request(
+            state.clone(),
+            "project.group.update",
+            json!({
+                "groupId": group_id,
+                "name": "Switchable",
+                "folders": [primary_path, extra_path],
+                "primary": extra_path,
+            }),
+            mpsc::unbounded_channel().0,
+        )
+        .await
+        .expect("a member folder can be promoted to primary");
+        assert_eq!(switched["group"]["primaryPath"], json!(extra_path));
+        assert_eq!(switched["group"]["roots"][0]["path"], json!(extra_path));
+        assert_eq!(switched["group"]["roots"][1]["path"], json!(primary_path));
+
+        // The stored record keeps the promoted folder as primary.
+        let listed = handle_request(
+            state.clone(),
+            "project.groups.list",
+            json!({}),
+            mpsc::unbounded_channel().0,
+        )
+        .await
+        .unwrap();
+        assert_eq!(
+            listed["groups"][0]["primaryPath"],
+            json!(switched["group"]["primaryPath"])
+        );
+    }
     #[tokio::test]
     async fn grouped_folder_with_chats_can_be_detached_and_deleted_separately() {
         let data_dir = tempfile::tempdir().unwrap();
