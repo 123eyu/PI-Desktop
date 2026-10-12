@@ -3727,7 +3727,9 @@ async fn handle_request(
 
             let remote_workspace = {
                 let st = state.lock().await;
-                remote_tools::session_remote_workspace(&st, &p.session_id)?
+                // A session the store does not have keeps the local tool path
+                // and its tool-level failure instead of becoming an RPC error.
+                remote_tools::session_remote_workspace_optional(&st, &p.session_id)?
             };
             let command_shell_id = if p.tool_name == "Bash" && remote_workspace.is_none() {
                 let catalog = {

@@ -3,13 +3,10 @@
 use super::*;
 use crate::db::{Database, RemoteWorkspace};
 
-pub(super) fn session_remote_workspace(
+fn remote_workspace_of(
     state: &AppState,
-    session_id: &str,
+    summary: &sessions::SessionSummary,
 ) -> Result<Option<RemoteWorkspace>, JsonRpcError> {
-    let summary = sessions::session_summary(&state.db, session_id)
-        .map_err(|e| rpc_err(1000, e.to_string(), "INTERNAL"))?
-        .ok_or_else(|| rpc_err(1007, "session not found", "SESSION_NOT_FOUND"))?;
     summary
         .project_path
         .as_deref()
@@ -17,6 +14,33 @@ pub(super) fn session_remote_workspace(
         .transpose()
         .map(Option::flatten)
         .map_err(|e| rpc_err(1002, e.to_string(), "INVALID_PARAMS"))
+}
+
+/// The remote binding of a session that must exist.
+pub(super) fn session_remote_workspace(
+    state: &AppState,
+    session_id: &str,
+) -> Result<Option<RemoteWorkspace>, JsonRpcError> {
+    let summary = sessions::session_summary(&state.db, session_id)
+        .map_err(|e| rpc_err(1000, e.to_string(), "INTERNAL"))?
+        .ok_or_else(|| rpc_err(1007, "session not found", "SESSION_NOT_FOUND"))?;
+    remote_workspace_of(state, &summary)
+}
+
+/// `tools.execute` is reachable for a session the store does not have yet, and
+/// that path owns its own tool-level failure. A missing session therefore means
+/// "no remote binding" instead of an RPC error, so the local tool path stays
+/// exactly as it was before remote workspaces existed.
+pub(super) fn session_remote_workspace_optional(
+    state: &AppState,
+    session_id: &str,
+) -> Result<Option<RemoteWorkspace>, JsonRpcError> {
+    match sessions::session_summary(&state.db, session_id)
+        .map_err(|e| rpc_err(1000, e.to_string(), "INTERNAL"))?
+    {
+        Some(summary) => remote_workspace_of(state, &summary),
+        None => Ok(None),
+    }
 }
 
 pub(super) fn decorate_session(db: &Database, mut value: Value) -> Result<Value, JsonRpcError> {
