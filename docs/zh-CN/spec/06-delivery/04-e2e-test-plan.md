@@ -8946,6 +8946,10 @@ Follow the [current S3 acceptance scenario](/spec/06-delivery/04-e2e-test-plan#e
   Local S3 fixtures exercise conditional writes, authentication, merge,
   conflict choices and repeated convergence, deletions, credential opt-out,
   approval and skill resources.
+- 项目和项目组列表保留在本机，不提供 projects 同步类别。发布项目/项目组元数据
+  不会在接收设备创建或修改项目/项目组；接收设备自行注册 workspace 后，映射并
+  审批项目级技能，验证资源成功到达而本机项目组名称、根目录及排序保持不变。
+  同步/恢复忽略旧 vault 的 `projects` 实体，保留本机项目和云端历史。
 - Backup only uploads local snapshots; histories are mode-specific. Sync
   restore publishes with explicit acknowledgment; backup restore stays local.
 - The real settings-page test covers secret-free drafts, saved credential reuse,

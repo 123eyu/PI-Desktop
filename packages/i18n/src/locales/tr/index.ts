@@ -909,7 +909,6 @@ sklm: {
       categorySkills: "Beceriler",
       categorySubagents: "Alt ajanlar",
       categoryInstructions: "Yönergeler ve istem şablonları",
-      categoryProjects: "Projeler ve klasör eşlemeleri",
       categoryPlugins: "Eklenti yükleme amacı",
       categoryAutomation: "Otomasyon tanımları",
       categoryMemory: "Proje belleği",
