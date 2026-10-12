@@ -1700,6 +1700,7 @@ sklm: {
     "editSaving": "Speichern…",
     "editCancel": "Abbrechen",
     "editPrimaryLocked": "Der primäre Ordner kann nicht entfernt werden",
+    "editSetPrimary": "Als primären Ordner festlegen",
     "editInstructions": "Projektanweisungen",
     "instructionsSaved": "Projektanweisungen gespeichert",
     "editMemory": "Projektspeicher",

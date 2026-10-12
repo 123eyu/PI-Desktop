@@ -1716,6 +1716,7 @@ sklm: {
     editSaving: "저장 중…",
     editCancel: "취소",
     editPrimaryLocked: "기본 폴더는 삭제할 수 없습니다",
+    editSetPrimary: "기본 폴더로 지정",
     editInstructions: "프로젝트 지침",
     instructionsSaved: "프로젝트 지침 저장됨",
     editMemory: "프로젝트 메모리",

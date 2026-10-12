@@ -1695,6 +1695,7 @@ sklm: {
     editSaving: "保存中…",
     editCancel: "取消",
     editPrimaryLocked: "主要文件夹不能移除",
+    editSetPrimary: "设为主要文件夹",
     editInstructions: "项目指令",
     instructionsSaved: "项目指令已保存",
     editMemory: "项目记忆",

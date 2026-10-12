@@ -545,10 +545,14 @@ visually distinct from list content.
   the workspace list with a softly filled Add folder action; the field does not
   repeat its label as placeholder text and uses the shared field well plus the
   accent-tinted focus ring, not an outline stroke. Edit project reuses the same
-  surface, loads the host-owned group, allows the name and non-primary folders
-  to be adjusted, keeps Primary first and non-removable, and rejects removal of
-  a folder that still owns chats. Background session or run-status updates
-  must preserve unsaved name and folder edits in the open editor. The source selector offers This computer and
+  surface, loads the host-owned group, allows the name and folders to be
+  adjusted, keeps the Primary folder first and non-removable, and rejects
+  removal of a folder that still owns chats. Every other folder row carries a
+  Set as Primary action that promotes it: the row moves to the top, the Primary
+  tag moves with it, and the host stores the promoted folder as the group's
+  primary root on save. A remote project keeps its host-owned binding and shows
+  no promotion action. Background session or run-status updates
+  must preserve unsaved name, folder, and primary edits in the open editor.
   Git repository as equal filled tiles without strokes (D297); the active source
   uses a deeper tile, not a selected border. A repository URL reuses the clone
   rules of ADR 0247 and its checkout becomes the primary root of the same group.
