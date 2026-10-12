@@ -42,7 +42,7 @@ import { createRemoteHistory, type RemoteHistoryReadOptions } from "./remote-his
 
 /** The subset of `RacpClient` this backend needs; kept minimal for testing. */
 export type RemoteRacpClient = {
-  request<T>(method: string, params?: unknown): Promise<T>;
+  request<T>(method: string, params?: unknown, timeoutMs?: number): Promise<T>;
 };
 
 export type RemoteBackendOptions = {

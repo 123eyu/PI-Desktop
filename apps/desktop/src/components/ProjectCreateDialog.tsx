@@ -60,7 +60,8 @@ function ProjectCreateDialogContent() {
   );
   const showToast = useAppStore((state) => state.showToast);
   const [source, setSource] = useState<ProjectSource>("local");
-  const newSession = useAppStore((state) => state.newSession);
+  const createProjectFromRemote = useAppStore((state) => state.createProjectFromRemote);
+  const [remoteBrowseOpen, setRemoteBrowseOpen] = useState(false);
   const [remoteProject, setRemoteProject] = useState<RemoteProjectSelection | null>(null);
   const [name, setName] = useState("");
   const [folders, setFolders] = useState<string[]>([]);
@@ -80,7 +81,7 @@ function ProjectCreateDialogContent() {
   });
   const defaultName = defaultProjectName({
     source: source === "remote" ? "local" : source,
-    folders,
+    folders: source === "remote" && remoteProject ? [remoteProject.path] : folders,
     repositoryName: cloneTarget?.name,
   });
   const projectName = resolveProjectName(name, defaultName);
@@ -182,7 +183,7 @@ function ProjectCreateDialogContent() {
   const submit = async () => {
     const projectName = resolveProjectName(name, defaultName);
     if (busyRef.current) return;
-    if (source === "remote" ? !remoteProject : !projectName) return;
+    if (!projectName || (source === "remote" && !remoteProject)) return;
     if (source === "git") {
       if (!cloneTarget || !cloneParent) return;
     } else if (source === "local" && folders.length === 0) {
@@ -192,12 +193,7 @@ function ProjectCreateDialogContent() {
     setBusy(true);
     try {
       if (source === "remote" && remoteProject) {
-        if (!remoteProject.projectId && !remoteProject.path) return;
-        const project = remoteProject.projectId
-          ? { id: remoteProject.projectId, label: remoteProject.label ?? "" }
-          : (await api.registerRemoteProject(remoteProject.hostKey, remoteProject.path ?? "")).project;
-        await newSession({ remoteProject: { hostKey: remoteProject.hostKey, projectId: project.id, label: project.label } });
-        close();
+        await createProjectFromRemote({ name: projectName, hostKey: remoteProject.hostKey, path: remoteProject.path });
       } else if (source === "git" && cloneTarget) {
         await createProjectFromGit({
           name: projectName,
@@ -233,7 +229,9 @@ function ProjectCreateDialogContent() {
         ref={dialogRef}
         className="dialog project-create-dialog"
         role="dialog"
-        aria-modal="true"
+        aria-modal={remoteBrowseOpen ? undefined : true}
+        aria-hidden={remoteBrowseOpen || undefined}
+        inert={remoteBrowseOpen || undefined}
         aria-labelledby="project-create-dialog-title"
         onClick={(event) => event.stopPropagation()}
       >
@@ -263,7 +261,7 @@ function ProjectCreateDialogContent() {
           }}
         >
           <div className="project-create-dialog-content">
-            {source !== "remote" ? <section
+            <section
               className="project-create-dialog-section project-create-dialog-identity"
               aria-labelledby="project-create-name-heading"
             >
@@ -295,7 +293,7 @@ function ProjectCreateDialogContent() {
                 autoCorrect="off"
                 autoCapitalize="off"
               />
-            </section> : null}
+            </section>
 
             <section
               className="project-create-dialog-section project-create-dialog-source-section"
@@ -349,7 +347,7 @@ function ProjectCreateDialogContent() {
             </section>
 
             {source === "remote" ? (
-              <RemoteProjectPicker busy={busy} onChange={setRemoteProject} />
+              <RemoteProjectPicker busy={busy} onChange={setRemoteProject} onBrowsingChange={setRemoteBrowseOpen} />
             ) : source === "local" ? (
               <ProjectFolderPicker folders={folders} busy={busy} pickerBusy={folderPickerBusy}
                 onAdd={() => void addFolders()}
@@ -426,7 +424,7 @@ function ProjectCreateDialogContent() {
               type="submit"
               variant="primary"
               disabled={
-                source === "remote" ? !remoteProject || busy : source === "git"
+                source === "remote" ? !projectName || !remoteProject || busy : source === "git"
                   ? !projectName || !cloneTarget || !cloneParent || busy
                   : !projectName || folders.length === 0 || busy
               }

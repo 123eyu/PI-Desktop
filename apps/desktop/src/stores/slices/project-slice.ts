@@ -234,6 +234,7 @@ export function createProjectSlice({
   | "openProject"
   | "closeProjectDialog"
   | "createProjectFromFolders"
+  | "createProjectFromRemote"
   | "createProjectFromGit"
   | "clearProject"
   | "deleteProject"
@@ -307,6 +308,7 @@ export function createProjectSlice({
         };
       });
       rememberProject({
+        ...(workspace.remote ? { remote: workspace.remote } : {}),
         path: workspace.path,
         name: workspace.name || workspace.path,
         branch: workspace.branch,
@@ -394,6 +396,19 @@ export function createProjectSlice({
         { get, set, runtime },
         { name, folders, primaryPath },
       ),
+    createProjectFromRemote: async ({ name, hostKey, path }) => {
+      const normalizedName = normalizeProjectName(name);
+      if (!normalizedName) throw new Error(i18n.t("errors.projectNameLength"));
+      const intent = runtime.beginNavigationIntent();
+      const { group } = await api.createRemoteProjectGroup(normalizedName, hostKey, path);
+      if (!runtime.navigationIntentIsCurrent(intent)) return;
+      const workspace = await get().activateProject(group.primaryPath, { navigationIntent: intent });
+      if (!workspace || !runtime.navigationIntentIsCurrent(intent)) return;
+      get().renameProject(group.primaryPath, normalizedName);
+      const onboarding = await api.getOnboarding();
+      if (!runtime.navigationIntentIsCurrent(intent)) return;
+      set({ createProjectDialogOpen: false, onboarding, page: "chat" });
+    },
     createProjectFromGit: async ({ name, url, parentPath }) => {
       // Clone first, then create the project through the same group path, so a
       // checkout and a folder pick produce identical project semantics.

@@ -14557,7 +14557,7 @@ browser milestones are scheduled.
 - **Milestone**: Post-MVP
 - **Status**: Draft; remote harness required
 
-#### E2E-REMOTE-MVP: Narrow remote project-to-chat workflow
+#### E2E-REMOTE-MVP: Legacy remote Agent compatibility
 
 - **Preconditions**: Current Desktop and complete same-platform Host bundle,
   isolated data/profile, and a loopback mock model. No production credentials.
@@ -14570,43 +14570,46 @@ browser milestones are scheduled.
   turn execute once, in the Host project only; stale routing never falls back
   locally. Snapshot recovery restores pending requests and clears peer-resolved
   cards. Local workspace/model state is unchanged.
-- **Component path**: Select a provider, verify copy is disabled before consent,
-  authorize and copy, enter the remote project path, create/open, type/send,
-  approve, resolve from another peer, and retry a failed reconnect. Buttons,
-  visible errors and listener cleanup are checked in real React/Chromium.
+- **Component path**: Open existing remote Agent history, verify model-copy and
+  remote-create controls are absent, type/send, approve, resolve from another
+  peer, and retry a failed reconnect. New projects follow E2E-REMOTE-HOME.
 - **Automation**: `scripts/e2e-remote-mvp.mjs` (packaged Host, real Rust/Agent
   runtime and Desktop main routing, mocked model); `scripts/e2e-remote-mvp-ui.mjs`
   (real components, mocked IPC). Neither is a full SSH/Desktop acceptance result.
 - **Status**: Automated narrow-MVP scenario. Linux `sshd`, release download,
   password authentication and full R2 remain separately gated by E2E-231.
 
-#### E2E-REMOTE-HOME: Create and continue a remote project from Chat home
+#### E2E-REMOTE-HOME: Create and continue a remote workspace as a local project
 
-- **Preconditions**: Isolated Desktop/Chromium profile, two connected SSH host
-  fixtures, existing local workspace, and remote directory/project IPC fixtures.
-  No production Host, user profile, credentials, or paid model calls.
-- **Steps**: Open Create project from home, select Remote, change hosts while
-  directory browsing is pending, browse and select a remote directory, then
-  create. Send text through the regular Composer and inspect the transcript.
-  Reopen the project and start New chat; repeat with an existing remote project.
-  Disconnect and retry. Review a remote permission request and resolve it.
-- **Expected**: Late responses cannot replace the newly selected Host. Creation
-  registers and creates once on the selected Host, then shows the same empty
-  home and docked transcript layout as local chats. Remote projects are listed
-  by host/project identity in the home switcher and sidebar. Empty chat reuse
-  never crosses hosts. Local workspace remains unchanged; remote paths never
-  enter local activation, attachment, preview, slash-command, or plugin calls.
-  Offline/unsupported actions fail closed, preserve drafts, and never replay.
-  History forwards opaque session cursors and Return to latest restores live rows.
-- **Specs**: `02-architecture/05-remote-agent-control.md`, `04-ux/01-ui-ia.md`.
-- **Acceptance / milestone**: Home remote-project UX; additive Desktop IPC only,
-  no Host wire protocol, persisted data, or R2 SSH acceptance change.
-- **Automation**: `remote-project-session.test.mjs`,
-  `remote-session-user-path.test.mjs`, `remote-unified-chat.test.mjs`,
-  `transcript-reading.test.mjs`, `remote-project-dialog-user-path.test.mjs`,
-  and `scripts/e2e-remote-mvp-ui.mjs`.
-- **Status**: Component/service and main-routing acceptance; real SSH release
-  validation remains the separately provisioned E2E-231 scenario.
+- **Preconditions**: Isolated Desktop profile, connected Host directory fixtures,
+  a local provider fixture, and local/remote directories with the same basename.
+  No user profile, production host, credentials or paid model calls.
+- **Steps**: Open Create project, choose Remote, browse through a separate folder
+  dialog, cancel/reopen, navigate parent/child and confirm a directory. Enter a
+  custom name, create, rename and reopen the project. Start a normal local chat,
+  choose a local model and send a request that invokes Read and Bash remotely.
+  Approve locally, cancel a command, disconnect/reconnect and retry explicitly.
+- **Expected**: Focus and drafts survive picker cancellation. Late host responses
+  cannot replace the current host selection. Project metadata and sessions are
+  local and stable after reload, including name/memory/instructions and ordinary
+  sidebar/archive operations. Model requests and provider secrets never appear
+  in remote transport. Only locally admitted workspace tools execute on Host.
+  Equal paths on two hosts or on Desktop never collide. Failed calls never
+  execute locally or replay automatically. Existing remote histories remain readable.
+- **Specs**: `02-architecture/05-remote-agent-control.md`, `04-ux/01-ui-ia.md`,
+  ADR `local-agent-remote-workspace-tools`.
+- **Acceptance / milestone**: Local Agent remote-workspace execution; additive
+  project KV metadata and authenticated workspace-tool endpoints.
+- **Automation**: `remote-project-dialog-user-path.test.mjs`,
+  `remote-workspace-tools.test.mjs`, host-core remote project/relay tests,
+  pi-host workspace-tool tests and Agent runtime remote-workspace tests;
+  `PI_HOST_CORE_BINARY=<candidate binary> node scripts/e2e-local-agent-remote-tools.mjs`
+  runs a local model fixture through production Desktop relay, WebSocket RACP
+  and real Rust Read/Bash execution, asserting zero remote providers, projects
+  and sessions. Both local and remote Rust Hosts are real; the model service
+  and the fixture's user approval action are controlled test boundaries.
+- **Status**: Candidate implementation; real SSH release validation remains the
+  separately provisioned E2E-231 scenario.
 
 #### E2E-231: The desktop drives a remote Host over an SSH tunnel
 
@@ -14712,12 +14715,12 @@ browser milestones are scheduled.
   confirm both forms stay filled and their ARIA tab/panel associations remain
   correct after changing language. 4) Toggle developer mode and confirm the
   destination stays selected and available. 5) On a paired SSH host, open the
-  inline sessions/model-copy workbench and verify copy selection and consent
-  start empty; changing selection invalidates consent.
+  historical sessions browser and verify model-copy and remote-create controls
+  are absent. New workspace creation stays on Home.
 - **Expected**: Experimental availability is consistent across packaged and
   development builds. SSH remains the default Add tab. Existing pairing toasts
-  remain. The inline workbench explains credential copying and MVP limitations;
-  unsupported local workspace/model/terminal operations are not offered.
+  remain. The inline browser preserves existing remote histories; new SSH workspace
+  projects use the local model and project controls from Home.
 - **Specs linked**: `04-ux/06-settings-ia.md` §1, §3,
   `06-delivery/07-remote-control-rollout.md` §2 R2,
   `02-architecture/05-remote-agent-control.md` §5.2

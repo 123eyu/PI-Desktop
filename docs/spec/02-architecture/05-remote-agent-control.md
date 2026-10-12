@@ -179,28 +179,31 @@ Host uses its existing Rust RPC connection; the CLI never starts another databas
 writer. Configuration and credentials never cross RACP or return to the renderer.
 See `docs/adr/remote-provider-import.md` and security §3.5.
 
-**Experimental desktop MVP.** Chat home uses the shared Create project dialog
-for local folders, Git checkouts, and connected remote hosts. Remote selection
-lists registered projects, browses Host-owned directories under the Host's
-existing browse root, and accepts an explicit absolute remote path. Registration
-and session creation execute on that Host; remote project names remain Host-owned
-directory labels. The home switcher and sidebar expose remote projects by their
-host/project identity, so equal directory names on different hosts remain distinct.
-New chat reuses an empty chat only within that remote project and never activates
-its path locally. Remote chats use the regular home, Composer, retained transcript
-panes, and permission/input cards, with unsupported controls disabled by capabilities.
-The client opens Agent/Ask sessions, sends text, and reads bounded history and
-workspace text/diffs. Sessions retain remote identity even offline;
-remote paths are labels, never local workspace activation targets. Missing remote
-backends or unsupported actions fail closed. Local model configuration, attachments,
-message edits, local tools, terminal UI, and cross-host handoff are unavailable.
-Remote chat rendering cannot invoke local plugin slots, local slash commands,
-file previews, attachment staging, or local image resolution. Remote history
-cursors are session-owned opaque values even when represented as numbers; the
-renderer forwards returned cursors without local offset arithmetic or ordering.
-The additive `remoteHostBrowseProjects` Desktop IPC forwards only validated
-Host/path input to `project/browse` and validates returned directory entries.
-The broader R2 target below is not an acceptance claim for this slice.
+**Desktop remote workspaces.** New projects are ordinary locally owned logical
+project groups with an additive `{hostKey, path}` remote workspace binding.
+The shared Create project dialog keeps the user-selected name locally and opens
+a separate directory-selection dialog. Host project catalogs, project
+registration, remote session creation and provider import are not part of this
+flow. The local switcher, sidebar, archive, session creation, model selection,
+project instructions and memory consume the same local project identity.
+
+The local Agent and local provider transport own model execution. API keys,
+OAuth credentials, local provider endpoints and model requests remain on Desktop.
+After local permissions and tool-admission checks, host-core emits a remote
+workspace-tool request. Main dispatches only supported workspace tools to the
+paired Host's additive `workspace/toolExecute` endpoint, and relays cancellation
+through `workspace/toolAbort`. The remote canonical workspace/browse boundary
+is independently enforced. No failed remote call falls back to the local runner,
+and no mutation is automatically retried. The opaque local project identity is
+never resolved as a directory on either machine.
+
+Existing remote Agent histories remain reachable through their previous backend.
+Their session capabilities and opaque history cursors remain enforced; this does
+not grant them local project paths or change their persisted ownership.
+`remoteHostBrowseProjects` forwards only validated Host/path input to
+`project/browse` and validates returned directory entries. See
+[Local Agent remote workspace tools](../../adr/local-agent-remote-workspace-tools.md).
+The broader R2 target below is not an acceptance claim for every transport feature.
 
 Reconnect rebuilds SSH forwarding and RACP subscriptions, acknowledges durable
 cursors, deduplicates events, and recovers snapshots on epoch/gap changes. It never

@@ -5,6 +5,7 @@ export const frEntries: ChangelogEntry[] = [
     "version": "0.18.0",
     "date": "2026-10-09",
     "highlights": [
+      "Créez et nommez des projets SSH depuis l’accueil, choisissez les dossiers dans une boîte de dialogue dédiée et gardez les requêtes et identifiants du modèle sur votre ordinateur.",
       "Configurez le classificateur Jev de TypeSafe depuis Ajouter un service et vérifiez la clé API avant de l'enregistrer.",
       "La synchronisation cloud est disponible dans les paramètres de la version empaquetée et porte la mention « expérimental ». Les listes de projets restent sur chaque appareil.",
       "Ajoutez depuis Ajouter un service des fournisseurs de plugins avec clé API, descriptions localisées et découverte des modèles après configuration.",
