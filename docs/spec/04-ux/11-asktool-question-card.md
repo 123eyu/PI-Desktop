@@ -84,10 +84,11 @@ header, custom-answer input, and Skip / Next / Submit actions remain visible
 while the user scrolls through the options. A long question prompt scrolls
 inside the question body instead of growing the dock: the body uses
 `min(208px, 24dvh)` with a `24vh` fallback, wraps unbroken tokens, hides
-horizontal overflow, and contains scroll chaining. Next, Skip, and the step
-indicators open each question at the top of that scroller. Decline, Skip, and
-Next/Submit stay in the card header, outside that scroller, so they remain
-reachable. Short prompts do not reserve a scrollbar gutter. This behavior also
+horizontal overflow, and contains scroll chaining. The body is keyboard
+focusable with a visible focus ring. Next, Skip, and the step indicators open
+each question at the top of that scroller. Decline, Skip, and Next/Submit stay
+in the card header, outside that scroller, so they remain reachable. Short
+prompts do not reserve a scrollbar gutter. This behavior also
 applies on narrow screens; the card does not rely on page-level scrolling.
 
 ## Request transitions
