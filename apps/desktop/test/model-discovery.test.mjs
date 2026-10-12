@@ -64,13 +64,23 @@ test("anthropic lists keep display names", () => {
 test("google lists strip the models/ prefix", () => {
   const models = normalizeModelList("google_generative_ai", {
     models: [
-      { name: "models/gemini-2.5-pro", displayName: "Gemini 2.5 Pro" },
+      {
+        name: "models/gemini-2.5-pro",
+        displayName: "Gemini 2.5 Pro",
+        inputTokenLimit: 1_048_576,
+        outputTokenLimit: 65_536,
+      },
       { name: "models/gemini-2.5-flash" },
     ],
   });
   assert.deepEqual(models, [
     { modelId: "gemini-2.5-flash", displayName: "gemini-2.5-flash" },
-    { modelId: "gemini-2.5-pro", displayName: "Gemini 2.5 Pro" },
+    {
+      modelId: "gemini-2.5-pro",
+      displayName: "Gemini 2.5 Pro",
+      contextWindow: 1_048_576,
+      maxTokens: 65_536,
+    },
   ]);
 });
 
@@ -83,6 +93,7 @@ test("a model list's own capacity report is kept, nothing is guessed when absent
       { id: "camel-style", contextWindow: 32_000, maxTokens: 4_096 },
       { id: "silent" },
       { id: "zero", context_window: 0 },
+      { id: "unsafe", context_window: Number.MAX_SAFE_INTEGER + 1 },
     ],
   });
   const byId = new Map(models.map((model) => [model.modelId, model]));
@@ -97,6 +108,7 @@ test("a model list's own capacity report is kept, nothing is guessed when absent
   assert.equal(byId.get("silent").contextWindow, undefined);
   assert.equal(byId.get("silent").maxTokens, undefined);
   assert.equal(byId.get("zero").contextWindow, undefined);
+  assert.equal(byId.get("unsafe").contextWindow, undefined);
 });
 
 test("requests use per-style endpoints and auth headers", () => {

@@ -1610,21 +1610,19 @@ export class ModelsDevCatalog {
     const deploymentFallback = result
       ? undefined
       : this.modelForDeploymentMarker(input.modelId, preferredProvider);
-    /* The row's own catalog provider did not publish this id. Borrowing needs a
-       known provider identity to anchor on: the row resolved to a catalog
-       provider whose own records are authoritative, so anything missing from it
-       can be checked against the other publishers of the exact id instead of
-       dropping the model to the generic shape.
-
-       This only fills a miss the lookup already had — a record the preferred
-       provider does publish stays authoritative. A row the catalog cannot place
-       (an unidentified relay) still answers when the model's own family names
-       a publisher the catalog ships: the weight owner's record is what
-       describes the model the relay serves, not a reseller's flags about its
-       intentionally not applied to the borrowed result (approved #1047
-       matching rules); when the owner states nothing, the row stays plain. */
-    const borrowed = result ?? deploymentFallback ??
-      (preferredProvider ? this.borrowedAcrossProviders(input) : this.unanchoredOwnerRecord(requested));
+    /* The row's own catalog provider stays authoritative. When an unanchored
+       relay serves a known model family and the weight owner publishes a
+       matching record, prefer that record over reseller consensus. An
+       ambiguous owner answer stays generic; without an owner match, existing
+       shared-record matching continues to apply. */
+    const relayOwnerKey = preferredProvider
+      ? undefined
+      : RELAY_FAMILY_PUBLISHERS[leafOf(requested).split(/[-.]/)[0] ?? ""];
+    const ownerRecord = relayOwnerKey ? this.unanchoredOwnerRecord(requested) : undefined;
+    const borrowed = ownerRecord === null
+      ? undefined
+      : ownerRecord ?? result ?? deploymentFallback ??
+        (preferredProvider ? this.borrowedAcrossProviders(input) : undefined);
     // Cache the result (a miss included) so a repeated miss is also O(1) and
     // cannot grow the candidate index with query-dependent keys.
     this.lookupMemo.set(memoKey, borrowed);
@@ -1757,7 +1755,7 @@ export class ModelsDevCatalog {
    *   catalog's internal name, e.g. `deepseek-v4.1-flash`), the owner's
    *   own live record for that canonical id answers.
    */
-  private unanchoredOwnerRecord(requested: string): ModelsDevModel | undefined {
+  private unanchoredOwnerRecord(requested: string): ModelsDevModel | null | undefined {
     const ownerKey = RELAY_FAMILY_PUBLISHERS[leafOf(requested).split(/[-.]/)[0] ?? ""];
     if (!ownerKey) return undefined;
     const ownerKeys = new Set(providerKeyCandidates(ownerKey));
@@ -1768,20 +1766,30 @@ export class ModelsDevCatalog {
           ownerKeys.has(normalizedProviderKey(provider.providerKey)),
         )
         .map((entry) => entry.model);
-    const pick = (hits: ModelsDevModel[]): ModelsDevModel | undefined => {
+    const pick = (hits: ModelsDevModel[]): ModelsDevModel | null | undefined => {
+      if (hits.length === 0) return undefined;
       if (hits.length === 1) return hits[0];
       if (hits.length > 1) {
         const signature = capabilitySignature(hits[0]);
-        if (hits.every((model) => capabilitySignature(model) === signature)) return hits[0];
+        const limit = JSON.stringify(hits[0].limit);
+        if (
+          hits.every(
+            (model) =>
+              capabilitySignature(model) === signature &&
+              JSON.stringify(model.limit) === limit,
+          )
+        ) {
+          return hits[0];
+        }
       }
-      return undefined;
+      return null;
     };
     // Notation aliases and one whitelisted deployment label, each checked as
     // a whole published id; the wire id is never rewritten.
     const candidates = relayNotationCandidates(requested);
     for (const candidate of candidates) {
       const hit = pick(ownerHits(candidate));
-      if (hit) return hit;
+      if (hit !== undefined) return hit;
     }
     // The relay named the owner's canonical generation id; the owner's own
     // live record for it answers.
@@ -1795,7 +1803,7 @@ export class ModelsDevCatalog {
    * nothing is claimed. Reseller copies never enter this set: only the
    * weight owner's records may answer a canonical name.
    */
-  private canonicalOwnerRecord(ownerKeys: Set<string>, targets: string[]): ModelsDevModel | undefined {
+  private canonicalOwnerRecord(ownerKeys: Set<string>, targets: string[]): ModelsDevModel | null | undefined {
     if (targets.length === 0) return undefined;
     const wanted = new Set(targets.map((id) => normalizedModelId(leafOf(id))));
     const records = new Map<string, ModelsDevModel>();
@@ -1819,7 +1827,7 @@ export class ModelsDevCatalog {
         capabilitySignature(model) === capabilitySignature(first) &&
         JSON.stringify(model.limit) === JSON.stringify(first.limit),
     );
-    return agreed ? pool[0] : undefined;
+    return agreed ? pool[0] : null;
   }
 
   /**

@@ -142,6 +142,22 @@ test("a relay's list reads the shipped publisher's record for a known id", async
   assert.deepEqual(unknown.capabilities, ["text"]);
 });
 
+test("a model-list capacity report takes precedence over catalog limits", async (t) => {
+  const row = rowOf({
+    id: "row-reported-capacity",
+    name: "Relay",
+    baseUrl: "https://relay.example/v1",
+  });
+  const { result } = await handlersFor(t, row, {
+    data: [{ id: "claude-sonnet-4-5", context_length: 321_000, max_tokens: 12_345 }],
+  });
+
+  const [model] = result.models;
+  assert.equal(model.contextWindow, 321_000, "the endpoint reports its actual context window");
+  assert.equal(model.maxTokens, 12_345, "the endpoint reports its actual output limit");
+  assert.equal(model.catalogSource, "models.dev", "catalog metadata still identifies the model");
+});
+
 test("a hand-typed id on the same relay answers with the same record", async (t) => {
   const row = rowOf({
     id: "row-3",

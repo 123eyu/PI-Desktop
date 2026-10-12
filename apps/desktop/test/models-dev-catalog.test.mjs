@@ -836,6 +836,51 @@ test("an unanchored relay reads its family owner's record over a conflicting res
   assert.equal(match?.limit.context, 1_048_576);
 });
 
+test("an unanchored relay prefers its owner's limits over matching reseller copies", async (t) => {
+  const catalog = await loadFixtureCatalog(t, {
+    gateway: { api: "https://gateway.example/v1", models: {} },
+    xiaomi: { models: { "mimo-v2.5": {
+      id: "mimo-v2.5", tool_call: true,
+      modalities: { input: ["text", "image"], output: ["text"] },
+      limit: { context: 1_048_576, output: 131_072 },
+    } } },
+    reseller: { models: { "mimo-v2.5": {
+      id: "mimo-v2.5", tool_call: true,
+      modalities: { input: ["text", "image"], output: ["text"] },
+      limit: { context: 262_144, output: 16_384 },
+    } } },
+  });
+
+  const match = catalog.findModel({
+    vendorKey: "custom",
+    baseUrl: "https://relay.example/v1",
+    modelId: "mimo-v2.5",
+  });
+  assert.equal(match?.providerKey, "xiaomi");
+  assert.equal(match?.limit.context, 1_048_576);
+  assert.equal(match?.limit.output, 131_072);
+});
+
+test("an unanchored relay stays generic when owner aliases disagree on capacity", async (t) => {
+  const catalog = await loadFixtureCatalog(t, {
+    gateway: { api: "https://gateway.example/v1", models: {} },
+    minimax: { models: { "MiniMax-M2.7": {
+      id: "MiniMax-M2.7", tool_call: true,
+      limit: { context: 204_800, output: 131_072 },
+    } } },
+    "minimax-cn": { models: { "MiniMax-M2.7": {
+      id: "MiniMax-M2.7", tool_call: true,
+      limit: { context: 128_000, output: 65_536 },
+    } } },
+  });
+
+  assert.equal(catalog.findModel({
+    vendorKey: "custom",
+    baseUrl: "https://relay.example/v1",
+    modelId: "MiniMax-M2.7",
+  }), undefined, "conflicting owner limits must not be chosen by catalog order");
+});
+
 test("unique leaf enrichment coexists with exact-id borrowing and unknown misses", async (t) => {
   const catalog = await loadFixtureCatalog(t, {
     gateway: { api: "https://gateway.example/v1", models: {} },
@@ -1911,4 +1956,3 @@ test("a generation name the catalog never publishes stays unmatched", async (t) 
     vendorKey: "custom", baseUrl: "https://relay.example/v1", modelId: "gemini-3-flash",
   }), undefined);
 });
-

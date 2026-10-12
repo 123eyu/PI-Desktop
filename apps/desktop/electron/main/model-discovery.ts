@@ -93,7 +93,7 @@ function dedupeSort(models: DiscoveredModel[]): DiscoveredModel[] {
 }
 
 /**
- * The first positive integer a row of a model list states for a capacity,
+ * The first positive safe integer a row of a model list states for a capacity,
  * reading the OpenAI/Anthropic and Google/Gemini spellings side by side the
  * way the service's own console does. Zero, fractional and missing values
  * state nothing: an endpoint that omits a capacity is not evidence it is
@@ -103,7 +103,7 @@ function firstPositiveInteger(row: Record<string, unknown> | null | undefined, k
   if (!row) return undefined;
   for (const key of keys) {
     const value = row[key];
-    if (typeof value === "number" && Number.isInteger(value) && value > 0) return value;
+    if (typeof value === "number" && Number.isSafeInteger(value) && value > 0) return value;
   }
   return undefined;
 }
