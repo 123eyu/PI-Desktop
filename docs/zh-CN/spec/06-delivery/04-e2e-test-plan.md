@@ -5699,6 +5699,7 @@ eleven-tool-round desktop paths are verified by
 | Security (plugin real-time capabilities) | E2E-PLUGIN-global-shortcut-owns-only-its-own-command、E2E-PLUGIN-permission-gate-for-real-time-capabilities、E2E-PLUGIN-background-audio-and-realtime-connection |
 | C — 对话与流式（展开详情保持阅读位置） | E2E-CHAT-disclosure-toggle-keeps-reading-position |
 | E — 工具与权限（展开详情保持阅读位置） | E2E-CHAT-disclosure-toggle-keeps-reading-position |
+| D（界面）/ 质量 — 远程主机添加与配对表单展开 | E2E-REMOTE-HOST-settings-compact-inventory |
 | E — 工具与权限（能力跨级别迁移） | E2E-CAPABILITY-move-across-levels |
 | F — 持久化（能力跨级别迁移） | E2E-CAPABILITY-move-across-levels |
 | 品质（能力跨级别迁移） | E2E-CAPABILITY-move-across-levels |
@@ -5730,7 +5731,7 @@ eleven-tool-round desktop paths are verified by
 | 后MVP | E2E-022A、E2E-022B、E2E-022C、E2E-024I、E2E-024J、E2E-024K、E2E-024L、E2E-024M（插件路线图 R2/R3/R6） |
 | 基线后本地自动化 | E2E-220 |
 | 基线后本地自动化（MCP `pi_session_get` 超大 compaction） | E2E-MCP-session-get-projects-large-compaction |
-| MVP 后远程控制 | E2E-221、E2E-222、E2E-223、E2E-224、E2E-225、E2E-226、E2E-227、E2E-228、E2E-229、E2E-230、E2E-231、E2E-232 |
+| MVP 后远程控制 | E2E-221、E2E-222、E2E-223、E2E-224、E2E-225、E2E-226、E2E-227、E2E-228、E2E-229、E2E-230、E2E-231、E2E-232、E2E-REMOTE-HOST-settings-compact-inventory |
 | 受信任扩展（R7 v1） | E2E-DIALOG-long-text-boundaries、E2E-241、E2E-242、E2E-HOOKS-cancel-and-dispose、E2E-243、E2E-TRUSTED-EXTENSION-temporary-session-cwd-is-scratch、E2E-244、E2E-245、E2E-PLUGIN-imported-pi-package-skills、E2E-PLUGIN-import-extension-installs-dependencies、E2E-PLUGIN-import-extension-reports-missing-dependency、E2E-PLUGIN-declared-provider-appears-in-the-native-provider-list |
 | 受信任扩展（R7 v1 npm 恢复） | E2E-PLUGIN-import-extension-recovers-missing-npm |
 | Post-MVP 回归覆盖（插件工具调度） | E2E-PLUGIN-slow-tool-is-not-cut-off-by-host-dispatch |
