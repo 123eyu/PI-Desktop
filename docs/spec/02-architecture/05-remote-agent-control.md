@@ -186,6 +186,20 @@ descriptors without a Host ID remain readable. Disconnect does not kill a Host
 that other clients may use. Readiness is used for offline browse/files/shell
 discovery; tool execution itself never reconnects and replays a failed call.
 
+**Version realignment.** A paired Host is pinned to the release that installed
+it, so a desktop upgrade leaves it behind. Readiness therefore compares the
+running Host against *this desktop's* release — never against the version
+recorded at pairing time — and the RACP handshake is checked for the additive
+workspace services a remote project needs. On a mismatch the desktop re-runs the
+same verified SSH install from the stored SSH descriptor and the encrypted login
+password, adopts the forward it opened, and re-pairs in place (ADR 0327).
+Automatic attempts are limited to one per release per host with a cooldown after
+a failure, an explicit user reconnect may retry, and a realignment that does not
+help surfaces the original mismatch instead of hiding it. A direct URL pairing,
+and a password descriptor whose stored secret is gone, are never touched, and the
+artifact is still fetched from the desktop's release and verified against the
+published SHA-256 before installation.
+
 Provider configuration is copied only after explicit selection and consent in
 Settings. Electron Main reads the selected eligible secrets and sends a bounded
 versioned payload over SSH stdin to `pi-host provider-import`. That CLI forwards
