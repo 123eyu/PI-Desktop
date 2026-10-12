@@ -16,7 +16,6 @@ import { api } from "../../lib/api";
 import { remoteHostErrorKey } from "../../lib/remote-host-errors";
 import { useAppStore } from "../../stores/app-store";
 import { Badge, Button, Field, Input, PasswordInput, SegmentedControl, cx } from "../ui";
-import { RemoteHostSessions } from "./RemoteHostSessions";
 
 type AddMode = "ssh" | "pair";
 
@@ -58,11 +57,11 @@ const EMPTY_SSH_FORM: SshForm = {
 export function RemoteHostsPage() {
   const { t } = useTranslation();
   const { t: remoteT } = useTranslation("remote");
-  const [selectedHost, setSelectedHost] = useState<RemoteHostSummary | null>(null);
   const [reconnecting, setReconnecting] = useState<string | null>(null);
   const alive = useRef(true);
   const refreshGeneration = useRef(0);
   const showToast = useAppStore((state) => state.showToast);
+  const openProject = useAppStore((state) => state.openProject);
   const [hosts, setHosts] = useState<RemoteHostSummary[] | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [form, setForm] = useState<PairForm>(EMPTY_FORM);
@@ -255,8 +254,8 @@ export function RemoteHostsPage() {
                 <Badge tone={host.connected ? "success" : host.status === "action-required" ? "warning" : "neutral"}>
                   {t(remoteHostStatusKey(host))}
                 </Badge>
-                <Button variant="secondary" onClick={() => setSelectedHost(host)}>
-                  {remoteT("sessions")}
+                <Button variant="secondary" onClick={() => void openProject({ remoteHostKey: host.hostKey })}>
+                  {remoteT("newProject")}
                 </Button>
                 <Button variant="ghost" disabled={reconnecting !== null} onClick={() => void reconnect(host)}>
                   {reconnecting === host.hostKey ? remoteT("loading") : remoteT("reconnect")}
@@ -276,7 +275,6 @@ export function RemoteHostsPage() {
           ))
         )}
       </div>
-      {selectedHost && <RemoteHostSessions key={selectedHost.hostKey} host={selectedHost} onClose={() => setSelectedHost(null)} />}
 
       <section className="settings-card-block">
         <div className="settings-card-heading-row settings-remote-host-add-heading">

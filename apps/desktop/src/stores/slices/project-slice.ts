@@ -113,7 +113,7 @@ async function createNamedProjectGroup(
       if (!workspace || !runtime.navigationIntentIsCurrent(intent)) return;
       const onboarding = await api.getOnboarding();
       if (!runtime.navigationIntentIsCurrent(intent)) return;
-      set({ createProjectDialogOpen: false, onboarding, page: "chat" });
+      set({ createProjectDialogOpen: false, createProjectDialogRemoteHostKey: undefined, onboarding, page: "chat" });
       return;
     }
   }
@@ -130,7 +130,7 @@ async function createNamedProjectGroup(
   get().renameProject(groupPrimary, normalizedName);
   const onboarding = await api.getOnboarding();
   if (!runtime.navigationIntentIsCurrent(intent)) return;
-  set({ createProjectDialogOpen: false, onboarding, page: "chat" });
+  set({ createProjectDialogOpen: false, createProjectDialogRemoteHostKey: undefined, onboarding, page: "chat" });
 }
 
 /**
@@ -385,11 +385,11 @@ export function createProjectSlice({
       });
     },
 
-    openProject: async () => {
-      set({ createProjectDialogOpen: true });
+    openProject: async (options) => {
+      set({ createProjectDialogOpen: true, createProjectDialogRemoteHostKey: options?.remoteHostKey });
     },
     closeProjectDialog: () => {
-      set({ createProjectDialogOpen: false });
+      set({ createProjectDialogOpen: false, createProjectDialogRemoteHostKey: undefined });
     },
     createProjectFromFolders: async ({ name, folders, primaryPath }) =>
       createNamedProjectGroup(
@@ -407,7 +407,7 @@ export function createProjectSlice({
       get().renameProject(group.primaryPath, normalizedName);
       const onboarding = await api.getOnboarding();
       if (!runtime.navigationIntentIsCurrent(intent)) return;
-      set({ createProjectDialogOpen: false, onboarding, page: "chat" });
+      set({ createProjectDialogOpen: false, createProjectDialogRemoteHostKey: undefined, onboarding, page: "chat" });
     },
     createProjectFromGit: async ({ name, url, parentPath }) => {
       // Clone first, then create the project through the same group path, so a

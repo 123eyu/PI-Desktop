@@ -41,10 +41,15 @@ test("remote hosts is an inventory plus one SSH/Pair add form", () => {
   assert.match(page, /api\.pairRemoteHost\(/);
   assert.match(page, /api\.listRemoteHosts\(/);
   assert.match(page, /api\.removeRemoteHost\(/);
-
   assert.match(cssRule(".settings-remote-host-add-panel[hidden]"), /display:\s*none/);
   assert.match(cssRule(".settings-remote-host-card"), /background:\s*var\(--ds-tile\)/);
   assert.match(cssRule(".settings-remote-host-name"), /font-size:\s*var\(--text-md-plus\)/);
+});
+
+test("remote host cards open project creation instead of a session workbench", () => {
+  assert.match(page, /openProject\(\{ remoteHostKey: host\.hostKey \}\)/);
+  assert.match(page, /remoteT\("newProject"\)/);
+  assert.doesNotMatch(page, /RemoteHostSessions|selectedHost|remoteT\("sessions"\)/);
 });
 
 test("remote hosts omits instructional copy", () => {
