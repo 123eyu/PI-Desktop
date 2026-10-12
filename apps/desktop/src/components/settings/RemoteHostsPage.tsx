@@ -16,7 +16,6 @@ import { api } from "../../lib/api";
 import { remoteHostErrorKey } from "../../lib/remote-host-errors";
 import { useAppStore } from "../../stores/app-store";
 import { Badge, Button, Field, Input, PasswordInput, SegmentedControl, cx } from "../ui";
-import { RemoteHostSessions } from "./RemoteHostSessions";
 
 type AddMode = "ssh" | "pair";
 
@@ -58,11 +57,11 @@ const EMPTY_SSH_FORM: SshForm = {
 export function RemoteHostsPage() {
   const { t } = useTranslation();
   const { t: remoteT } = useTranslation("remote");
-  const [selectedHost, setSelectedHost] = useState<RemoteHostSummary | null>(null);
   const [reconnecting, setReconnecting] = useState<string | null>(null);
   const alive = useRef(true);
   const refreshGeneration = useRef(0);
   const showToast = useAppStore((state) => state.showToast);
+  const openProject = useAppStore((state) => state.openProject);
   const [hosts, setHosts] = useState<RemoteHostSummary[] | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [form, setForm] = useState<PairForm>(EMPTY_FORM);
@@ -71,6 +70,7 @@ export function RemoteHostsPage() {
   const [sshForm, setSshForm] = useState<SshForm>(EMPTY_SSH_FORM);
   const [installing, setInstalling] = useState(false);
   const [addMode, setAddMode] = useState<AddMode | null>(null);
+  const sshIdentityFileInput = useRef<HTMLInputElement>(null);
 
   const refresh = useCallback(async () => {
     const generation = ++refreshGeneration.current;
@@ -167,6 +167,24 @@ export function RemoteHostsPage() {
     }));
   }, []);
 
+  const handleSshIdentityFileChange = useCallback(
+    (event: React.ChangeEvent<HTMLInputElement>) => {
+      const input = event.currentTarget;
+      const file = input.files?.[0] ?? null;
+      // Reset so the same identity file can be selected again after a change.
+      input.value = "";
+      if (!file) return;
+
+      const identityFile = api.getDroppedFilePath(file);
+      if (!identityFile) {
+        showToast(t("settings.remoteHosts.sshIdentityFileError"), { variant: "error" });
+        return;
+      }
+      setSshForm((prev) => ({ ...prev, identityFile }));
+    },
+    [showToast, t],
+  );
+
   const submitSsh = useCallback(
     async (event: React.FormEvent<HTMLFormElement>) => {
       event.preventDefault();
@@ -180,7 +198,7 @@ export function RemoteHostsPage() {
       if (passwordMode && !password) return;
       const user = sshForm.user.trim();
       const port = sshForm.port.trim();
-      const identityFile = sshForm.identityFile.trim();
+      const identityFile = sshForm.identityFile;
       setInstalling(true);
       try {
         // Empty optional fields are dropped rather than sent blank, so main
@@ -260,8 +278,8 @@ export function RemoteHostsPage() {
                 <Badge tone={host.connected ? "success" : host.status === "action-required" ? "warning" : "neutral"}>
                   {t(remoteHostStatusKey(host))}
                 </Badge>
-                <Button variant="secondary" onClick={() => setSelectedHost(host)}>
-                  {remoteT("sessions")}
+                <Button variant="secondary" onClick={() => void openProject({ remoteHostKey: host.hostKey })}>
+                  {remoteT("newProject")}
                 </Button>
                 <Button variant="ghost" disabled={reconnecting !== null} onClick={() => void reconnect(host)}>
                   {reconnecting === host.hostKey ? remoteT("loading") : remoteT("reconnect")}
@@ -281,7 +299,6 @@ export function RemoteHostsPage() {
           ))
         )}
       </div>
-      {selectedHost && <RemoteHostSessions key={selectedHost.hostKey} host={selectedHost} onClose={() => setSelectedHost(null)} />}
 
       <section className="settings-card-block">
         <div className="settings-card-heading-row settings-remote-host-add-heading">
@@ -403,17 +420,44 @@ export function RemoteHostsPage() {
 
             {sshForm.auth === "key" ? (
               <Field label={t("settings.remoteHosts.sshIdentityFile")}>
-                <Input
-                  value={sshForm.identityFile}
-                  onChange={(event) =>
-                    setSshForm((prev) => ({ ...prev, identityFile: event.target.value }))
-                  }
-                  aria-label={t("settings.remoteHosts.sshIdentityFile")}
-                  autoComplete="off"
-                  autoCapitalize="off"
-                  spellCheck={false}
-                  disabled={installing}
-                />
+                <div className="settings-remote-host-identity-file">
+                  <Input
+                    value={sshForm.identityFile}
+                    placeholder={t("settings.remoteHosts.sshIdentityFilePlaceholder")}
+                    aria-label={t("settings.remoteHosts.sshIdentityFile")}
+                    autoComplete="off"
+                    readOnly
+                    disabled={installing}
+                  />
+                  <Button
+                    type="button"
+                    variant="secondary"
+                    onClick={() => sshIdentityFileInput.current?.click()}
+                    disabled={installing}
+                  >
+                    {t("settings.remoteHosts.sshIdentityFileChoose")}
+                  </Button>
+                  {sshForm.identityFile && (
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      onClick={() => setSshForm((prev) => ({ ...prev, identityFile: "" }))}
+                      disabled={installing}
+                    >
+                      {t("settings.remoteHosts.sshIdentityFileClear")}
+                    </Button>
+                  )}
+                  {/* Key files often have no extension, so do not restrict file types. */}
+                  <input
+                    ref={sshIdentityFileInput}
+                    className="settings-remote-host-identity-file-input"
+                    type="file"
+                    tabIndex={-1}
+                    aria-hidden="true"
+                    onChange={handleSshIdentityFileChange}
+                    disabled={installing}
+                  />
+                </div>
               </Field>
             ) : (
               <Field label={t("settings.remoteHosts.sshPassword")}>

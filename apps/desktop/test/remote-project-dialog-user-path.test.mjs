@@ -18,6 +18,7 @@ import { initReactI18next } from "react-i18next";
 import { catalogs, flattenCatalog } from "@pi-desktop/i18n";
 import { IPC } from "@pi-desktop/shared";
 import { ProjectCreateDialog } from "../../apps/desktop/src/components/ProjectCreateDialog";
+import { RemoteHostsPage } from "../../apps/desktop/src/components/settings/RemoteHostsPage";
 import { FilesTab } from "../../apps/desktop/src/components/workpanel/FilesTab";
 import { ProjectEditDialog } from "../../apps/desktop/src/components/ProjectEditDialog";
 import { useAppStore } from "../../apps/desktop/src/stores/app-store";
@@ -67,18 +68,25 @@ function choose(node, value) { flushSync(() => { Object.getOwnPropertyDescriptor
 function input(node, value) { flushSync(() => { Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, "value").set.call(node, value); node.dispatchEvent(new Event("input", { bubbles: true })); }); }
 const picker = () => document.querySelector(".remote-folder-dialog");
 window.remoteProjectProbe = async () => {
- useAppStore.setState({ workspace: { path: "/local/app", name: "app" }, activeProjectPath: "/local/app", openProjectPaths: ["/local/app"], openProjects: [{ path: "/local/app", name: "app" }], sessions: [], page: "chat" });
- await useAppStore.getState().openProject();
- flushSync(() => view.render(React.createElement(ProjectCreateDialog)));
- await until(() => button("Remote"), "remote source button missing");
+ useAppStore.setState({ workspace: { path: "/local/app", name: "app" }, activeProjectPath: "/local/app", openProjectPaths: ["/local/app"], openProjects: [{ path: "/local/app", name: "app" }], sessions: [], page: "settings" });
+ flushSync(() => view.render(React.createElement(React.Fragment, null, React.createElement(RemoteHostsPage), React.createElement(ProjectCreateDialog))));
+ await until(() => document.querySelectorAll(".settings-remote-host-card").length === 3, "remote host inventory did not load");
+ const hostCard = [...document.querySelectorAll(".settings-remote-host-card")].find((card) => card.textContent.includes("Server 2"));
+ check(hostCard, "requested host card missing");
+ const createButton = button("New project", hostCard);
+ check(createButton, "host card has no new project action");
+ createButton.click();
+ await until(() => document.querySelector(".project-create-dialog") && document.querySelector("select")?.value === "h2", "new project did not preselect remote source and host");
+ check(document.querySelector('.project-create-dialog [data-project-source="remote"]')?.getAttribute("aria-pressed") === "true", "remote project source was not selected");
+ check(!document.querySelector(".remote-host-workbench"), "remote host page still opens a session workbench");
+ check(!calls.some((entry) => entry.channel === IPC.invoke.remoteHostSessions), "opening project management listed remote sessions");
  input(document.querySelector("#project-create-name"), "My server app");
- button("Remote").click();
- await until(() => document.querySelector('select')?.value === "h1", "hosts did not load");
  check(document.querySelector("#project-create-name").value === "My server app", "remote source lost editable local name");
  check(document.querySelector('option[value="offline"]'), "disconnected paired host not offered");
- check(document.querySelectorAll('select').length === 1, "host project catalog still required");
+ check(document.querySelectorAll("select").length === 1, "host project catalog still required");
  check(!calls.some((entry) => entry.channel === IPC.invoke.remoteHostProjects), "host project catalog was fetched");
  check(!calls.some((entry) => entry.channel === IPC.invoke.remoteHostBrowseProjects), "browse loaded inside project form");
+ choose(document.querySelector("select"), "h1");
  button("Browse folders").click();
  await until(() => releaseOldBrowse && picker(), "folder dialog missing");
  check(document.querySelector('.project-create-dialog').inert, "project form was interactive behind folder dialog");
@@ -130,7 +138,7 @@ window.remoteProjectProbe = async () => {
  input(document.querySelector(".remote-project-picker input"), "relative"); await settle();
  check(document.querySelector('button[type="submit"]').disabled, "relative remote path accepted");
  input(document.querySelector(".remote-project-picker input"), "/home/user/app"); await settle();
- const form = document.querySelector("form");
+ const form = document.querySelector(".project-create-dialog form");
  form.dispatchEvent(new Event("submit", { bubbles: true, cancelable: true }));
  form.dispatchEvent(new Event("submit", { bubbles: true, cancelable: true }));
  await until(() => releaseCreate, "local remote-bound project creation did not start");
@@ -168,10 +176,9 @@ window.remoteProjectProbe = async () => {
  check(unexpectedCalls.length === 0, "unexpected IPC calls: " + unexpectedCalls.join(", "));
  return { passed: true };
 };
-
 `;
 
-test("home project dialog chooses remote folders and creates and renames a local project", {
+test("remote host page opens a preselected remote project and creates a local project", {
   skip: process.platform === "linux" && !process.env.DISPLAY ? "Electron requires a display" : false,
 }, async () => {
   const temp = await mkdtemp(join(root, "apps/desktop/.remote-project-ui-"));

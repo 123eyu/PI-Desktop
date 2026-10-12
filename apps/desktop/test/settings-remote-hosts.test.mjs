@@ -53,6 +53,37 @@ test("remote hosts keeps Add actions visible and reveals one form on demand", ()
   assert.match(cssRule(".settings-remote-host-name"), /font-size:\s*var\(--text-md-plus\)/);
 });
 
+test("remote host cards open project creation instead of a session workbench", () => {
+  assert.match(page, /openProject\(\{ remoteHostKey: host\.hostKey \}\)/);
+  assert.match(page, /remoteT\("newProject"\)/);
+  assert.doesNotMatch(page, /RemoteHostSessions|selectedHost|remoteT\("sessions"\)/);
+});
+
+test("SSH key mode selects a local identity file instead of accepting a typed path", () => {
+  const start = page.indexOf('<Field label={t("settings.remoteHosts.sshIdentityFile")}>');
+  const end = page.indexOf(") : (", start);
+  assert.ok(start >= 0 && end > start, "key-auth identity field should exist");
+  const identityField = page.slice(start, end);
+  const displayInput = identityField.match(/<Input[\s\S]*?\/>/)?.[0];
+  assert.ok(displayInput, "selected path should use the shared Input primitive");
+  assert.match(displayInput, /readOnly/);
+  assert.doesNotMatch(displayInput, /onChange=/);
+  assert.match(identityField, /sshIdentityFileChoose/);
+  assert.match(identityField, /sshIdentityFileClear/);
+  assert.match(identityField, /type="file"/);
+  assert.match(identityField, /onChange={handleSshIdentityFileChange}/);
+  assert.match(page, /api\.getDroppedFilePath\(file\)/);
+  assert.match(page, /input\.value = ""/);
+  assert.match(page, /if \(!file\) return/);
+  assert.match(page, /const identityFile = sshForm\.identityFile;/);
+  assert.match(page, /sshIdentityFileError/);
+  assert.match(
+    cssRule(".settings-remote-host-identity-file"),
+    /grid-template-columns: minmax\(0, 1fr\) auto auto/,
+  );
+  assert.match(cssRule(".settings-remote-host-identity-file-input"), /display: none/);
+});
+
 test("remote hosts omits instructional copy", () => {
   assert.doesNotMatch(page, /role="note"/);
   assert.doesNotMatch(page, /settings-row-desc/);
