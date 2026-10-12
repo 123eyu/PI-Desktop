@@ -42,6 +42,7 @@ import type { RuntimeState } from "./context";
 import type { RuntimeProvider } from "./provider-catalog";
 import type { LoadedSkillDocument } from "../skill-document";
 import { getActiveRemoteHostsBoot } from "../bootstrap/remote-hosts";
+import { loadRemoteWorkspaceInstructions } from "../remote/remote-workspace-instructions.js";
 
 const ErrorCodes = {
   ...SharedErrorCodes,
@@ -402,6 +403,11 @@ export function createSessionLaunchRuntime({
         : undefined;
     const localInstructionRoot = remoteWorkspace ? undefined : projectPath;
     let projectInstructions = await loadInstructionChain(localInstructionRoot);
+    if (remoteWorkspace) {
+      projectInstructions = await loadRemoteWorkspaceInstructions(
+        remoteBoot!.workspaceFiles, remoteWorkspace, projectInstructions,
+      );
+    }
     // pi-compatible SYSTEM.md / APPEND_SYSTEM.md (issue #542): resolved once
     // per launch; a change retires the runtime through the reuse match.
     const customSystemPrompt = await loadCustomSystemPrompt(localInstructionRoot);

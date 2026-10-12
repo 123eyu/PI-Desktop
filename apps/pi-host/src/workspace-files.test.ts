@@ -34,4 +34,25 @@ describe("sessionless SSH file views", () => {
     await expect(files.read({ path: "relative", operation: "list" })).rejects.toMatchObject({ code: "INVALID_ARGUMENT" });
     await expect(files.read({ path: join(path, "missing"), operation: "list" })).rejects.toMatchObject({ code: "REMOTE_PATH_NOT_FOUND" });
   });
+  it("loads repository instructions with precedence, no parent/global file, and bounded UTF-8 content", async () => {
+    const path = await fixture(); const files = createWorkspaceFiles();
+    expect(await files.read({ path, operation: "instructions" })).toEqual({ entries: [] });
+    await writeFile(join(path, "CLAUDE.md"), "fallback");
+    await writeFile(join(path, "AGENTS.md"), "repository");
+    await writeFile(join(path, "AGENTS.override.md"), "override");
+    expect(await files.read({ path, operation: "instructions" })).toEqual({ entries: [{ source: "AGENTS.override.md", content: "override" }] });
+    await writeFile(join(path, "AGENTS.override.md"), "界".repeat(20_000));
+    const loaded = await files.read({ path, operation: "instructions" }) as { entries: Array<{ source: string; content: string }> };
+    expect(loaded.entries).toHaveLength(1);
+    expect(loaded.entries[0]?.content).toContain("PI-Desktop truncated AGENTS.override.md");
+    expect(Buffer.byteLength(loaded.entries[0]?.content ?? "")).toBeLessThan(33_000);
+    expect(loaded.entries[0]?.content).not.toContain("�");
+  });
+  it("ignores repository instruction links escaping the explicit root", async () => {
+    const path = await fixture(); const outside = await fixture();
+    await writeFile(join(outside, "AGENTS.md"), "outside private instructions");
+    await symlink(join(outside, "AGENTS.md"), join(path, "AGENTS.override.md"));
+    await writeFile(join(path, "AGENTS.md"), "contained");
+    expect(await createWorkspaceFiles().read({ path, operation: "instructions" })).toEqual({ entries: [{ source: "AGENTS.md", content: "contained" }] });
+  });
 });

@@ -285,6 +285,23 @@ describe("RACP-WS reconnect", () => {
     expect(states.at(-1)).toBe("error");
     expect(client.state).toBe("error");
   });
+  it.each(["HOST_AUTH_FAILED", "HOST_VERSION_MISMATCH"])("stops automatic reconnect after non-retriable %s", async (errorCode) => {
+    const h = await harness();
+    let attempts = 0;
+    let ended!: () => void;
+    const failed = new Promise<void>((resolve) => { ended = resolve; });
+    const { client, link } = await h.connect(OWNER_TOKEN, {
+      reconnect: { enabled: true, maxAttempts: 2 }, sleep: async () => undefined,
+      onReconnected: async () => { attempts++; throw Object.assign(new Error("action required"), { errorCode, retriable: false }); },
+      onStateChange: (state) => { if (state === "error") ended(); },
+    });
+    try {
+      link().drop();
+      await failed;
+      expect(attempts).toBe(1);
+      expect(client.state).toBe("error");
+    } finally { await client.close(); }
+  });
 });
 
 describe("RACP-WS remote-host profile", () => {

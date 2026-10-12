@@ -1,6 +1,7 @@
 import { realpath, stat } from "node:fs/promises";
 import { basename, isAbsolute } from "node:path";
 import { RacpError } from "@pi-desktop/agent-host";
+import { loadProjectInstructions } from "@pi-desktop/agent-runtime";
 import { collectWorkspaceDiff, getWorkspaceFileIndex, isChatRefOutsideRoots, listDir, readOpenableFile, readOpenableImage, resolveChatFileRef } from "@pi-desktop/host-runtime";
 import type { RacpHostOperations } from "@pi-desktop/racp";
 
@@ -18,6 +19,7 @@ export function createWorkspaceFiles(): NonNullable<RacpHostOperations["workspac
         case "image": return await readOpenableImage(ref, root, [], input.mimeType);
         case "index": return await getWorkspaceFileIndex(root);
         case "diff": return await collectWorkspaceDiff(root);
+        case "instructions": return (await loadProjectInstructions(root)) ?? { entries: [] };
         case "resolve": {
           const roots = { project: [{ path: root, name: basename(root), primary: true }] };
           if (await isChatRefOutsideRoots(ref, roots)) return { match: null, reason: "outside-allowed-roots" };
