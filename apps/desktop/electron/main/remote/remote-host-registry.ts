@@ -114,6 +114,17 @@ export function createRemoteHostRegistry(
 ): RemoteHostRegistry {
   const log = options.log ?? (() => undefined);
   const filePath = join(options.dataDir, options.fileName ?? "remote-hosts.json");
+  let mutationQueue: Promise<void> = Promise.resolve();
+
+  /** Keep each read-modify-write and quarantine transaction exclusive. */
+  const serializeMutation = <T>(mutation: () => Promise<T>): Promise<T> => {
+    const result = mutationQueue.then(mutation);
+    mutationQueue = result.then(
+      () => undefined,
+      () => undefined,
+    );
+    return result;
+  };
 
   const readFileState = async (): Promise<RegistryRead> => {
     let raw: string;
@@ -235,45 +246,49 @@ export function createRemoteHostRegistry(
       }
       return decoded;
     },
-    async upsert(record) {
-      if (!options.encryption.isAvailable()) {
-        throw Object.assign(new Error("safeStorage unavailable; refusing to write remote host token"), {
-          errorCode: "REMOTE_STORAGE_UNAVAILABLE",
-        });
-      }
-      const hosts = await writableHosts();
-      const ciphertext = options.encryption.encryptString(record.deviceToken).toString("base64");
-      const serialized: SerializedRecord = {
-        hostKey: record.hostKey,
-        label: record.label,
-        url: record.url,
-        encryptedDeviceToken: ciphertext,
-        ...(record.sshSecret
-          ? {
-              encryptedSshSecret: options.encryption
-                .encryptString(record.sshSecret)
-                .toString("base64"),
-            }
-          : {}),
-        ...(record.metadata ? { metadata: record.metadata } : {}),
-      };
-      const next = hosts.filter((existing) => existing.hostKey !== record.hostKey);
-      next.push(serialized);
-      await persist({ version: CURRENT_VERSION, hosts: next });
-    },
-    async remove(hostKey) {
-      const hosts = await writableHosts();
-      const next = hosts.filter((existing) => existing.hostKey !== hostKey);
-      if (next.length === hosts.length) return;
-      if (next.length === 0) {
-        try {
-          await unlink(filePath);
-        } catch (error) {
-          if (!fileNotFound(error)) log("warn", "remote-hosts.json unlink failed", { error: String(error) });
+    upsert(record) {
+      return serializeMutation(async () => {
+        if (!options.encryption.isAvailable()) {
+          throw Object.assign(new Error("safeStorage unavailable; refusing to write remote host token"), {
+            errorCode: "REMOTE_STORAGE_UNAVAILABLE",
+          });
         }
-        return;
-      }
-      await persist({ version: CURRENT_VERSION, hosts: next });
+        const hosts = await writableHosts();
+        const ciphertext = options.encryption.encryptString(record.deviceToken).toString("base64");
+        const serialized: SerializedRecord = {
+          hostKey: record.hostKey,
+          label: record.label,
+          url: record.url,
+          encryptedDeviceToken: ciphertext,
+          ...(record.sshSecret
+            ? {
+                encryptedSshSecret: options.encryption
+                  .encryptString(record.sshSecret)
+                  .toString("base64"),
+              }
+            : {}),
+          ...(record.metadata ? { metadata: record.metadata } : {}),
+        };
+        const next = hosts.filter((existing) => existing.hostKey !== record.hostKey);
+        next.push(serialized);
+        await persist({ version: CURRENT_VERSION, hosts: next });
+      });
+    },
+    remove(hostKey) {
+      return serializeMutation(async () => {
+        const hosts = await writableHosts();
+        const next = hosts.filter((existing) => existing.hostKey !== hostKey);
+        if (next.length === hosts.length) return;
+        if (next.length === 0) {
+          try {
+            await unlink(filePath);
+          } catch (error) {
+            if (!fileNotFound(error)) log("warn", "remote-hosts.json unlink failed", { error: String(error) });
+          }
+          return;
+        }
+        await persist({ version: CURRENT_VERSION, hosts: next });
+      });
     },
   };
 }

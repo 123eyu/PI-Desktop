@@ -241,3 +241,29 @@ test("a corrupt file is quarantined with its bytes preserved, then pairing conti
   assert.ok(warnings.some((entry) => /quarantined corrupt/.test(entry.message)));
   await cleanup();
 });
+
+test("concurrent pairings serialize quarantine and preserve every host", async () => {
+  const { dir, cleanup } = await tmpDir();
+  const garbage = '{"version": 1, "hosts": [{"hostKey": "tru';
+  await writeFile(join(dir, "remote-hosts.json"), garbage, "utf8");
+  const registry = createRemoteHostRegistry({ dataDir: dir, encryption: reversibleEncryption() });
+  const records = Array.from({ length: 12 }, (_, index) => ({
+    hostKey: `host-${index}`,
+    label: `Host ${index}`,
+    url: `wss://host-${index}`,
+    deviceToken: `token-${index}`,
+  }));
+
+  await Promise.all(records.map((record) => registry.upsert(record)));
+
+  const rows = await registry.list();
+  assert.deepEqual(
+    rows.map((row) => row.hostKey).sort(),
+    records.map((record) => record.hostKey).sort(),
+  );
+  const entries = await (await import("node:fs/promises")).readdir(dir);
+  const quarantine = entries.find((name) => name.startsWith("remote-hosts.json.corrupt-"));
+  assert.ok(quarantine, "the original corrupt registry must remain quarantined");
+  assert.equal(await readFile(join(dir, quarantine), "utf8"), garbage);
+  await cleanup();
+});
