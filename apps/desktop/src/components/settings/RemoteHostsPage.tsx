@@ -2,10 +2,10 @@
  * Settings destination for paired remote `pi-host` machines (R2b pairing UX,
  * ADR 0286 §Registry).
  *
- * Inventory of `<dataDir>/remote-hosts.json` plus one Add form: SSH install
- * first, URL + pairing token second. Instructional copy stays out of the
- * renderer. The destination is marked Experimental on the settings rail and
- * page title; pairing and SSH bootstrap still call the same IPC. A password
+ * Inventory of `<dataDir>/remote-hosts.json` plus two Add actions that reveal
+ * the SSH install or URL + pairing-token form on demand. Instructional copy
+ * stays out of the renderer. The destination is marked Experimental on the
+ * rail and page title; pairing and SSH bootstrap still call the same IPC. A password
  * typed into the SSH form lives in this component's state only; it is never
  * persisted or logged here.
  */
@@ -70,7 +70,7 @@ export function RemoteHostsPage() {
   const [removing, setRemoving] = useState<string | null>(null);
   const [sshForm, setSshForm] = useState<SshForm>(EMPTY_SSH_FORM);
   const [installing, setInstalling] = useState(false);
-  const [addMode, setAddMode] = useState<AddMode>("ssh");
+  const [addMode, setAddMode] = useState<AddMode | null>(null);
 
   const refresh = useCallback(async () => {
     const generation = ++refreshGeneration.current;
@@ -92,6 +92,12 @@ export function RemoteHostsPage() {
     const unsubscribe = api.onSessionsChanged(() => void refresh());
     return () => { alive.current = false; refreshGeneration.current++; unsubscribe(); };
   }, [refresh]);
+
+  const closeAddForm = useCallback(() => {
+    setAddMode(null);
+    setForm(EMPTY_FORM);
+    setSshForm(EMPTY_SSH_FORM);
+  }, []);
 
   const reconnect = async (host: RemoteHostSummary) => {
     if (reconnecting) return;
@@ -120,7 +126,7 @@ export function RemoteHostsPage() {
         showToast(t("settings.remoteHosts.pairSucceeded", { label: result.host.label }), {
           variant: "info",
         });
-        setForm(EMPTY_FORM);
+        closeAddForm();
         await refresh();
       } catch (caught) {
         const message = t(remoteHostErrorKey(caught));
@@ -129,7 +135,7 @@ export function RemoteHostsPage() {
         setPairing(false);
       }
     },
-    [form, refresh, showToast, t],
+    [closeAddForm, form, refresh, showToast, t],
   );
 
   const remove = useCallback(
@@ -191,8 +197,7 @@ export function RemoteHostsPage() {
         showToast(t("settings.remoteHosts.sshSucceeded", { label: result.host.label }), {
           variant: "info",
         });
-        // Drops the password with the rest of the draft.
-        setSshForm(EMPTY_SSH_FORM);
+        closeAddForm();
         await refresh();
       } catch (caught) {
         const message = t(remoteHostErrorKey(caught));
@@ -201,7 +206,7 @@ export function RemoteHostsPage() {
         setInstalling(false);
       }
     },
-    [sshForm, refresh, showToast, t],
+    [closeAddForm, sshForm, refresh, showToast, t],
   );
   const busy = installing || pairing;
   const sshSubmitDisabled =
@@ -281,22 +286,38 @@ export function RemoteHostsPage() {
       <section className="settings-card-block">
         <div className="settings-card-heading-row settings-remote-host-add-heading">
           <h3 className="settings-card-heading">{t("settings.remoteHosts.addTitle")}</h3>
-          <SegmentedControl
-            value={addMode}
-            onChange={(mode) => setAddMode(mode)}
-            options={[
-              { value: "ssh", label: t("settings.remoteHosts.addSsh"), id: "remote-host-add-ssh", controls: "remote-host-add-panel-ssh" },
-              { value: "pair", label: t("settings.remoteHosts.addPair"), id: "remote-host-add-pair", controls: "remote-host-add-panel-pair" },
-            ]}
-            label={t("settings.remoteHosts.addTitle")}
-            role="tablist"
-            disabled={busy}
-          />
+          <div className="settings-remote-host-add-actions">
+            <Button
+              id="remote-host-add-ssh"
+              type="button"
+              variant={addMode === "ssh" ? "secondary" : "ghost"}
+              aria-expanded={addMode === "ssh"}
+              aria-controls="remote-host-add-panel-ssh"
+              onClick={() => setAddMode("ssh")}
+              disabled={busy}
+            >
+              {t("settings.remoteHosts.addSsh")}
+            </Button>
+            <Button
+              id="remote-host-add-pair"
+              type="button"
+              variant={addMode === "pair" ? "secondary" : "ghost"}
+              aria-expanded={addMode === "pair"}
+              aria-controls="remote-host-add-panel-pair"
+              onClick={() => setAddMode("pair")}
+              disabled={busy}
+            >
+              {t("settings.remoteHosts.addPair")}
+            </Button>
+          </div>
         </div>
-        <div className="settings-panel">
+        <div
+          className="settings-panel settings-remote-host-add-shell"
+          hidden={addMode === null}
+        >
           <form
             id="remote-host-add-panel-ssh"
-            role="tabpanel"
+            role="region"
             aria-labelledby="remote-host-add-ssh"
             hidden={addMode !== "ssh"}
             className="settings-remote-host-form settings-remote-host-add-panel"
@@ -413,6 +434,9 @@ export function RemoteHostsPage() {
             )}
 
             <div className="settings-remote-host-form-actions">
+              <Button type="button" variant="ghost" disabled={installing} onClick={closeAddForm}>
+                {t("common.cancel")}
+              </Button>
               <Button type="submit" variant="primary" disabled={sshSubmitDisabled}>
                 {installing
                   ? t("settings.remoteHosts.sshRunning")
@@ -423,7 +447,7 @@ export function RemoteHostsPage() {
 
           <form
             id="remote-host-add-panel-pair"
-            role="tabpanel"
+            role="region"
             aria-labelledby="remote-host-add-pair"
             hidden={addMode !== "pair"}
             className="settings-remote-host-form settings-remote-host-add-panel"
@@ -475,6 +499,9 @@ export function RemoteHostsPage() {
               />
             </Field>
             <div className="settings-remote-host-form-actions">
+              <Button type="button" variant="ghost" disabled={pairing} onClick={closeAddForm}>
+                {t("common.cancel")}
+              </Button>
               <Button type="submit" variant="primary" disabled={pairSubmitDisabled}>
                 {pairing
                   ? t("settings.remoteHosts.pairing")

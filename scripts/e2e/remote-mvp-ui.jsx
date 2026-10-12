@@ -3,9 +3,10 @@ import { createRoot } from "react-dom/client";
 import i18n from "i18next";
 import { initReactI18next } from "react-i18next";
 import { IPC } from "@pi-desktop/shared";
-import { remoteEn } from "../../apps/desktop/src/locales/remote";
+import { remoteEn, remoteZh } from "../../apps/desktop/src/locales/remote";
 import { useAppStore } from "../../apps/desktop/src/stores/app-store";
 import { RemoteHostSessions } from "../../apps/desktop/src/components/settings/RemoteHostSessions";
+import { RemoteHostsPage } from "../../apps/desktop/src/components/settings/RemoteHostsPage";
 import { ChatSurface } from "../../apps/desktop/src/components/ChatSurface";
 import { catalogs } from "@pi-desktop/i18n";
 import { api } from "../../apps/desktop/src/lib/api";
@@ -28,7 +29,9 @@ window.piDesktop = {
   async invoke(channel, input) {
     calls.push({ channel, input });
     let data = {};
-    if (channel === IPC.invoke.remoteHostProjects) data = { projects: [] };
+    if (channel === IPC.invoke.remoteHostList) data = { hosts: [host] };
+    else if (channel === IPC.invoke.remoteHostPair) data = { host: { ...host, hostKey: "paired-fixture", label: input.label, url: input.url, transport: "direct" } };
+    else if (channel === IPC.invoke.remoteHostProjects) data = { projects: [] };
     else if (channel === IPC.invoke.remoteHostSessions) data = { sessions: [session] };
     else if (channel === IPC.invoke.remoteHostSyncProviders) data = { imported: [{ sourceId: provider.id, providerId: "remote-provider" }], skipped: [], defaultSet: true };
     else if (channel === IPC.invoke.remoteHostRegisterProject) data = { project: { id: "project", label: "Project" } };
@@ -74,7 +77,15 @@ function Fixture() {
 }
 
 globalThis.remoteMvpProbe = async () => {
-  await i18n.use(initReactI18next).init({ lng: "en", fallbackLng: "en", resources: { en: { remote: remoteEn, translation: catalogs.en } }, interpolation: { escapeValue: false } });
+  await i18n.use(initReactI18next).init({
+    lng: "en",
+    fallbackLng: "en",
+    resources: {
+      en: { remote: remoteEn, translation: catalogs.en },
+      "zh-CN": { remote: remoteZh, translation: catalogs["zh-CN"] },
+    },
+    interpolation: { escapeValue: false },
+  });
   useAppStore.setState({ sessions: [], activeSessionId: undefined, selectingSessionId: undefined, messages: [], retainedSessionIds: [], retainedTranscripts: {}, sessionHistory: {}, sessionMeta: {}, runningSessions: {}, pendingPlans: {}, pendingPermissions: {}, pendingAsks: {}, planningStates: {}, providers: [provider], workspace: { path: "/local/private", name: "Local only" }, activeProjectPath: "/local/private", page: "settings", settings: { defaultMode: "agent" } });
   const unsubscribe = subscribeRemoteInteractions();
   const root = createRoot(document.getElementById("root"));
@@ -112,5 +123,75 @@ globalThis.remoteMvpProbe = async () => {
   assert(!calls.some(call => [IPC.invoke.projectActivate, IPC.invoke.sessionConfigure].includes(call.channel)), "remote UI called a local workspace/model operation");
   root.unmount(); unsubscribe();
   assert(listeners.size === 0, "component listeners leaked");
-  return { ok: true, scenarios: ["history without model transfer", "open", "send", "approve", "peer resolution", "reconnect without replay", "local isolation", "cleanup"] };
+
+  const settingsRoot = createRoot(document.getElementById("root"));
+  settingsRoot.render(<RemoteHostsPage />);
+  await until(() => document.querySelector(".settings-remote-host-list")?.getAttribute("aria-busy") === "false", "remote hosts did not load");
+  const addShell = document.querySelector(".settings-remote-host-add-shell");
+  const sshAction = document.getElementById("remote-host-add-ssh");
+  const pairAction = document.getElementById("remote-host-add-pair");
+  const sshPanel = document.getElementById("remote-host-add-panel-ssh");
+  const pairPanel = document.getElementById("remote-host-add-panel-pair");
+  assert(addShell?.hidden && sshAction && pairAction && sshPanel && pairPanel, "add actions or initially collapsed forms are missing");
+
+  sshAction.click();
+  await until(() => !sshPanel.hidden, "SSH action did not reveal its form");
+  assert(sshAction.getAttribute("aria-expanded") === "true" && pairPanel.hidden, "SSH form state is not exposed correctly");
+  pairAction.click();
+  await until(() => !addShell.hidden && !pairPanel.hidden, "Pair action did not reveal its form");
+  assert(pairAction.getAttribute("aria-expanded") === "true" && sshPanel.hidden, "Pair form did not replace SSH form");
+
+  const pairLabel = [...pairPanel.querySelectorAll("input")].find(field => field.getAttribute("aria-label") === catalogs.en.settings.remoteHosts.fieldLabel);
+  const pairUrl = [...pairPanel.querySelectorAll("input")].find(field => field.getAttribute("aria-label") === catalogs.en.settings.remoteHosts.fieldUrl);
+  const pairToken = [...pairPanel.querySelectorAll("input")].find(field => field.getAttribute("aria-label") === catalogs.en.settings.remoteHosts.fieldPairingToken);
+  assert(pairLabel && pairUrl && pairToken, "Pair form fields are missing");
+  type(pairLabel, "Fixture host");
+  type(pairUrl, "ws://127.0.0.1:4000");
+  type(pairToken, "ppt1.fixture-token");
+  pairPanel.querySelector('button[type="submit"]').click();
+  await until(() => addShell.hidden && calls.some(call => call.channel === IPC.invoke.remoteHostPair), "successful pairing did not close the form");
+  assert(pairAction.getAttribute("aria-expanded") === "false", "Pair action remained expanded after success");
+  await i18n.changeLanguage("zh-CN");
+  const localizedPairAction = catalogs["zh-CN"].settings.remoteHosts.addPair;
+  await until(
+    () => pairAction.textContent.trim() === localizedPairAction,
+    `Pair action did not localize in ${i18n.language}: ${pairAction.textContent.trim()}`,
+  );
+  assert(pairAction.getAttribute("aria-controls") === "remote-host-add-panel-pair", "Pair association changed with locale");
+
+  pairAction.click();
+  await until(() => !pairPanel.hidden, "Pair form did not reopen");
+  assert(pairLabel.value === "", "successful pairing retained the previous draft");
+  type(pairLabel, "Discarded draft");
+  pairPanel.querySelector('.settings-remote-host-form-actions button[type="button"]').click();
+  await until(() => addShell.hidden, "Cancel did not close the Pair form");
+  pairAction.click();
+  await until(() => !pairPanel.hidden, "Pair form did not reopen after cancel");
+  assert(pairLabel.value === "", "Cancel retained the previous draft");
+  sshAction.click();
+  await until(() => !sshPanel.hidden, "SSH action did not switch back to its form");
+  const passwordModeLabel = catalogs["zh-CN"].settings.remoteHosts.sshAuthPassword;
+  const passwordLabel = catalogs["zh-CN"].settings.remoteHosts.sshPassword;
+  const passwordModeAction = () => [...sshPanel.querySelectorAll("button")]
+    .find(action => action.textContent.trim() === passwordModeLabel);
+  const sshPasswordInput = () => [...sshPanel.querySelectorAll("input")]
+    .find(field => field.getAttribute("aria-label") === passwordLabel);
+  sshAction.click();
+  await until(() => !sshPanel.hidden, "SSH action did not reveal its form");
+  await until(() => passwordModeAction(), "SSH password mode was missing");
+  passwordModeAction().click();
+  await until(() => sshPasswordInput(), "SSH password field did not appear");
+  type(sshPasswordInput(), "temporary-fixture-password");
+  sshPanel.querySelector('.settings-remote-host-form-actions button[type="button"]').click();
+  await until(() => addShell.hidden, "Cancel did not close the SSH form");
+  sshAction.click();
+  await until(() => !sshPanel.hidden, "SSH form did not reopen after cancel");
+  passwordModeAction().click();
+  await until(() => sshPasswordInput(), "SSH password field did not reopen");
+  assert(sshPasswordInput().value === "", "Cancel retained the SSH password draft");
+  sshPanel.querySelector('.settings-remote-host-form-actions button[type="button"]').click();
+  await until(() => addShell.hidden, "Cancel did not close the SSH form");
+  settingsRoot.unmount();
+  assert(listeners.size === 0, "remote hosts page listeners leaked");
+  return { ok: true, scenarios: ["history without model transfer", "open", "send", "approve", "peer resolution", "reconnect without replay", "local isolation", "host Add actions reveal one form", "pair success and cancel clear drafts", "SSH password draft clears on cancel", "cleanup"] };
 };

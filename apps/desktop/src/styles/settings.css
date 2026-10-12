@@ -931,9 +931,9 @@
 }
 
 /*
-  Remote hosts: inventory tiles, one Add form with SSH/Pair tabs, and
-  Experimental rows. The form keeps a two-column grid; host cards are
-  inventory rows rather than settings-copy + control.
+  Remote hosts: inventory tiles, explicit Add actions with on-demand SSH/Pair
+  forms, and Experimental rows. The form keeps a two-column grid; host cards
+  are inventory rows rather than settings-copy + control.
 */
 .settings-remote-host-list {
   display: grid;
@@ -1016,6 +1016,18 @@
 
 .settings-card-heading-row.settings-remote-host-add-heading .settings-card-heading {
   margin-bottom: 0;
+}
+
+.settings-remote-host-add-actions {
+  display: inline-flex;
+  align-items: center;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 8px;
+}
+
+.settings-remote-host-add-shell[hidden] {
+  display: none;
 }
 
 .settings-remote-host-form {

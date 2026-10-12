@@ -1,9 +1,9 @@
 /**
  * Settings ▸ Remote Hosts page contract.
  *
- * Guards the compact inventory + Add (SSH/Pair) layout: no instructional
- * copy, both add modes stay mounted behind `hidden`, and the destination is
- * marked Experimental on the rail and page title.
+ * Guards the compact inventory + on-demand Add (SSH/Pair) forms: no
+ * instructional copy, both forms are hidden until selected, and the
+ * destination is marked Experimental on the rail and page title.
  */
 import { readFileSync } from "node:fs";
 import assert from "node:assert/strict";
@@ -28,20 +28,26 @@ function cssRule(selector) {
   return styles.slice(from, styles.indexOf("}", from));
 }
 
-test("remote hosts is an inventory plus one SSH/Pair add form", () => {
-  assert.match(page, /role="tablist"/);
+test("remote hosts keeps Add actions visible and reveals one form on demand", () => {
+  assert.match(page, /useState<AddMode \| null>\(null\)/);
+  assert.doesNotMatch(page, /role="tablist"/);
   for (const mode of ["ssh", "pair"]) {
-    assert.ok(page.includes(`id: "remote-host-add-${mode}"`));
-    assert.ok(page.includes(`controls: "remote-host-add-panel-${mode}"`));
+    assert.ok(page.includes(`id="remote-host-add-${mode}"`));
+    assert.ok(page.includes(`aria-expanded={addMode === "${mode}"}`));
+    assert.ok(page.includes(`aria-controls="remote-host-add-panel-${mode}"`));
+    assert.ok(page.includes(`onClick={() => setAddMode("${mode}")}`));
+    assert.ok(page.includes(`id="remote-host-add-panel-${mode}"`));
+    assert.ok(page.includes(`hidden={addMode !== "${mode}"}`));
   }
-  assert.match(page, /id={`remote-host-add-panel-\$\{mode\}`}|id="remote-host-add-panel-ssh"/);
-  assert.match(page, /hidden=\{addMode !== "ssh"\}/);
-  assert.match(page, /hidden=\{addMode !== "pair"\}/);
+  assert.match(page, /className="settings-panel settings-remote-host-add-shell"\s+hidden=\{addMode === null\}/);
+  assert.match(page, /onClick=\{closeAddForm\}/);
+  assert.match(page, /setSshForm\(EMPTY_SSH_FORM\)/);
   assert.match(page, /api\.bootstrapRemoteHost\(/);
   assert.match(page, /api\.pairRemoteHost\(/);
   assert.match(page, /api\.listRemoteHosts\(/);
   assert.match(page, /api\.removeRemoteHost\(/);
 
+  assert.match(cssRule(".settings-remote-host-add-shell[hidden]"), /display:\s*none/);
   assert.match(cssRule(".settings-remote-host-add-panel[hidden]"), /display:\s*none/);
   assert.match(cssRule(".settings-remote-host-card"), /background:\s*var\(--ds-tile\)/);
   assert.match(cssRule(".settings-remote-host-name"), /font-size:\s*var\(--text-md-plus\)/);
