@@ -4,6 +4,7 @@ import { register } from "node:module";
 import { dirname, join } from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
 import { mkdtemp, mkdir, writeFile, readFile, symlink, rm } from "node:fs/promises";
+import { tmpdir } from "node:os";
 import { spawn } from "node:child_process";
 
 const here = dirname(fileURLToPath(import.meta.url));
@@ -38,7 +39,7 @@ test("supervisor uses bounded stdin execution and refuses nonzero status", async
 });
 
 async function fixture(t, { legacy = false } = {}) {
-  const home = await mkdtemp(join(process.env.PI_SCRATCH_DIR, "supervisor-"));
+  const home = await mkdtemp(join(tmpdir(), "supervisor-"));
   const base = join(home, ".pi-desktop/pi-host");
   const work = join(base, ".bootstrap");
   await mkdir(join(base, "current/bin"), { recursive: true });
