@@ -14798,22 +14798,25 @@ browser milestones are scheduled.
   renderer harness can return a successful pair result without network access.
 - **Steps**: 1) Open Settings with developer mode off and confirm Remote Hosts
   and its search hits are available. 2) Open the page and confirm the rail and
-  title carry the Experimental badge. 3) Confirm both Add actions are visible
-  while both forms start collapsed. Open SSH, then Pair, and verify only the
-  selected form is visible with its expanded state exposed to assistive
-  technology. Submit the fixture Pair form and confirm success closes it; reopen
-  Pair, enter a draft, cancel, and confirm it closes and clears the draft. 4)
-  Change language and confirm the action/panel associations remain correct.
-  Toggle developer mode and confirm the destination stays selected and available.
-  5) On a paired SSH host, open the historical sessions browser and verify
-  model-copy and remote-create controls are absent. New workspace creation
-  stays on Home.
+  title carry the Experimental badge. 3) Confirm the SSH and Pair action row is
+  above the inventory and neither dialog is open. Open SSH; verify the dialog is
+  named, modal, and focuses its first field. Cancel and confirm focus returns to
+  SSH. Open Pair, submit the fixture pairing form, and confirm success closes
+  the dialog and clears the draft. Change language and confirm action labels
+  update. Reopen Pair, enter a draft, cancel, and confirm the dialog closes and
+  the draft clears. Open SSH password mode, enter a fixture password, cancel,
+  reopen, and confirm the password is empty. Press Escape and verify the dialog
+  closes and focus returns to SSH. 4) Toggle developer mode and confirm the
+  destination stays selected and available. 5) On a paired SSH host, open the
+  historical sessions browser and verify model-copy and remote-create controls
+  are absent. New workspace creation stays on Home.
 - **Expected**: Experimental availability is consistent across packaged and
-  development builds. No Add mode is selected by default; SSH installation and
-  pairing are explicit actions. Only the chosen form is exposed; cancel and
-  successful submission close it and clear its draft. Existing pairing toasts
-  remain. The inline browser preserves existing remote histories; new SSH
-  workspace projects use the local model and project controls from Home.
+  development builds. Add actions precede inventory; the forms open in the
+  shared modal surface, one at a time. Cancel, Escape, backdrop dismissal, and
+  successful submission close the dialog and clear drafts; focus returns to the
+  initiating action. Existing pairing toasts remain. The inline browser
+  preserves existing remote histories; new SSH workspace projects use the
+  local model and project controls from Home.
 - **Specs linked**: `04-ux/06-settings-ia.md` §1, §3,
   `06-delivery/07-remote-control-rollout.md` §2 R2,
   `02-architecture/05-remote-agent-control.md` §5.2

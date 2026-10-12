@@ -28,26 +28,35 @@ function cssRule(selector) {
   return styles.slice(from, styles.indexOf("}", from));
 }
 
-test("remote hosts keeps Add actions visible and reveals one form on demand", () => {
+test("remote hosts puts Add actions before the inventory and opens dialog forms", () => {
   assert.match(page, /useState<AddMode \| null>\(null\)/);
   assert.doesNotMatch(page, /role="tablist"/);
+  const actionsIndex = page.indexOf('className="settings-remote-host-add-actions"');
+  const inventoryIndex = page.indexOf('className="settings-remote-host-list"');
+  assert.ok(actionsIndex >= 0 && actionsIndex < inventoryIndex, "Add actions should precede the inventory");
   for (const mode of ["ssh", "pair"]) {
     assert.ok(page.includes(`id="remote-host-add-${mode}"`));
-    assert.ok(page.includes(`aria-expanded={addMode === "${mode}"}`));
-    assert.ok(page.includes(`aria-controls="remote-host-add-panel-${mode}"`));
+    assert.ok(page.includes('aria-haspopup="dialog"'));
     assert.ok(page.includes(`onClick={() => setAddMode("${mode}")}`));
     assert.ok(page.includes(`id="remote-host-add-panel-${mode}"`));
     assert.ok(page.includes(`hidden={addMode !== "${mode}"}`));
   }
-  assert.match(page, /className="settings-panel settings-remote-host-add-shell"\s+hidden=\{addMode === null\}/);
+  assert.match(page, /portalOverlay\(/);
+  assert.match(page, /className="dialog settings-remote-host-add-dialog"/);
+  assert.match(page, /aria-modal="true"/);
+  assert.match(page, /aria-labelledby="settings-remote-host-add-dialog-title"/);
+  assert.match(page, /event.key === "Escape"/);
+  assert.match(page, /pendingAddFocus\.current = addMode === "pair"/);
+  assert.match(page, /pendingAddFocus\.current = null;\s+trigger\.focus\(\)/);
   assert.match(page, /onClick=\{closeAddForm\}/);
   assert.match(page, /setSshForm\(EMPTY_SSH_FORM\)/);
+  assert.doesNotMatch(page, /settings-remote-host-add-shell/);
   assert.match(page, /api\.bootstrapRemoteHost\(/);
   assert.match(page, /api\.pairRemoteHost\(/);
   assert.match(page, /api\.listRemoteHosts\(/);
   assert.match(page, /api\.removeRemoteHost\(/);
 
-  assert.match(cssRule(".settings-remote-host-add-shell[hidden]"), /display:\s*none/);
+  assert.match(cssRule(".settings-remote-host-add-dialog"), /width:\s*min\(100%, 640px\)/);
   assert.match(cssRule(".settings-remote-host-add-panel[hidden]"), /display:\s*none/);
   assert.match(cssRule(".settings-remote-host-card"), /background:\s*var\(--ds-tile\)/);
   assert.match(cssRule(".settings-remote-host-name"), /font-size:\s*var\(--text-md-plus\)/);

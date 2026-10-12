@@ -86,9 +86,10 @@ Settings is a **full-window page** that replaces the app sidebar + main chrome (
   unified Create project dialog with Remote selected and that host preselected;
   selecting an absolute directory creates a locally managed project bound to
   the remote workspace. The inventory does not list or create conversations.
-  The inventory is the default view; SSH installation and existing-host pairing
-  are explicit actions that reveal one form on demand. Cancel and successful
-  submission close the form and clear its draft. SSH hosts offer eligible-provider
+  The Add action row precedes the inventory; SSH installation and existing-host
+  pairing open an accessible dialog. Cancel, Escape, backdrop dismissal, and
+  successful submission close it and clear the draft, returning focus to its
+  trigger. SSH hosts offer eligible-provider
   copy with empty selection and explicit credential-copy consent. Remote chat
   uses Host defaults and never activates local workspaces.
   The narrow MVP supports text, tool/input responses and read-only files/diffs;
