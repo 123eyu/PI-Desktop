@@ -1038,6 +1038,17 @@
   grid-template-columns: minmax(0, 1fr) minmax(120px, 0.4fr);
 }
 
+.settings-remote-host-identity-file {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto auto;
+  align-items: center;
+  gap: 8px;
+}
+
+.settings-remote-host-identity-file-input {
+  display: none;
+}
+
 .settings-remote-host-form-auth {
   display: grid;
   gap: 6px;

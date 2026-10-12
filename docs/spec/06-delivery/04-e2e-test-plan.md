@@ -14745,10 +14745,13 @@ browser milestones are scheduled.
   only reachable with a password; the user's local SSH agent holds no usable key
   for it. A GitHub Releases fixture serves the `pi-host` bundle for that platform
   at the desktop's version. A second machine accepts the user's key only.
-- **Steps**: 1) In Settings → Remote Hosts, open the Add form's SSH tab and install over SSH with key
-  authentication and confirm the form shows the identity-file field.
-  2) Switch the authentication mode to password, confirm the identity-file field
-  is replaced by a masked password field, and reveal it once.
+- **Steps**: 1) In Settings → Remote Hosts, open the Add form's SSH tab, choose
+  a local private-key file in key mode, and confirm its path is displayed. Cancel
+  a second file selection and confirm the existing choice remains; select the
+  same file again and confirm it can be reselected. Clear the selection once to
+  confirm the SSH agent/config fallback is available, then choose the key again.
+  2) Switch the authentication mode to password, confirm the identity-file
+  picker is replaced by a masked password field, and reveal it once.
   3) Try to submit an empty password. 4) Point the form at the
   password-only machine, enter the password, and bootstrap it.
   5) Quit the desktop, relaunch it, and let the host reconnect.
@@ -14757,9 +14760,13 @@ browser milestones are scheduled.
   8) Inspect the desktop's process arguments and `remote-hosts.json` while a
   password-authenticated host is connected. 9) Attempt to submit a password
   containing a newline through the IPC channel directly.
-- **Expected**: Key mode is byte-for-byte today's behaviour — `BatchMode=yes` and
-  no credential file anywhere. In password mode the password field replaces the
-  identity-file field, the reveal toggle shows and re-hides the value, and an
+- **Expected**: Key mode lets the user choose a local identity file; its path
+  is read-only in the form and is passed to the existing `ssh -i` flow. The app
+  never reads or uploads the key contents. Cancel preserves the prior choice, the
+  same file can be selected again, and Clear returns to SSH agent/config lookup.
+  The key-authenticated SSH behavior remains unchanged: `BatchMode=yes` and no
+  credential file anywhere. In password mode the picker is replaced by a masked
+  password field, the reveal toggle shows and re-hides the value, and an
   empty password keeps the submit disabled. The password-only machine installs
   and pairs. After the relaunch the host reconnects with no prompt, proving the
   saved credential is used. The wrong password yields exactly one failed attempt
@@ -14778,8 +14785,9 @@ browser milestones are scheduled.
 - **Acceptance**: Security, D (surfaces), Quality
 - **Milestone**: Post-MVP (rollout R2b)
 - **Status**: Draft; remote harness with a password-only Linux SSH target
-  required. The credential seam itself is covered offline by
-  `apps/desktop/test/remote-host-ssh-password.test.mjs`.
+  required. The chooser control is covered by
+  `apps/desktop/test/settings-remote-hosts.test.mjs`; the SSH credential seam is
+  covered offline by `apps/desktop/test/remote-host-ssh-password.test.mjs`.
 
 
 #### E2E-REMOTE-HOST-settings-compact-inventory
