@@ -1399,6 +1399,8 @@ sklm: {
     "copyProviderHint": "Bağımsız bir hizmet oluşturur. API anahtarları, hesap girişleri ve özel başlıklar kopyalanmaz. Varsayılan model değişmez.",
     editProviderTitle: "AI servisini düzenle",
     apiKeyKeepHint: "Kayıtlı anahtarı korumak için boş bırakın.",
+    noApiKeyRequired: "API anahtarı gerekmiyor",
+    noApiKeyHint: "Yalnızca uç nokta kimlik doğrulaması olmadan istek kabul ediyorsa etkinleştirin.",
     apiStyle: "API biçimi",
     apiStyleChatCompletions: "OpenAI Chat Completions",
     apiStyleOpenCodeGo: "OpenCode Go",
