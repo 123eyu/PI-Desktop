@@ -13746,9 +13746,11 @@ are withdrawn with ADR 0165.
   setup wizard or administrator prompt, keeps the normal PI-Desktop taskbar
   identity/icon, uses the existing application data directory, and reports
   update preference `manual` by default and effective update mode `manual`.
-  An available update does not download or run
-  `PI-Desktop-Setup-<version>.exe`. Relaunch restores sessions from that same
-  profile.
+  Its `resources/app-update.yml` points to the same GitHub feed, so the manual
+  check settles as up-to-date or available instead of failing with `ENOENT`.
+  When an update is available, Settings offers the Releases page; it does not
+  download or run `PI-Desktop-Setup-<version>.exe`. Relaunch restores sessions
+  from that same profile.
 - **Specs linked**: `01-product/01-product-scope.md`,
   `06-delivery/06-release-runbook.md`, `03-runtime/07-process-model.md`,
   ADR 0197 / D603
