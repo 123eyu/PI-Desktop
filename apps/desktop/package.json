@@ -225,6 +225,10 @@
       "icon": "build/icon.ico",
       "extraResources": [
         {
+          "from": "resources/app-update.yml",
+          "to": "app-update.yml"
+        },
+        {
           "from": "../../target/release/pi-desktop-host-core.exe",
           "to": "bin/pi-desktop-host-core.exe"
         },
