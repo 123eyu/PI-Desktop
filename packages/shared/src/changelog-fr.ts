@@ -2,6 +2,23 @@ import type { ChangelogEntry } from "./changelog.js";
 
 export const frEntries: ChangelogEntry[] = [
   {
+    "version": "0.19.0",
+    "date": "2026-10-13",
+    "highlights": [
+      "Créez des projets SSH depuis l’accueil, parcourez les dossiers distants dans une boîte de dialogue dédiée et choisissez une identité SSH par hôte.",
+      "Ajoutez ou retirez des dossiers compatibles d’un projet sans déplacer les conversations existantes de leur espace de travail.",
+      "Synchronisez les paramètres choisis entre appareils tout en gardant les listes de projets locales.",
+      "Les Hosts distants appairés se mettent à jour vers la version actuelle du bureau via l’installation SSH vérifiée, puis se reconnectent sur place.",
+      "Activez ou désactivez les Skills intégrés depuis les paramètres et restaurez les valeurs fournies avec l’application.",
+      "La carte de mise à jour affiche la progression du téléchargement et permet de l’annuler ou de réessayer.",
+      "Votre proxy personnalisé reste configuré lorsque vous changez de mode réseau.",
+      "La suppression d’un message préserve la sortie IA en cours et les autres messages de la conversation.",
+      "Les captures d’écran du navigateur récupèrent après un blocage sans laisser la page figée.",
+      "Le catalogue de modèles intégré a été actualisé avec de nouveaux modèles et leurs capacités actuelles.",
+      "AskTool limite clairement la longueur des questions ; les questions trop longues sont refusées avant l’ouverture de la carte.",
+    ],
+  },
+  {
     "version": "0.18.0",
     "date": "2026-10-09",
     "highlights": [

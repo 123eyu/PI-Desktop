@@ -2,6 +2,23 @@ import type { ChangelogEntry } from "./changelog.js";
 
 export const enEntries: ChangelogEntry[] = [
   {
+    version: "0.19.0",
+    date: "2026-10-13",
+    highlights: [
+      "Create SSH workspace projects from Home, browse remote folders in a separate dialog, and choose an SSH identity for each host.",
+      "Add or remove eligible folders from a project while its existing chats stay in their original workspace.",
+      "Sync selected settings across devices while keeping project lists local to each device.",
+      "Paired Remote Hosts can update to the current desktop release through verified SSH setup and reconnect in place.",
+      "Enable or disable bundled Skills from Settings and restore the defaults shipped with the app.",
+      "See app-update download progress and use clear cancel or retry actions from the update card.",
+      "Keep custom proxy settings when switching network modes.",
+      "Keep live AI output and the remaining conversation messages when removing a message.",
+      "Browser screenshots recover from stalled captures instead of leaving the page stuck.",
+      "The bundled model catalog now includes new models and current capability details.",
+      "AskTool questions now have a clear length limit, and overlong questions are rejected before a card opens.",
+    ],
+  },
+  {
     version: "0.18.0",
     date: "2026-10-09",
     highlights: [
