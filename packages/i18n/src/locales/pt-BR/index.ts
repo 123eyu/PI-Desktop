@@ -1362,6 +1362,8 @@ export const ptBR = {
     copyProviderHint: "Cria um serviço independente. Chaves de API, logins de contas e cabeçalhos personalizados não são copiados. O modelo padrão permanece inalterado.",
     editProviderTitle: "Editar provedor de IA",
     apiKeyKeepHint: "Deixe em branco para manter a chave salva.",
+    noApiKeyRequired: "Não requer chave de API",
+    noApiKeyHint: "Ative somente se o endpoint aceitar solicitações sem autenticação.",
     apiStyle: "Formato API",
     apiStyleChatCompletions: "OpenAI Chat Completions",
     apiStyleOpenCodeGo: "OpenCode Go",
