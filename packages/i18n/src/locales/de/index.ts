@@ -1393,7 +1393,7 @@ sklm: {
     "editProviderTitle": "AI-Anbieter bearbeiten",
     "apiKeyKeepHint": "Lassen Sie das Feld leer, um den gespeicherten Schlüssel beizubehalten.",
     "noApiKeyRequired": "Kein API-Schlüssel erforderlich",
-    "noApiKeyRequiredHint": "Anfragen enthalten weder API-Schlüssel noch Authorization-Zugangsdaten. Beim Speichern wird ein bereits für diesen Anbieter gespeicherter API-Schlüssel gelöscht.",
+    "noApiKeyHint": "Aktivieren Sie diese Option nur, wenn der Endpunkt Anfragen ohne Authentifizierung akzeptiert.",
     "apiStyle": "API-Format",
     "apiStyleChatCompletions": "OpenAI-Chat-Abschlüsse",
     "apiStyleOpenCodeGo": "OpenCode Go",
