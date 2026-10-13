@@ -2,6 +2,23 @@ import type { ChangelogEntry } from "./changelog.js";
 
 export const trEntries: ChangelogEntry[] = [
   {
+    "version": "0.19.0",
+    "date": "2026-10-13",
+    "highlights": [
+      "Ana sayfadan SSH çalışma alanı projeleri oluşturun, ayrı bir iletişim kutusunda uzak klasörleri gezinin ve her ana makine için bir SSH kimliği seçin.",
+      "Bir projeye uygun klasörler ekleyip kaldırın; mevcut sohbetler özgün çalışma alanlarında kalır.",
+      "Seçili ayarları cihazlar arasında eşitleyin, proje listelerini ise her cihazda yerel tutun.",
+      "Eşleştirilmiş uzak Host'lar doğrulanmış SSH kurulumu üzerinden güncel masaüstü sürümüne otomatik güncellenip aynı yerde yeniden bağlanır.",
+      "Ayarlar'dan yerleşik Skill'leri etkinleştirin, devre dışı bırakın veya uygulamayla gelen varsayılanları geri yükleyin.",
+      "Güncelleme kartında indirme ilerlemesini görün, indirmeyi iptal edin veya yeniden deneyin.",
+      "Ağ modları arasında geçerken özel proxy ayarlarınız korunur.",
+      "Bir mesajı silmek canlı AI çıktısını ve konuşmanın geri kalanını silmez.",
+      "Tarayıcı ekran görüntüsü yakalama takıldığında kurtarılır ve sayfanın kilitlenmesi önlenir.",
+      "Yerleşik model kataloğu yeni modeller ve güncel yetenek bilgileriyle yenilendi.",
+      "AskTool soruları için net bir uzunluk sınırı vardır; fazla uzun sorular kart açılmadan reddedilir.",
+    ],
+  },
+  {
     "version": "0.18.0",
     "date": "2026-10-09",
     "highlights": [

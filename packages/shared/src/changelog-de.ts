@@ -2,6 +2,23 @@ import type { ChangelogEntry } from "./changelog.js";
 
 export const deEntries: ChangelogEntry[] = [
   {
+    "version": "0.19.0",
+    "date": "2026-10-13",
+    "highlights": [
+      "Erstellen Sie SSH-Arbeitsbereichsprojekte auf der Startseite, durchsuchen Sie entfernte Ordner in einem eigenen Dialog und wählen Sie eine SSH-Identität pro Host.",
+      "Fügen Sie einem Projekt geeignete Ordner hinzu oder entfernen Sie sie; bestehende Chats bleiben in ihrem bisherigen Arbeitsbereich.",
+      "Synchronisieren Sie ausgewählte Einstellungen zwischen Geräten, während Projektlisten lokal bleiben.",
+      "Gekoppelte Remote Hosts aktualisieren sich über die geprüfte SSH-Einrichtung auf die aktuelle Desktop-Version und verbinden sich am selben Ort erneut.",
+      "Aktivieren oder deaktivieren Sie mitgelieferte Skills in den Einstellungen und stellen Sie die ausgelieferten Vorgaben wieder her.",
+      "Die Update-Karte zeigt den Downloadfortschritt und bietet klare Aktionen zum Abbrechen oder erneuten Versuchen.",
+      "Ihre eigene Proxy-Konfiguration bleibt beim Wechsel des Netzwerkmodus erhalten.",
+      "Beim Löschen einer Nachricht bleiben laufende KI-Ausgaben und die übrigen Gesprächsnachrichten erhalten.",
+      "Hängende Browser-Screenshot-Aufnahmen werden beendet und wiederhergestellt, statt die Seite festzusetzen.",
+      "Der mitgelieferte Modellkatalog enthält neue Modelle und aktuelle Fähigkeitsdaten.",
+      "AskTool-Fragen haben jetzt eine klare Längenbegrenzung; zu lange Fragen werden vor dem Öffnen der Karte abgewiesen.",
+    ],
+  },
+  {
     "version": "0.18.0",
     "date": "2026-10-09",
     "highlights": [

@@ -2384,6 +2384,71 @@ describe("DesktopAgentRuntime deferred tool catalog", () => {
     await runtime.dispose();
   });
 
+  it("rejects asktool questions over 300 Unicode characters before opening a card", async () => {
+    const onEvent = vi.fn();
+    const runtime = createRuntime({ onEvent });
+    type AskToolTestTool = {
+      name: string;
+      parameters: {
+        properties: {
+          questions: {
+            items: { properties: { question: { maxLength?: number } } };
+          };
+        };
+      };
+      execute: (toolCallId: string, params: unknown) => Promise<unknown>;
+    };
+    const tools = (runtime as unknown as {
+      agent: { state: { tools: AskToolTestTool[] } };
+    }).agent.state.tools;
+    const askTool = tools.find((tool) => tool.name === "asktool");
+    if (!askTool) throw new Error("asktool is missing from the runtime");
+    const questionSchema = askTool.parameters.properties.questions.items.properties.question;
+    expect(questionSchema.maxLength).toBe(300);
+
+    const result = await askTool.execute("ask-call-too-long", {
+      questions: [{ question: "q".repeat(301), options: ["Continue"] }],
+    });
+
+    expect(result).toMatchObject({
+      isError: true,
+      details: { errorCode: "ASKTOOL_INVALID_ARGUMENT" },
+    });
+    const askRequests = () =>
+      onEvent.mock.calls
+        .map(([envelope]) =>
+          (envelope as {
+            event: {
+              type: string;
+              request?: { requestId: string; questions: Array<{ question: string }> };
+            };
+          }).event,
+        )
+        .filter((event) => event.type === "asktool_request");
+    expect(askRequests()).toHaveLength(0);
+
+    const validQuestion = "🧭".repeat(300);
+    const pendingAtLimit = askTool.execute("ask-call-at-limit", {
+      questions: [{ question: validQuestion, options: ["Continue"] }],
+    });
+    await new Promise<void>((resolve) => setImmediate(resolve));
+    const request = askRequests()[0]?.request;
+    if (!request) throw new Error("valid asktool question did not open a card");
+    expect(request.questions[0].question).toBe(validQuestion);
+    expect(
+      runtime.resolveAskTool({
+        requestId: request.requestId,
+        sessionId: "session-1",
+        answers: [["Continue"]],
+      }),
+    ).toEqual({ ok: true });
+    await expect(pendingAtLimit).resolves.toMatchObject({
+      content: [{ text: `${validQuestion}：Continue` }],
+      details: { answers: [["Continue"]] },
+    });
+    await runtime.dispose();
+  });
+
   it("normalizes legacy chat onto the Plan core", async () => {
     const runtime = createRuntime({
       mode: "chat",

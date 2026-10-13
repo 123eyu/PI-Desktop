@@ -2,6 +2,23 @@ import type { ChangelogEntry } from "./changelog.js";
 
 export const esEntries: ChangelogEntry[] = [
   {
+    "version": "0.19.0",
+    "date": "2026-10-13",
+    "highlights": [
+      "Crea proyectos SSH desde Inicio, explora carpetas remotas en un diálogo aparte y elige una identidad SSH para cada host.",
+      "Añade o quita carpetas compatibles de un proyecto sin mover los chats existentes de su espacio de trabajo.",
+      "Sincroniza los ajustes elegidos entre dispositivos y mantén las listas de proyectos locales en cada uno.",
+      "Los Hosts remotos emparejados se actualizan a la versión actual del escritorio mediante la instalación SSH verificada y se reconectan en el mismo lugar.",
+      "Activa o desactiva las Skills integradas desde Ajustes y restaura las opciones incluidas con la aplicación.",
+      "La tarjeta de actualización muestra el progreso de descarga y permite cancelarla o volver a intentarlo.",
+      "La configuración personalizada del proxy se conserva al cambiar de modo de red.",
+      "Al eliminar un mensaje se conservan la salida de IA en curso y los demás mensajes de la conversación.",
+      "Las capturas de pantalla del navegador se recuperan si se bloquean, sin dejar la página atascada.",
+      "El catálogo de modelos integrado se actualizó con nuevos modelos y capacidades vigentes.",
+      "AskTool tiene un límite de longitud claro; las preguntas demasiado largas se rechazan antes de abrir la tarjeta.",
+    ],
+  },
+  {
     "version": "0.18.0",
     "date": "2026-10-09",
     "highlights": [

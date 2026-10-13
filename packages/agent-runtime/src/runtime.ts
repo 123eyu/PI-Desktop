@@ -110,7 +110,9 @@ import {
   formatSessionMessage,
   hostedSearchFromMessage,
   isCommandShellOption,
+  isAskToolQuestionWithinLimit,
   isToolsOutputParams,
+  MAX_ASK_TOOL_QUESTION_CHARS,
   MAX_SUBAGENT_CONCURRENCY,
   normalizeAskToolOption,
   normalizeSubagentName,
@@ -3258,7 +3260,7 @@ Do not invent objections or turn speculative risks into blockers. Stop when the 
         case "TodoWrite":
           return todoWriteDescription;
         case ASK_TOOL_NAME:
-          return "Ask the user one or more questions. Use Markdown in question text and option labels when formatting helps (for example, emphasis, inline code, or lists); the desktop card renders it safely. Plain strings and existing `{ label, description? }` options are accepted; descriptions remain plain text and answers return the selected source label. The card always provides a custom user-input option.";
+          return `Ask the user one or more questions. Keep each question to ${MAX_ASK_TOOL_QUESTION_CHARS} characters or fewer. Use Markdown in question text and option labels when formatting helps (for example, emphasis, inline code, or lists); the desktop card renders it safely. Plain strings and existing { label, description? } options are accepted; descriptions remain plain text and answers return the selected source label. The card always provides a custom user-input option.`;
         case "PluginScaffold":
           return "Create a PI-Desktop plugin from a template and load it for development. `directory` is workspace-relative and must be empty or new; `template` is one of panel-basic, agent-tool-basic, skill-pack, full-demo. Use this instead of hand-writing plugin files.";
         case "PluginCheck":
@@ -3774,7 +3776,7 @@ Do not invent objections or turn speculative risks into blockers. Stop when the 
       parameters: Type.Object({
         questions: Type.Array(
           Type.Object({
-            question: Type.String(),
+            question: Type.String({ maxLength: MAX_ASK_TOOL_QUESTION_CHARS }),
             options: Type.Array(
               Type.Union([
                 Type.String(),
@@ -3796,7 +3798,7 @@ Do not invent objections or turn speculative risks into blockers. Stop when the 
             content: [
               {
                 type: "text",
-                text: `${ASK_TOOL_NAME} requires one or more questions, each with a question and at least one option.`,
+                text: `${ASK_TOOL_NAME} requires 1–20 questions. Each question must contain 1–${MAX_ASK_TOOL_QUESTION_CHARS} characters and at least one option.`,
               },
             ],
             details: { errorCode: "ASKTOOL_INVALID_ARGUMENT" },
@@ -5973,6 +5975,7 @@ Do not invent objections or turn speculative risks into blockers. Stop when the 
     for (const raw of params.questions) {
       if (!isRecord(raw)) return undefined;
       const question = typeof raw.question === "string" ? raw.question.trim() : "";
+      if (!question || !isAskToolQuestionWithinLimit(question)) return undefined;
       const options: AskToolQuestion["options"] = [];
       const seenLabels = new Set<string>();
       if (Array.isArray(raw.options)) {
@@ -5985,7 +5988,7 @@ Do not invent objections or turn speculative risks into blockers. Stop when the 
           options.push(option);
         }
       }
-      if (!question || options.length === 0) return undefined;
+      if (options.length === 0) return undefined;
       questions.push({
         question,
         options,
