@@ -214,6 +214,77 @@ export async function checkSidebarRowStates({ cdp, check, waitFor, seed }) {
         `${theme} returning from settings restores conversation selection and independent workspace context`,
       );
     }
+    const bottomProjectKey = await cdp.evaluate(`(() => {
+      const headers = [...document.querySelectorAll(".project-group > .sidebar-session-group-header")];
+      const header = headers.at(-1);
+      if (!header) return null;
+      header.scrollIntoView({ block: "end" });
+      return header.closest(".project-group")?.getAttribute("data-sidebar-project-group") ?? null;
+    })()`);
+    if (!bottomProjectKey) throw new Error("Missing bottom project row");
+    const bottomProjectGroup = group(bottomProjectKey);
+    const bottomProjectHeader = `${bottomProjectGroup} .sidebar-session-group-header`;
+    const projectMenuSelector = ".sidebar-row-menu.sidebar-floating-menu:not(.sidebar-section-menu)";
+    const measureProjectMenu = () => cdp.evaluate(`(() => {
+      const menu = document.querySelector(${JSON.stringify(projectMenuSelector)});
+      if (!menu) return null;
+      const rect = menu.getBoundingClientRect();
+      return { top: rect.top, bottom: rect.bottom, viewportHeight: window.innerHeight };
+    })()`);
+    const assertMenuAboveAnchor = (bounds, anchorY, label) => {
+      const gap = anchorY - bounds.bottom;
+      check(
+        bounds.top >= 8 && bounds.bottom <= bounds.viewportHeight - 8 && gap >= 3 && gap <= 5,
+        label,
+        JSON.stringify({ bounds, anchorY, gap }),
+      );
+    };
+
+    const rightClickTarget = await point(bottomProjectHeader);
+    await cdp.send("Input.dispatchMouseEvent", {
+      type: "mousePressed", x: rightClickTarget.x, y: rightClickTarget.y,
+      button: "right", buttons: 2, clickCount: 1,
+    });
+    await cdp.send("Input.dispatchMouseEvent", {
+      type: "mouseReleased", x: rightClickTarget.x, y: rightClickTarget.y,
+      button: "right", buttons: 0, clickCount: 1,
+    });
+    const contextMenu = await waitFor(
+      () => measureProjectMenu(),
+      "bottom project context menu opens",
+    );
+    assertMenuAboveAnchor(contextMenu, rightClickTarget.y, "right-click menu stays beside the bottom project row");
+    await cdp.send("Input.dispatchKeyEvent", {
+      type: "keyDown", key: "Escape", code: "Escape", windowsVirtualKeyCode: 27,
+    });
+    await cdp.send("Input.dispatchKeyEvent", {
+      type: "keyUp", key: "Escape", code: "Escape", windowsVirtualKeyCode: 27,
+    });
+    await waitFor(async () => !(await measureProjectMenu()), "project context menu closes");
+
+    const projectMenuTrigger = `${bottomProjectGroup} .project-more`;
+    await hover(bottomProjectHeader);
+    await waitFor(
+      () => cdp.evaluate(`getComputedStyle(document.querySelector(${JSON.stringify(projectMenuTrigger)})).pointerEvents === "auto"`),
+      "bottom project overflow button is revealed",
+    );
+    await click(projectMenuTrigger);
+    const overflowMenu = await waitFor(
+      () => measureProjectMenu(),
+      "bottom project overflow menu opens",
+    );
+    const triggerTop = await cdp.evaluate(
+      `document.querySelector(${JSON.stringify(projectMenuTrigger)}).getBoundingClientRect().top`,
+    );
+    assertMenuAboveAnchor(overflowMenu, triggerTop, "overflow menu stays beside the bottom project row");
+
+    await cdp.send("Input.dispatchKeyEvent", {
+      type: "keyDown", key: "Escape", code: "Escape", windowsVirtualKeyCode: 27,
+    });
+    await cdp.send("Input.dispatchKeyEvent", {
+      type: "keyUp", key: "Escape", code: "Escape", windowsVirtualKeyCode: 27,
+    });
+    await waitFor(async () => !(await measureProjectMenu()), "project overflow menu closes");
     await cdp.send("Emulation.setEmulatedMedia", {
       features: [{ name: "prefers-reduced-motion", value: "reduce" }],
     });
