@@ -5784,6 +5784,101 @@ describe("DesktopAgentRuntime response duration", () => {
     await runtime.dispose();
   });
 
+  it("persists request wait separately from streamed thinking and answer time", async () => {
+    vi.useFakeTimers();
+    try {
+      const start = Date.parse("2026-10-01T00:00:00.000Z");
+      vi.setSystemTime(start + 1_000);
+      const onEvent = vi.fn();
+      const runtime = createRuntime({ onEvent });
+      const internals = runtime as unknown as {
+        handleAgentEvent(event: unknown): Promise<void>;
+        requestStartedAt: number | undefined;
+      };
+      internals.requestStartedAt = start;
+
+      await internals.handleAgentEvent({
+        type: "message_start",
+        message: { role: "assistant", content: [] },
+      });
+      await vi.advanceTimersByTimeAsync(2_500);
+      await internals.handleAgentEvent({
+        type: "message_end",
+        message: assistantMessage({
+          content: [
+            { type: "thinking", thinking: "reasoning" },
+            { type: "text", text: "answer" },
+          ],
+        }),
+      });
+
+      const events = onEvent.mock.calls.map(([envelope]) => envelope as any);
+      expect(events.find(({ event }) => event.type === "message_start")?.event.message)
+        .toMatchObject({ providerWaitMs: 1_000 });
+      expect(events.find(({ event }) => event.type === "message_end")?.event.message)
+        .toMatchObject({
+          providerWaitMs: 1_000,
+          modelStreamDurationMs: 2_500,
+        });
+      await runtime.dispose();
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it("accumulates request and stream timing across a provider retry", async () => {
+    vi.useFakeTimers();
+    try {
+      const start = Date.parse("2026-10-01T00:00:00.000Z");
+      vi.setSystemTime(start + 2_000);
+      const onEvent = vi.fn();
+      const runtime = createRuntime({ onEvent });
+      const internals = runtime as unknown as {
+        handleAgentEvent(event: unknown): Promise<void>;
+        requestStartedAt: number | undefined;
+        currentAssistant: unknown;
+        providerRetryInProgress: boolean;
+      };
+      internals.requestStartedAt = start + 1_000;
+      internals.providerRetryInProgress = true;
+      internals.currentAssistant = {
+        id: "assistant-retry",
+        role: "assistant",
+        content: "partial attempt",
+        createdAt: new Date(start).toISOString(),
+        status: "streaming",
+        modelId: "local-model",
+        providerId: "local",
+        providerWaitMs: 1_000,
+        modelStreamDurationMs: 500,
+      };
+
+      await internals.handleAgentEvent({
+        type: "message_start",
+        message: { role: "assistant", content: [] },
+      });
+      await vi.advanceTimersByTimeAsync(2_500);
+      await internals.handleAgentEvent({
+        type: "message_end",
+        message: assistantMessage({
+          content: [{ type: "text", text: "recovered answer" }],
+        }),
+      });
+
+      const terminal = onEvent.mock.calls
+        .map(([envelope]) => envelope as any)
+        .find(({ event }) => event.type === "message_end");
+      expect(terminal?.event.message).toMatchObject({
+        id: "assistant-retry",
+        providerWaitMs: 2_000,
+        modelStreamDurationMs: 3_000,
+      });
+      await runtime.dispose();
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
   it.each(fallbackDurations)(
     "falls back to the sidecar stopwatch for a $label Pi duration",
     async ({ durationMs }) => {

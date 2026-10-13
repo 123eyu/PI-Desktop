@@ -7796,6 +7796,15 @@ Do not invent objections or turn speculative risks into blockers. Stop when the 
             this.progressTurnRerunInProgress
               ? this.currentAssistant
               : undefined;
+          const requestWaitMs =
+            this.requestStartedAt !== undefined
+              ? Math.max(0, Date.now() - this.requestStartedAt)
+              : undefined;
+          const cumulativeProviderWaitMs =
+            requestWaitMs !== undefined ||
+            retryingAssistant?.providerWaitMs !== undefined
+              ? (retryingAssistant?.providerWaitMs ?? 0) + (requestWaitMs ?? 0)
+              : undefined;
           const initialText =
             content.hasText && content.text.length > 0
               ? content.text
@@ -7813,6 +7822,12 @@ Do not invent objections or turn speculative risks into blockers. Stop when the 
             status: "streaming",
             modelId: this.provider.modelId,
             providerId: this.provider.id,
+            ...(retryingAssistant?.modelStreamDurationMs !== undefined
+              ? { modelStreamDurationMs: retryingAssistant.modelStreamDurationMs }
+              : {}),
+            ...(cumulativeProviderWaitMs !== undefined
+              ? { providerWaitMs: cumulativeProviderWaitMs }
+              : {}),
           };
           if (retryingAssistant) {
             // Keep one visible assistant bubble across the bounded retry. The
@@ -7986,6 +8001,9 @@ Do not invent objections or turn speculative risks into blockers. Stop when the 
             this.streamStartedAt !== undefined
               ? Math.max(0, endedAt - this.streamStartedAt)
               : undefined;
+          const modelStreamDurationMs =
+            (this.currentAssistant.modelStreamDurationMs ?? 0) +
+            (streamMs ?? 0);
           if (classifiedError) {
             classifiedError = this.providerErrorWithDiagnostics(
               classifiedError,
@@ -8033,6 +8051,7 @@ Do not invent objections or turn speculative risks into blockers. Stop when the 
               status: "streaming",
               modelId: this.provider.modelId,
               providerId: this.provider.id,
+              ...(streamMs !== undefined ? { modelStreamDurationMs } : {}),
               ...(usage ? { usage } : {}),
             };
             this.emit({ type: "message_update", message: this.currentAssistant });
@@ -8080,6 +8099,7 @@ Do not invent objections or turn speculative risks into blockers. Stop when the 
               status: "streaming",
               modelId: this.provider.modelId,
               providerId: this.provider.id,
+              ...(streamMs !== undefined ? { modelStreamDurationMs } : {}),
               ...(usage ? { usage } : {}),
             };
             this.emit({ type: "message_update", message: this.currentAssistant });
@@ -8105,6 +8125,7 @@ Do not invent objections or turn speculative risks into blockers. Stop when the 
               status: "streaming",
               modelId: this.provider.modelId,
               providerId: this.provider.id,
+              ...(streamMs !== undefined ? { modelStreamDurationMs } : {}),
               ...(usage ? { usage } : {}),
             };
             this.emit({ type: "message_update", message: this.currentAssistant });
@@ -8138,6 +8159,7 @@ Do not invent objections or turn speculative risks into blockers. Stop when the 
               status: "streaming",
               modelId: this.provider.modelId,
               providerId: this.provider.id,
+              ...(streamMs !== undefined ? { modelStreamDurationMs } : {}),
               ...(usage ? { usage } : {}),
             };
             this.emit({ type: "message_update", message: this.currentAssistant });
@@ -8179,6 +8201,7 @@ Do not invent objections or turn speculative risks into blockers. Stop when the 
             providerId: this.provider.id,
             ...(usage ? { usage } : {}),
             ...(responseDurationMs !== undefined ? { responseDurationMs } : {}),
+            ...(streamMs !== undefined ? { modelStreamDurationMs } : {}),
             ...(responseOutputTokens !== undefined
               ? { responseOutputTokens }
               : {}),
@@ -8395,6 +8418,9 @@ Do not invent objections or turn speculative risks into blockers. Stop when the 
         this.streamStartedAt !== undefined
           ? Math.max(0, Date.now() - this.streamStartedAt)
           : undefined;
+      const modelStreamDurationMs =
+        (this.currentAssistant.modelStreamDurationMs ?? 0) +
+        (responseDurationMs ?? 0);
       const responseOutputTokens =
         status === "aborted"
           ? estimateVisibleResponseOutputTokens(this.currentAssistant)
@@ -8403,6 +8429,9 @@ Do not invent objections or turn speculative risks into blockers. Stop when the 
         ...this.currentAssistant,
         status,
         ...(responseDurationMs !== undefined ? { responseDurationMs } : {}),
+        ...(responseDurationMs !== undefined
+          ? { modelStreamDurationMs }
+          : {}),
         ...(responseOutputTokens !== undefined
           ? { responseOutputTokens }
           : {}),
