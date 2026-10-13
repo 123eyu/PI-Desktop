@@ -82,9 +82,16 @@ Settings is a **full-window page** that replaces the app sidebar + main chrome (
 - **Remote Hosts / 远程主机** is an Experimental destination in all builds,
   independent of developer mode. The rail, page and search hits remain available.
   The row and title carry `settings.remoteHosts.experimental`. After pairing,
-  each host offers reconnect and an inline project/session workbench. SSH hosts
-  offer eligible-provider copy with empty selection and explicit credential-copy
-  consent. Remote chat uses Host defaults and never activates local workspaces.
+  each host offers **New project**, reconnect, and remove. New project opens the
+  unified Create project dialog with Remote selected and that host preselected;
+  selecting an absolute directory creates a locally managed project bound to
+  the remote workspace. The inventory does not list or create conversations.
+  The Add action row precedes the inventory; SSH installation and existing-host
+  pairing open an accessible dialog. Cancel, Escape, backdrop dismissal, and
+  successful submission close it and clear the draft, returning focus to its
+  trigger. SSH hosts offer eligible-provider
+  copy with empty selection and explicit credential-copy consent. Remote chat
+  uses Host defaults and never activates local workspaces.
   The narrow MVP supports text, tool/input responses and read-only files/diffs;
   terminal, attachments, local model controls and local plugin/MCP actions are absent.
 - Loaded plugin Settings entries may appear only in a final **Extensions** group

@@ -9784,6 +9784,7 @@ must keep splitting are covered by `markdown-blocks.test.mjs`.
 | Security (plugin real-time capabilities) | E2E-PLUGIN-global-shortcut-owns-only-its-own-command, E2E-PLUGIN-permission-gate-for-real-time-capabilities, E2E-PLUGIN-background-audio-and-realtime-connection |
 | C — Conversation & stream (disclosure reading position) | E2E-CHAT-disclosure-toggle-keeps-reading-position |
 | E — Tools & permissions (disclosure reading position) | E2E-CHAT-disclosure-toggle-keeps-reading-position |
+| D (surfaces) / Quality — Remote-host Add and Pair form disclosure | E2E-REMOTE-HOST-settings-compact-inventory |
 | E — Tools & permissions (capability level move) | E2E-CAPABILITY-move-across-levels |
 | F — Persistence (capability level move) | E2E-CAPABILITY-move-across-levels |
 | Quality (capability level move) | E2E-CAPABILITY-move-across-levels |
@@ -9815,7 +9816,7 @@ must keep splitting are covered by `markdown-blocks.test.mjs`.
 | Post-MVP | E2E-022A, E2E-022B, E2E-022C, E2E-024I, E2E-024J, E2E-024K, E2E-024L, E2E-024M (plugin roadmap R2/R3/R6) |
 | Post-baseline local automation | E2E-220 |
 | Post-baseline local automation (MCP `pi_session_get` large compaction) | E2E-MCP-session-get-projects-large-compaction |
-| Post-MVP remote control | E2E-221, E2E-222, E2E-223, E2E-224, E2E-225, E2E-226, E2E-227, E2E-228, E2E-229, E2E-230, E2E-231, E2E-232 |
+| Post-MVP remote control | E2E-221, E2E-222, E2E-223, E2E-224, E2E-225, E2E-226, E2E-227, E2E-228, E2E-229, E2E-230, E2E-231, E2E-232, E2E-REMOTE-HOST-settings-compact-inventory |
 | Trusted extensions (R7 v1) | E2E-DIALOG-long-text-boundaries, E2E-241, E2E-242, E2E-HOOKS-prompt-chain, E2E-HOOKS-cancel-and-dispose, E2E-TRUSTED-EXTENSION-custom-agent-stream-and-binding, E2E-243, E2E-TRUSTED-EXTENSION-temporary-session-cwd-is-scratch, E2E-244, E2E-245, E2E-PLUGIN-imported-pi-package-skills, E2E-PLUGIN-import-extension-installs-dependencies, E2E-PLUGIN-import-extension-reports-missing-dependency, E2E-PLUGIN-declared-provider-appears-in-the-native-provider-list, E2E-PLUGIN-provider-catalog-add-service |
 | Trusted extensions (R7 v1 npm recovery) | E2E-PLUGIN-import-extension-recovers-missing-npm |
 | Post-MVP regression coverage (plugin tool dispatch) | E2E-PLUGIN-slow-tool-is-not-cut-off-by-host-dispatch |
@@ -14609,9 +14610,9 @@ browser milestones are scheduled.
   turn execute once, in the Host project only; stale routing never falls back
   locally. Snapshot recovery restores pending requests and clears peer-resolved
   cards. Local workspace/model state is unchanged.
-- **Component path**: Open existing remote Agent history, verify model-copy and
-  remote-create controls are absent, type/send, approve, resolve from another
-  peer, and retry a failed reconnect. New projects follow E2E-REMOTE-HOME.
+- **Compatibility coverage**: Existing remote Agent session routing remains
+  covered by `remote-mvp-renderer.test.mjs`; the Settings inventory exposes no
+  session-list or new-session controls. New projects follow E2E-REMOTE-HOME.
 - **Automation**: `scripts/e2e-remote-mvp.mjs` (packaged Host, real Rust/Agent
   runtime and Desktop main routing, mocked model); `scripts/e2e-remote-mvp-ui.mjs`
   (real components, mocked IPC). Neither is a full SSH/Desktop acceptance result.
@@ -14623,11 +14624,13 @@ browser milestones are scheduled.
 - **Preconditions**: Isolated Desktop profile, connected Host directory fixtures,
   a local provider fixture, and local/remote directories with the same basename.
   No user profile, production host, credentials or paid model calls.
-- **Steps**: Open Create project, choose Remote, browse through a separate folder
-  dialog, cancel/reopen, navigate parent/child and confirm a directory. Enter a
-  custom name, create, rename and reopen the project. Start a normal local chat,
-  choose a local model and send a request that invokes Read and Bash remotely.
-  Approve locally, cancel a command, disconnect/reconnect and retry explicitly.
+- **Steps**: Open Settings → Remote Hosts and click **New project** on the
+  intended host. Confirm the shared Create project dialog has Remote selected
+  and that host preselected. Browse through a separate folder dialog,
+  cancel/reopen, navigate parent/child and confirm a directory. Enter a custom
+  name, create, rename and reopen the project. Start a normal local chat, choose
+  a local model and send a request that invokes Read and Bash remotely. Approve
+  locally, cancel a command, disconnect/reconnect and retry explicitly.
 - **Expected**: Focus and drafts survive picker cancellation. Late host responses
   cannot replace the current host selection. Project metadata and sessions are
   local and stable after reload, including name/memory/instructions and ordinary
@@ -14746,10 +14749,13 @@ browser milestones are scheduled.
   only reachable with a password; the user's local SSH agent holds no usable key
   for it. A GitHub Releases fixture serves the `pi-host` bundle for that platform
   at the desktop's version. A second machine accepts the user's key only.
-- **Steps**: 1) In Settings → Remote Hosts, open the Add form's SSH tab and install over SSH with key
-  authentication and confirm the form shows the identity-file field.
-  2) Switch the authentication mode to password, confirm the identity-file field
-  is replaced by a masked password field, and reveal it once.
+- **Steps**: 1) In Settings → Remote Hosts, open the Add form's SSH tab, choose
+  a local private-key file in key mode, and confirm its path is displayed. Cancel
+  a second file selection and confirm the existing choice remains; select the
+  same file again and confirm it can be reselected. Clear the selection once to
+  confirm the SSH agent/config fallback is available, then choose the key again.
+  2) Switch the authentication mode to password, confirm the identity-file
+  picker is replaced by a masked password field, and reveal it once.
   3) Try to submit an empty password. 4) Point the form at the
   password-only machine, enter the password, and bootstrap it.
   5) Quit the desktop, relaunch it, and let the host reconnect.
@@ -14758,9 +14764,13 @@ browser milestones are scheduled.
   8) Inspect the desktop's process arguments and `remote-hosts.json` while a
   password-authenticated host is connected. 9) Attempt to submit a password
   containing a newline through the IPC channel directly.
-- **Expected**: Key mode is byte-for-byte today's behaviour — `BatchMode=yes` and
-  no credential file anywhere. In password mode the password field replaces the
-  identity-file field, the reveal toggle shows and re-hides the value, and an
+- **Expected**: Key mode lets the user choose a local identity file; its path
+  is read-only in the form and is passed to the existing `ssh -i` flow. The app
+  never reads or uploads the key contents. Cancel preserves the prior choice, the
+  same file can be selected again, and Clear returns to SSH agent/config lookup.
+  The key-authenticated SSH behavior remains unchanged: `BatchMode=yes` and no
+  credential file anywhere. In password mode the picker is replaced by a masked
+  password field, the reveal toggle shows and re-hides the value, and an
   empty password keeps the submit disabled. The password-only machine installs
   and pairs. After the relaunch the host reconnects with no prompt, proving the
   saved credential is used. The wrong password yields exactly one failed attempt
@@ -14779,34 +14789,46 @@ browser milestones are scheduled.
 - **Acceptance**: Security, D (surfaces), Quality
 - **Milestone**: Post-MVP (rollout R2b)
 - **Status**: Draft; remote harness with a password-only Linux SSH target
-  required. The credential seam itself is covered offline by
-  `apps/desktop/test/remote-host-ssh-password.test.mjs`.
+  required. The chooser control is covered by
+  `apps/desktop/test/settings-remote-hosts.test.mjs`; the SSH credential seam is
+  covered offline by `apps/desktop/test/remote-host-ssh-password.test.mjs`.
 
 
 #### E2E-REMOTE-HOST-settings-compact-inventory
 
 - **Preconditions**: The desktop Settings window can open. No paired remote
-  host is required. Developer mode is off in persisted settings.
+  host is required. Developer mode is off in persisted settings. The isolated
+  renderer harness can return a successful pair result without network access.
 - **Steps**: 1) Open Settings with developer mode off and confirm Remote Hosts
   and its search hits are available. 2) Open the page and confirm the rail and
-  title carry the Experimental badge. 3) Switch Add between SSH and Pair and
-  confirm both forms stay filled and their ARIA tab/panel associations remain
-  correct after changing language. 4) Toggle developer mode and confirm the
+  title carry the Experimental badge. 3) Confirm the SSH and Pair action row is
+  above the inventory and neither dialog is open. Open SSH; verify the dialog is
+  named, modal, and focuses its first field. Cancel and confirm focus returns to
+  SSH. Open Pair, submit the fixture pairing form, and confirm success closes
+  the dialog and clears the draft. Change language and confirm action labels
+  update. Reopen Pair, enter a draft, cancel, and confirm the dialog closes and
+  the draft clears. Open SSH password mode, enter a fixture password, cancel,
+  reopen, and confirm the password is empty. Press Escape and verify the dialog
+  closes and focus returns to SSH. 4) Toggle developer mode and confirm the
   destination stays selected and available. 5) On a paired SSH host, open the
   historical sessions browser and verify model-copy and remote-create controls
   are absent. New workspace creation stays on Home.
 - **Expected**: Experimental availability is consistent across packaged and
-  development builds. SSH remains the default Add tab. Existing pairing toasts
-  remain. The inline browser preserves existing remote histories; new SSH workspace
-  projects use the local model and project controls from Home.
+  development builds. Add actions precede inventory; the forms open in the
+  shared modal surface, one at a time. Cancel, Escape, backdrop dismissal, and
+  successful submission close the dialog and clear drafts; focus returns to the
+  initiating action. Existing pairing toasts remain. The inline browser
+  preserves existing remote histories; new SSH workspace projects use the
+  local model and project controls from Home.
 - **Specs linked**: `04-ux/06-settings-ia.md` §1, §3,
   `06-delivery/07-remote-control-rollout.md` §2 R2,
   `02-architecture/05-remote-agent-control.md` §5.2
 - **Acceptance**: D (surfaces), Quality
 - **Milestone**: Post-MVP (rollout R2b)
 - **Status**: Offline coverage in `settings-remote-hosts.test.mjs` and
-  `remote-mvp-renderer.test.mjs`; interaction coverage in
-  `scripts/e2e-remote-mvp-ui.mjs`. Real SSH acceptance is separate.
+  `remote-mvp-renderer.test.mjs`; isolated Electron/Chromium interaction coverage
+  in `scripts/e2e-remote-mvp-ui.mjs`, including disclosure, success and cancel
+  paths. Real SSH acceptance is separate.
 
 #### E2E-232: The outbound messaging integration relays events and commands
 
