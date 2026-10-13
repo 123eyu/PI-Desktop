@@ -23,10 +23,12 @@ use super::lifecycle::{
     discard_failed_creation, ensure_branch_free, env_for, missing_error, port_is_free, run_setup,
     setup_command, short_id, unmerged_commits, SharedState, WorktreeSummary,
 };
-use super::merge::{self, commit_all, commits_ahead, land, merge_in_progress};
+use super::merge::{self, commit_all, commits_ahead, ensure_own_branch, land, merge_in_progress};
 use super::probe::BRANCH_NAMESPACE;
 use super::registry::{self, NewWorktree, SetupStatus, WorktreeRow, WorktreeStatus};
-use super::remove::{drop_admin_entry, is_real_dir, is_real_dir_chain, remove_worktree};
+use super::remove::{
+    drop_admin_entry, is_real_dir, is_real_dir_chain, remove_entry, remove_worktree,
+};
 use super::{repo_lock, WorktreeError};
 use crate::db::Database;
 use crate::sessions;
@@ -154,6 +156,8 @@ async fn checkpoint_session(
             "the session has an unfinished merge conflict; resolve it first",
         ));
     }
+    // A branch the parent switched to never receives the checkpoint.
+    ensure_own_branch(git, session).await?;
     commit_all(git, root, message).await?;
     Ok(hold)
 }
@@ -226,6 +230,11 @@ pub async fn create_delegate_worktree(
                     return Ok(summary(&registry::get(&st.db, &row.id)?.unwrap_or(row)));
                 }
                 return Ok(summary(&row));
+            }
+            // The registered folder was replaced by a link: drop that entry
+            // (never its target) so the branch can be re-attached there.
+            if std::fs::symlink_metadata(&row.path).is_ok() {
+                remove_entry(Path::new(&row.path))?;
             }
             if let Some(row) = reattach(state, git, &session, row.clone()).await? {
                 return Ok(summary(&row));
@@ -385,6 +394,7 @@ pub async fn settle_delegate_worktree(
     // An unfinished merge is concluded by `land` once its markers are gone;
     // committing it here could seal unresolved conflict markers.
     if !resolving {
+        ensure_own_branch(git, &row).await?;
         commit_all(git, worktree, "pi: subagent changes").await?;
     }
     let commits = commits_ahead(git, &row).await?;

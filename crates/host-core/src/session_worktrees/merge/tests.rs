@@ -485,4 +485,9 @@ async fn a_landing_on_a_switched_target_is_reported() {
     verify_landed(&git, &f.repo, &f.row, &landing)
         .await
         .unwrap();
+    // A commit made on the project right after the merge still counts.
+    git_cmd(&f.repo, &["commit", "-q", "--allow-empty", "-m", "after"]);
+    verify_landed(&git, &f.repo, &f.row, &landing)
+        .await
+        .unwrap();
 }

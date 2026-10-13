@@ -245,6 +245,17 @@ pub fn set_status(db: &Database, id: &str, status: WorktreeStatus) -> Result<boo
     )? > 0)
 }
 
+/// Clear a `conflict` status back to `active`, only if it is still
+/// `conflict`: a check that ran without the repo lock never overwrites a
+/// status a concurrent merge or sync set meanwhile.
+pub fn clear_conflict(db: &Database, id: &str) -> Result<bool> {
+    Ok(db.conn().execute(
+        "UPDATE worktrees SET status = 'active', updated_at = ?2
+         WHERE id = ?1 AND status = 'conflict'",
+        params![id, now_ms()],
+    )? > 0)
+}
+
 pub fn set_setup_status(
     db: &Database,
     id: &str,
@@ -358,6 +369,27 @@ mod tests {
         assert_eq!(orphaned.len(), 1);
         assert_eq!(orphaned[0].id, row.id);
         assert_eq!(orphaned[0].session_id, None);
+    }
+
+    /// The conflict check runs without the repo lock: clearing a conflict
+    /// never overwrites a status a merge or sync set in the meantime.
+    #[test]
+    fn clearing_a_conflict_leaves_any_newer_status_alone() {
+        let (_dir, db, session) = db_with_session();
+        let row = insert(&db, &new(&session, None, "/w/own")).unwrap();
+        set_status(&db, &row.id, WorktreeStatus::Conflict).unwrap();
+        assert!(clear_conflict(&db, &row.id).unwrap());
+        assert_eq!(
+            get(&db, &row.id).unwrap().unwrap().status,
+            WorktreeStatus::Active
+        );
+
+        set_status(&db, &row.id, WorktreeStatus::Merged).unwrap();
+        assert!(!clear_conflict(&db, &row.id).unwrap());
+        assert_eq!(
+            get(&db, &row.id).unwrap().unwrap().status,
+            WorktreeStatus::Merged
+        );
     }
 
     #[test]

@@ -54,7 +54,7 @@ pub fn clear_contents(root: &Path) -> io::Result<()> {
     Ok(())
 }
 
-fn remove_entry(path: &Path) -> io::Result<()> {
+pub(super) fn remove_entry(path: &Path) -> io::Result<()> {
     let metadata = fs::symlink_metadata(path)?;
     if metadata.file_type().is_symlink() || is_reparse_point(&metadata) {
         remove_link(path, &metadata)

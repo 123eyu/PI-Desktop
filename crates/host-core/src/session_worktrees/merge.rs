@@ -262,7 +262,10 @@ async fn ensure_owner_branch(
 
 /// Refuse unless `row`'s worktree still has its own branch checked out, so a
 /// branch the agent switched to never receives a checkpoint or a merge.
-async fn ensure_own_branch(git: &GitRunner, row: &WorktreeRow) -> Result<(), WorktreeError> {
+pub(super) async fn ensure_own_branch(
+    git: &GitRunner,
+    row: &WorktreeRow,
+) -> Result<(), WorktreeError> {
     if checked_out_branch(git, Path::new(&row.path)).await? == head_ref(&row.branch) {
         return Ok(());
     }
@@ -295,10 +298,11 @@ async fn rev_parse(git: &GitRunner, dir: &Path, rev: &str) -> Result<String, Wor
         .to_string())
 }
 
-/// After the fast-forward: the owner branch must now be exactly the commit
-/// that was checked, still checked out in the owner checkout. A branch switch
-/// in the instant between the last check and git's own `HEAD` read would
-/// have moved the other branch instead; that is reported, not hidden.
+/// After the fast-forward: the owner branch, still checked out in the owner
+/// checkout, must now contain the commit that was checked. A branch switch in
+/// the instant between the last check and git's own `HEAD` read would have
+/// moved the other branch instead; that is reported, not hidden. A commit
+/// made on the owner branch right after the merge still counts as landed.
 async fn verify_landed(
     git: &GitRunner,
     owner_checkout: &Path,
@@ -306,7 +310,19 @@ async fn verify_landed(
     landing: &str,
 ) -> Result<(), WorktreeError> {
     ensure_owner_branch(git, owner_checkout, row).await?;
-    if rev_parse(git, owner_checkout, &head_ref(&row.owner_branch)).await? == landing {
+    let contained = git
+        .output(
+            owner_checkout,
+            &[
+                "merge-base",
+                "--is-ancestor",
+                landing,
+                &head_ref(&row.owner_branch),
+            ],
+        )
+        .await?
+        .success();
+    if contained {
         return Ok(());
     }
     Err(WorktreeError::new(

@@ -566,6 +566,11 @@ pub async fn merge_session(
     ensure_idle(&state.lock().await.db, session_id)?;
     let _guard = repo_lock::lock(Path::new(&target.row.common_dir)).await;
     let _hold = hold_session(state, session_id).await?;
+    // Checked again now that nothing of the session can run: the folder may
+    // have been replaced while this waited for the locks.
+    if !is_real_dir(Path::new(&target.row.path)) {
+        return Err(missing_error());
+    }
     let result = merge::merge(
         git,
         &target.row,
@@ -680,6 +685,9 @@ pub async fn sync_session(
     ensure_idle(&state.lock().await.db, session_id)?;
     let _guard = repo_lock::lock(Path::new(&target.row.common_dir)).await;
     let _hold = hold_session(state, session_id).await?;
+    if !is_real_dir(Path::new(&target.row.path)) {
+        return Err(missing_error());
+    }
     let result =
         merge::sync_from_owner(git, &target.row, &merge::commit_message(&target.title)).await;
     let status = match &result {
@@ -729,8 +737,9 @@ pub async fn refresh_conflict_status(
     match settled {
         Ok(true) => {
             let st = state.lock().await;
-            match registry::set_status(&st.db, &row.id, WorktreeStatus::Active) {
-                Ok(_) => true,
+            match registry::clear_conflict(&st.db, &row.id) {
+                // `false` when a concurrent merge or sync changed it meanwhile.
+                Ok(cleared) => cleared,
                 Err(error) => {
                     tracing::warn!(%error, "could not clear the worktree conflict status");
                     false

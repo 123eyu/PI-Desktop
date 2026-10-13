@@ -6,7 +6,7 @@ use tokio::sync::Mutex;
 
 use super::*;
 use crate::session_worktrees::lifecycle::{self, create_session_worktree};
-use crate::session_worktrees::test_support::{git_cmd, init_repo};
+use crate::session_worktrees::test_support::{git_cmd, init_repo, link_dir};
 use crate::state::AppState;
 
 struct Env {
@@ -342,4 +342,61 @@ async fn subagent_branches_do_not_hide_session_work_when_the_owner_is_gone() {
         .await
         .unwrap();
     assert!(pending.unmerged_commits >= 1, "{pending:?}");
+}
+
+/// The parent switched its worktree to another branch: no checkpoint lands
+/// on that branch, no subagent worktree is created, and a subagent whose own
+/// worktree was switched is not committed or merged either.
+#[tokio::test]
+async fn a_switched_branch_never_receives_a_subagent_checkpoint() {
+    let env = env().await;
+    let a = env.create("chain-a").await;
+    fs::write(a.join("sub.txt"), "sub").unwrap();
+    git_cmd(&a, &["checkout", "-q", "-b", "sub-side"]);
+    let kept = settle_delegate_worktree(&env.state, &env.git, &env.session, "chain-a", true)
+        .await
+        .unwrap_err();
+    assert_eq!(kept.code, "WORKTREE_SESSION_BRANCH_CHANGED");
+    assert_eq!(git_cmd(&a, &["status", "--porcelain"]).trim(), "?? sub.txt");
+
+    git_cmd(&env.session_root, &["checkout", "-q", "-b", "side"]);
+    fs::write(env.session_root.join("parent.txt"), "draft").unwrap();
+    let error = create_delegate_worktree(&env.state, &env.git, &env.session, "chain-b")
+        .await
+        .unwrap_err();
+    assert_eq!(error.code, "WORKTREE_SESSION_BRANCH_CHANGED");
+    assert_eq!(
+        git_cmd(&env.session_root, &["status", "--porcelain"]).trim(),
+        "?? parent.txt"
+    );
+    assert!(env.row("chain-b").await.is_none());
+}
+
+/// A subagent folder replaced by a link (a junction on Windows) is not used;
+/// a resume drops the link, never its target, and re-attaches the branch.
+#[tokio::test]
+async fn a_subagent_folder_replaced_by_a_link_is_reattached_without_its_target() {
+    let env = env().await;
+    let a = env.create("chain-a").await;
+    fs::write(a.join("g.txt"), "committed").unwrap();
+    git_cmd(&a, &["add", "g.txt"]);
+    git_cmd(&a, &["commit", "-q", "-m", "subagent work"]);
+    let outside = env._dir.path().join("user-folder");
+    fs::create_dir_all(&outside).unwrap();
+    fs::write(outside.join("KEEP_ME.txt"), "keep").unwrap();
+    crate::session_worktrees::remove::clear_contents(&a).unwrap();
+    fs::remove_dir_all(&a).unwrap();
+    link_dir(&outside, &a);
+
+    assert_eq!(
+        tool_root(&env.state.lock().await.db, &env.session, Some("chain-a"))
+            .unwrap_err()
+            .code,
+        "WORKTREE_MISSING"
+    );
+    assert_eq!(env.create("chain-a").await, a);
+    assert!(fs::symlink_metadata(&a).unwrap().is_dir());
+    assert_eq!(read(&a.join("g.txt")), "committed");
+    assert_eq!(read(&outside.join("KEEP_ME.txt")), "keep");
+    assert!(!outside.join("g.txt").exists());
 }
