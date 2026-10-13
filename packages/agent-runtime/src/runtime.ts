@@ -240,6 +240,7 @@ import {
   openCodeEndpointFromProvider,
   withOpenCodeSessionHeaders,
 } from "./opencode-session-headers.js";
+import { withSessionAffinityPayload } from "./session-affinity.js";
 import { withCompactionRequestHeaders } from "./compaction-request.js";
 import type { CompactionRequestShape } from "./compaction-diagnostics.js";
 import {
@@ -2117,7 +2118,15 @@ Do not invent objections or turn speculative risks into blockers. Stop when the 
           ),
           m.api,
         );
-        const hookedOptions = this.withExtensionProviderHooks(requestOptions, m);
+        const hookedOptions = withSessionAffinityPayload(
+          this.withExtensionProviderHooks(requestOptions, m),
+          {
+            provider: this.provider,
+            api: m.api,
+            baseUrl: m.baseUrl,
+            sessionId: this.sessionId,
+          },
+        );
         // The watchdog must be able to *stop* what it abandons. It wraps the
         // retry adapter, so draining alone would let the adapter wake from its
         // backoff and open a second request for this turn while the runtime is
