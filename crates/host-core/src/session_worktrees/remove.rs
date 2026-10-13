@@ -1,4 +1,4 @@
-//! Link-safe removal of a worktree and its branch (ADR 0328 decision 6).
+//! Link-safe removal of a worktree and its branch (ADR 0329 decision 6).
 //!
 //! Git for Windows follows a directory junction inside the worktree during
 //! `git worktree remove --force` and deletes the junction target's files

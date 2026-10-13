@@ -770,7 +770,7 @@ type SessionSummary = {
  supportedThinkingLevels?: ThinkingLevel[];
  updatedAt: string;
  createdAt: string;
- /** Isolated sessions only (ADR 0328); never carries a filesystem path. */
+ /** Isolated sessions only (ADR 0329); never carries a filesystem path. */
  worktree?: {
   branch: string;
   status: "creating" | "active" | "conflict" | "merged" | "missing";
@@ -870,7 +870,7 @@ ID、或会话无法解析出默认目标时，得到 `supportsReasoning: false`
 
 - `session/list`
 - `session/create` — 可选的 `isolated: true` 配合 `projectPath` 会在专属 git worktree 中创建
-  会话（ADR 0328）；拒绝时返回主机的 `WORKTREE_*` 代码
+  会话（ADR 0329）；拒绝时返回主机的 `WORKTREE_*` 代码
 - `session/fork({ sessionId, title?, throughMessageId? }) -> { session: SessionDetail }`
 - `session/get`
 - `session/delete`
@@ -1114,7 +1114,7 @@ type ProjectRecord = {
 };
 ```
 
-## 9a. 会话 worktree API（ADR 0328）
+## 9a. 会话 worktree API（ADR 0329）
 
 对主机 `worktree.*` 方法的薄转发（06-host-rpc-protocol §4）；错误保留主机的
 `WORKTREE_*` 代码。

@@ -1,4 +1,4 @@
-//! Preview and "Merge into project" (ADR 0328 decision 4, PRD R4).
+//! Preview and "Merge into project" (ADR 0329 decision 4, PRD R4).
 //!
 //! The project never enters a merge-in-progress state: the owner branch is
 //! merged into the session branch inside the worktree, where conflicts stay,
@@ -168,7 +168,7 @@ pub async fn merge(
 /// branch is merged into `row`'s branch inside its own worktree, where a
 /// conflict stays; the owner checkout is only fast-forwarded, and git refuses
 /// to overwrite uncommitted files there. Shared by "Merge into project" and
-/// the subagent merge-back (ADR 0328).
+/// the subagent merge-back (ADR 0329).
 pub async fn land(
     git: &GitRunner,
     row: &WorktreeRow,

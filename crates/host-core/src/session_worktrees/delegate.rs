@@ -1,4 +1,4 @@
-//! Worktrees for the Write/Edit subagents of an isolated session (ADR 0328,
+//! Worktrees for the Write/Edit subagents of an isolated session (ADR 0329,
 //! PRD R7/R7a).
 //!
 //! A delegate worktree branches from the session branch; the session worktree

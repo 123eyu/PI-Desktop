@@ -302,7 +302,7 @@ type ReviewChange = {
 `patch`）——返回带有错误专属恢复提示的终止工具结果，代理随后停止并报告准确的不匹配。
 不要手动编辑旧的 unified-diff 块头，也不要继续修复循环。
 
-## 4e. 隔离会话 worktree（ADR 0328）
+## 4e. 隔离会话 worktree（ADR 0329）
 
 在 git 项目中以 `isolated: true` 创建的会话拥有专属 worktree，位于
 `<data_dir>/worktrees/<project-key>/<id>`，分支为 `pi-desktop/<id>`，从项目当前

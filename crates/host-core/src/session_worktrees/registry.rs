@@ -1,4 +1,4 @@
-//! Rows of the `worktrees` table (schema v24, ADR 0328).
+//! Rows of the `worktrees` table (schema v24, ADR 0329).
 
 use anyhow::{anyhow, Result};
 use rusqlite::{params, OptionalExtension, Row};

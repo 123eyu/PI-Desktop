@@ -249,7 +249,7 @@ describe("Plan protocol contracts", () => {
     );
   });
 
-  it("lets a subagent worktree merge outlast its permit waits (ADR 0328)", () => {
+  it("lets a subagent worktree merge outlast its permit waits (ADR 0329)", () => {
     for (const method of ["worktree.delegate.create", "worktree.delegate.settle"]) {
       expect(rpcTimeoutMs(method, {})).toBe(WORKTREE_DELEGATE_RPC_TIMEOUT_MS);
     }

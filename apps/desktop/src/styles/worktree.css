@@ -1,4 +1,4 @@
-/* Isolated sessions in git worktrees (ADR 0328). */
+/* Isolated sessions in git worktrees (ADR 0329). */
 
 .thread-item-worktree {
   display: inline-flex;

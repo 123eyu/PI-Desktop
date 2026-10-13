@@ -2,7 +2,7 @@ export const PROTOCOL_VERSION = 11 as const;
 export const SCHEMA_VERSION = 16 as const;
 export const APP_ID = "net.aiuo.pi-desktop";
 export const APP_NAME = "PI-Desktop";
-export const APP_VERSION = "0.19.0";
+export const APP_VERSION = "0.20.1";
 
 export const APP_MENU_COMMANDS = [
   "newTask",
@@ -136,7 +136,7 @@ export const IPC = {
     /** Validate and select a durable session from a reviewed host operation. */
     sessionOpen: "pi-desktop/session/open",
     sessionDelete: "pi-desktop/session/delete",
-    /** Isolated sessions in git worktrees (ADR 0328). */
+    /** Isolated sessions in git worktrees (ADR 0329). */
     worktreeProbe: "pi-desktop/worktree/probe",
     worktreePreview: "pi-desktop/worktree/preview",
     worktreeMerge: "pi-desktop/worktree/merge",

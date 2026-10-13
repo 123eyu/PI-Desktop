@@ -1,4 +1,4 @@
-//! Isolated-session worktree lifecycle (ADR 0328): create, resolve, merge,
+//! Isolated-session worktree lifecycle (ADR 0329): create, resolve, merge,
 //! remove, orphan cleanup, and startup reconciliation.
 //!
 //! The global `AppState` lock is held only for short registry reads and
@@ -641,7 +641,7 @@ pub async fn behind_all(
     Ok(result)
 }
 
-/// "Sync from project" (ADR 0328): merge the project's branch into the
+/// "Sync from project" (ADR 0329): merge the project's branch into the
 /// session's worktree so the session continues on current code. The project
 /// checkout is never touched; a conflict stays in the worktree and marks the
 /// session, exactly like a merge into the project.

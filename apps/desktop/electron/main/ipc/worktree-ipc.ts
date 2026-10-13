@@ -1,5 +1,5 @@
 /**
- * Isolated-session worktree channels (ADR 0328).
+ * Isolated-session worktree channels (ADR 0329).
  *
  * A thin pass-through to host-core's `worktree.*` methods: host-core owns every
  * git command and every worktree path. The renderer names a session or a

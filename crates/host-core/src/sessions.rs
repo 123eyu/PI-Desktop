@@ -137,7 +137,7 @@ pub struct SessionSummary {
     /// deleting the task frees its sessions back into the ordinary lists.
     #[serde(default)]
     pub scheduled_run: bool,
-    /// The session's isolated worktree (ADR 0328); absent for every other
+    /// The session's isolated worktree (ADR 0329); absent for every other
     /// session. Filled in by the list and single-summary reads.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub worktree: Option<crate::session_worktrees::lifecycle::WorktreeSummary>,
@@ -1464,7 +1464,7 @@ pub fn create_session_with_options(
         created_at: ms_to_ts(now),
         // The run row that owns this transcript is written after creation.
         scheduled_run: false,
-        // A new or forked session starts without a worktree (ADR 0328).
+        // A new or forked session starts without a worktree (ADR 0329).
         worktree: None,
     })
 }
@@ -1828,7 +1828,7 @@ pub fn fork_session_through(
         created_at,
         // A fork is the user's own conversation, not the automation's transcript.
         scheduled_run: false,
-        // A new or forked session starts without a worktree (ADR 0328).
+        // A new or forked session starts without a worktree (ADR 0329).
         worktree: None,
     };
     let messages = records.into_iter().map(record_to_ui).collect();

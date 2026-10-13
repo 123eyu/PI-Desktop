@@ -235,7 +235,7 @@ destination, chat as the home surface, tools and permissions inline.
   delete remain separate actions. Rename edits the task label only; archive
   never removes the transcript. Open folder is a project action, not a
   conversation action.
-- **Isolated sessions** (ADR 0328): the project menu offers **New isolated
+- **Isolated sessions** (ADR 0329): the project menu offers **New isolated
   session**. Opening the menu probes the project: the item stays disabled
   until the answer arrives, and for an unsuitable project (not git, no
   commits, detached `HEAD`, missing or old git) it stays disabled with the

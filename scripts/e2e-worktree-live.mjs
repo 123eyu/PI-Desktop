@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 /**
- * Live-model E2E for isolated sessions (ADR 0328,
+ * Live-model E2E for isolated sessions (ADR 0329,
  * E2E-WORKTREE-isolated-session-lifecycle), protocol level: a real host-core
  * and agent runtime with a real model, a throwaway git project, and a
  * throwaway data directory. Nothing outside the temp directory is touched.

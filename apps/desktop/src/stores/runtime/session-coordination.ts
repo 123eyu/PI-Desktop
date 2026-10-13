@@ -37,7 +37,7 @@ export type PersistSessionOptions = {
   intent?: number;
   projectPath?: string | null;
   draftConfiguration?: DraftSessionConfiguration | null;
-  /** Run the new session in its own git worktree (ADR 0328). */
+  /** Run the new session in its own git worktree (ADR 0329). */
   isolated?: boolean;
 };
 

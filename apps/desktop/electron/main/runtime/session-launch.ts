@@ -421,7 +421,7 @@ export function createSessionLaunchRuntime({
         ? session.projectPath.trim()
         : undefined;
     const localInstructionRoot = remoteWorkspace ? undefined : projectPath;
-    // ADR 0328: an isolated session reads and writes files in its worktree.
+    // ADR 0329: an isolated session reads and writes files in its worktree.
     // `projectPath` stays the project identity (memory, skills, plugins, MCP,
     // subagents, group context); only files follow `workspaceRoot`. Remote
     // workspaces are never isolated.
@@ -451,7 +451,7 @@ export function createSessionLaunchRuntime({
         }>("project.group.context", { path: projectPath });
         const groupRoots = result.context?.roots ?? [];
         // An isolated session's root is its worktree; the group's other roots
-        // are outside it and are not advertised (ADR 0328).
+        // are outside it and are not advertised (ADR 0329).
         const groupRootGuide = !workspaceRoot && groupRoots.length > 1
           ? [
               `Primary root: ${groupRoots[0]?.path ?? projectPath}`,

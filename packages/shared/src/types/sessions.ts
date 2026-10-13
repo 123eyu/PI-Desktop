@@ -70,7 +70,7 @@ export type SessionSummary = {
    */
   scheduledRun?: boolean;
   /**
-   * Present only for an isolated session (ADR 0328): its tools run in its own
+   * Present only for an isolated session (ADR 0329): its tools run in its own
    * git worktree. Older hosts and ordinary sessions omit it.
    */
   worktree?: SessionWorktreeSummary;

@@ -56,7 +56,7 @@ export const AGENT_COMPACT_RPC_TIMEOUT_MS =
   COMMAND_RPC_BUFFER_MS;
 
 /**
- * `worktree.delegate.create` / `.settle` (ADR 0328) checkpoint and merge in a
+ * `worktree.delegate.create` / `.settle` (ADR 0329) checkpoint and merge in a
  * session worktree: up to 5s waiting for the session to go quiet, up to
  * `TOOL_QUEUE_WAIT_MS` for its write permit, then a handful of git commands,
  * each bounded by host-core. Under the flat default the runtime gave up while

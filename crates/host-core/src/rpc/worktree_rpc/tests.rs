@@ -1,4 +1,4 @@
-//! Representative user path through the real RPC entry point (ADR 0328):
+//! Representative user path through the real RPC entry point (ADR 0329):
 //! probe -> create isolated session -> agent writes and runs Bash in the
 //! worktree -> preview -> merge -> delete.
 

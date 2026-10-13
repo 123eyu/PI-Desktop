@@ -28,7 +28,7 @@ test("an empty latest session is reusable only when the renderer agrees", () => 
   );
 });
 
-test("isolated sessions are never reused for a new task (ADR 0328)", () => {
+test("isolated sessions are never reused for a new task (ADR 0329)", () => {
   const empty = { messageCount: 0 };
   const emptyIsolated = { messageCount: 0, worktree: { branch: "pi-desktop/a", status: "active" } };
   assert.equal(sessionIsReusableEmpty(emptyIsolated), false, "ordinary + must not pick an isolated session");

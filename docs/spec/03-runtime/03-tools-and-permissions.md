@@ -364,7 +364,7 @@ Serialization also protects the snapshot store, which both producers and `Edit`
 mutate: without the per-session permit, a concurrent record could land between a
 validation and its write.
 
-## 4e. Isolated session worktrees (ADR 0328)
+## 4e. Isolated session worktrees (ADR 0329)
 
 A session created with `isolated: true` in a git project owns a dedicated
 worktree at `<data_dir>/worktrees/<project-key>/<id>` on branch

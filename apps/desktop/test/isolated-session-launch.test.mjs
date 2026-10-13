@@ -9,7 +9,7 @@ import { repositoryRoot } from "../../../scripts/e2e/boot.mjs";
 const root = repositoryRoot();
 const { build } = createRequire(join(root, "packages/agent-runtime/package.json"))("esbuild");
 
-// ADR 0328: an isolated session reads files (AGENTS.md) from its worktree while
+// ADR 0329: an isolated session reads files (AGENTS.md) from its worktree while
 // project-keyed configuration (group instructions, memory) stays on the project.
 test("an isolated session launches in its worktree with its project's configuration", async () => {
   const temp = await mkdtemp(join(root, "apps/desktop/.isolated-launch-test-"));

@@ -1,5 +1,5 @@
 /**
- * Isolated sessions in git worktrees (ADR 0328). Host-core owns every
+ * Isolated sessions in git worktrees (ADR 0329). Host-core owns every
  * worktree path and git command; these shapes carry no filesystem path.
  */
 

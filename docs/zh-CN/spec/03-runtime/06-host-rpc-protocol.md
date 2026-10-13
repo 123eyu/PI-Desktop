@@ -226,7 +226,7 @@ type ToolBudgetHealth = {
 ### 会议
 - `session.list`
 - `session.create` — 接受可选的 `thinkingLevel`； missing/null 默认值
-至 `off`。可选的 `isolated: true`（ADR 0328）同时要求 `projectPath`，并在返回前为新会话
+至 `off`。可选的 `isolated: true`（ADR 0329）同时要求 `projectPath`，并在返回前为新会话
 创建专属 git worktree；无法创建时会话会被删除，调用以 `WORKTREE_*` 错误（§7）失败。
 - `session.fork` — accepts `sessionId`, an optional caller-provided display
   `title`, and optional `throughMessageId`; creates
@@ -410,7 +410,7 @@ off | minimal | low | medium | high | xhigh | max
 可能会返回 `thinking`；主机存储将其映射到规范内容块，而不是
 而不是将其附加到答案 `content` 中。
 
-### 会话 worktree（ADR 0328）
+### 会话 worktree（ADR 0329）
 
 新增的 `worktree.*` 方法为增量 RPC，不升协议版本。失败使用代码 1025 及 `WORKTREE_*`
 字符串代码。
@@ -612,7 +612,7 @@ type ToolsExecuteParams = {
   /** Bash only: host default 60000; accepted override 1000..21600000. */
   timeoutMs?: number
   /** Isolated `Write`/`Edit` delegate chain id; re-roots the call to that
-   * delegate's worktree (ADR 0328). Omitted for every other call. */
+   * delegate's worktree (ADR 0329). Omitted for every other call. */
   delegationId?: string
 }
 ```

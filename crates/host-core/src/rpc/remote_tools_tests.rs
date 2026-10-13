@@ -342,7 +342,7 @@ async fn approved_remote_write_is_dispatched_only_after_local_permission_resolut
     );
 }
 
-/// ADR 0328: a remote-host project cannot host an isolated session; the
+/// ADR 0329: a remote-host project cannot host an isolated session; the
 /// probe says why and creation is refused before a session exists.
 #[tokio::test]
 async fn remote_projects_cannot_create_isolated_sessions() {

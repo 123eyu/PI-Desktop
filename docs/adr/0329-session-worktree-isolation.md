@@ -1,4 +1,4 @@
-# ADR 0328: Isolate parallel sessions of one project in git worktrees
+# ADR 0329: Isolate parallel sessions of one project in git worktrees
 
 - Status: Accepted
 - Date: 2026-10-12

@@ -19,12 +19,12 @@ export function sessionIsReusableEmpty(
     running?: boolean;
     liveMessageCount?: number;
     submitted?: boolean;
-    /** The request asks for an isolated session (ADR 0328). */
+    /** The request asks for an isolated session (ADR 0329). */
     isolated?: boolean;
   } = {},
 ): boolean {
   // An isolated request always gets its own worktree, and an empty isolated
-  // session is never handed out for an ordinary request (ADR 0328).
+  // session is never handed out for an ordinary request (ADR 0329).
   if (options.isolated === true || session.worktree) return false;
   if (session.messageCount > 0) return false;
   if (options.running === true) return false;

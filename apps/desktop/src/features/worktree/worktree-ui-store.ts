@@ -1,6 +1,6 @@
 import { create } from "zustand";
 
-/** The one worktree dialog that is open, if any (ADR 0328). */
+/** The one worktree dialog that is open, if any (ADR 0329). */
 export type WorktreeDialog =
   | { kind: "merge"; sessionId: string; title: string }
   | { kind: "setupLog"; sessionId: string; title: string }

@@ -1289,7 +1289,7 @@ fn resolve_tool_workspace(
     match sessions::session_summary(&state.db, session_id) {
         Ok(Some(summary)) => {
             // An isolated session's root is its worktree and never falls back
-            // to the main checkout (ADR 0328).
+            // to the main checkout (ADR 0329).
             match crate::session_worktrees::lifecycle::tool_root(&state.db, session_id) {
                 Ok(Some(root)) => return Ok(Some(root.to_string_lossy().into_owned())),
                 Ok(None) => {}
@@ -2512,7 +2512,7 @@ async fn handle_request(
         "session.create" => {
             let thinking_level = thinking_level_param(&params)?;
             let permission_parent = permission_parent_param(&params)?;
-            // ADR 0328: an isolated session gets its own git worktree.
+            // ADR 0329: an isolated session gets its own git worktree.
             let isolated = params
                 .get("isolated")
                 .and_then(Value::as_bool)
@@ -2769,7 +2769,7 @@ async fn handle_request(
                 .get("id")
                 .and_then(|v| v.as_str())
                 .ok_or_else(|| rpc_err(1002, "id required", "INVALID_PARAMS"))?;
-            // Delete = discard for isolated sessions (ADR 0328); a git failure
+            // Delete = discard for isolated sessions (ADR 0329); a git failure
             // keeps the session.
             worktree_rpc::remove_before_delete(&state, id).await?;
             let st = state.lock().await;
@@ -4175,7 +4175,7 @@ async fn handle_request(
                 // Admission follows permission so approval waits do not occupy
                 // execution capacity. Keep this permit through review, the
                 // runner, and bookkeeping so every accepted call is bounded.
-                // A subagent working in its own worktree (ADR 0328) is not
+                // A subagent working in its own worktree (ADR 0329) is not
                 // stopped while its session's worktree is held for a merge.
                 let (tool_budget, own_worktree) = {
                     let st = state.lock().await;
@@ -4391,7 +4391,7 @@ async fn handle_request(
                     }
                 }
 
-                // ADR 0328: a session that resolved its merge conflict (or
+                // ADR 0329: a session that resolved its merge conflict (or
                 // aborted the merge) drops its conflict badge before the turn
                 // ends and the sidebar refreshes.
                 if p.delegation_id.is_none()

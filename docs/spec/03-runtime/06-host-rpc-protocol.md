@@ -296,7 +296,7 @@ to later refresh and inference; the vendor picker does not collect them.
   `inheritPermissionFromSessionId`; when present, the host copies the existing
   session's persisted permission mode atomically, while omission preserves the
   existing `inherit` default. Missing/null thinking level defaults to `off`.
-  Optional `isolated: true` (ADR 0328) also requires `projectPath` and gives
+  Optional `isolated: true` (ADR 0329) also requires `projectPath` and gives
   the new session its own git worktree before it returns; if the worktree
   cannot be created the session is deleted again and the call fails with a
   `WORKTREE_*` error (§7).
@@ -603,7 +603,7 @@ Session summaries/details always return `thinkingLevel`. Assistant messages
 may return `thinking`; host storage maps it to a canonical content block rather
 than appending it to answer `content`.
 
-### Session worktrees (ADR 0328)
+### Session worktrees (ADR 0329)
 
 Additive `worktree.*` methods; no protocol version bump. Failures use code
 1025 with a `WORKTREE_*` string code.
@@ -878,7 +878,7 @@ type ToolsExecuteParams = {
   /** Bash only: host default 60000; accepted override 1000..21600000. */
   timeoutMs?: number
   /** Isolated `Write`/`Edit` delegate chain id; re-roots the call to that
-   * delegate's worktree (ADR 0328). Omitted for every other call. */
+   * delegate's worktree (ADR 0329). Omitted for every other call. */
   delegationId?: string
 }
 ```

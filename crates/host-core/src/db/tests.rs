@@ -178,7 +178,7 @@ fn v22_database_migrates_session_title_sources_without_losing_titles() {
     );
 }
 
-/// v24 adds the isolated-session worktree registry (ADR 0328). A v23 database
+/// v24 adds the isolated-session worktree registry (ADR 0329). A v23 database
 /// keeps its projects and sessions, gains the nullable setup-command column
 /// and the `worktrees` table, and leaves a pre-migration backup.
 #[test]

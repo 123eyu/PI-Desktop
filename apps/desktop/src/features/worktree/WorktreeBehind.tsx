@@ -23,7 +23,7 @@ export function isolatedSessionsKey(sessions: readonly SessionSummary[]): string
 }
 
 /**
- * Keeps the per-session "behind" counts current (ADR 0328). The sidebar list
+ * Keeps the per-session "behind" counts current (ADR 0329). The sidebar list
  * never waits for git: the counts are read in the background and the marker
  * appears when they arrive. Renders nothing.
  */

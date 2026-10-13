@@ -9,7 +9,7 @@ import { catalogs } from "@pi-desktop/i18n";
 import { IPC } from "@pi-desktop/shared";
 import { createServer } from "vite";
 
-// ADR 0328 renderer surface: badge, menus, create flow, merge failures, and
+// ADR 0329 renderer surface: badge, menus, create flow, merge failures, and
 // the rule that an ordinary "+" never reuses an empty isolated session.
 
 let server;

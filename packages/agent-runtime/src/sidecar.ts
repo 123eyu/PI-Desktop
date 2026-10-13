@@ -124,7 +124,7 @@ type RuntimeParams = {
   /** Session-bound workspace root supplied by Electron main. */
   projectPath?: string;
   remoteWorkspace?: { hostKey: string; path: string };
-  /** An isolated session's worktree root, supplied by Electron main (ADR 0328). */
+  /** An isolated session's worktree root, supplied by Electron main (ADR 0329). */
   workspaceRoot?: string;
   customSystemPrompt?: CustomSystemPrompt;
   projectInstructions?: ProjectInstructions;

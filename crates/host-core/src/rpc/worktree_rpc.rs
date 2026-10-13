@@ -1,5 +1,5 @@
 //! `worktree.*` methods and the isolated-session hooks of `session.create` and
-//! `session.delete` (ADR 0328). Callers name a session or a project; no
+//! `session.delete` (ADR 0329). Callers name a session or a project; no
 //! method accepts a worktree path.
 
 use std::path::Path;

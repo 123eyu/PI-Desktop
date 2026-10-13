@@ -1,5 +1,5 @@
 //! Git worktrees for isolated sessions and their Write/Edit delegates
-//! (ADR 0328). host-core owns every worktree path and every git command; the
+//! (ADR 0329). host-core owns every worktree path and every git command; the
 //! renderer and the agent runtime only name a session or delegation.
 
 pub mod delegate;

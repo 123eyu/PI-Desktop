@@ -2,7 +2,7 @@ use super::{create_migration_backup, Connection, Context, Path, Result};
 use rusqlite::Transaction;
 
 /// Registry of git worktrees that host-core created for isolated sessions and
-/// their Write/Edit delegates (ADR 0328).
+/// their Write/Edit delegates (ADR 0329).
 ///
 /// `session_id` uses `ON DELETE SET NULL`, not `CASCADE`: a session removed by
 /// any path leaves an orphan row that the cleanup pass turns into a link-safe

@@ -99,7 +99,7 @@ async fn main() -> anyhow::Result<()> {
         }
     }
     // Drop half-created worktrees, mark vanished ones, repair links after a
-    // moved data directory, and remove orphans (ADR 0328).
+    // moved data directory, and remove orphans (ADR 0329).
     tokio::spawn(session_worktrees::lifecycle::reconcile(
         state.clone(),
         session_worktrees::git::GitRunner::default(),

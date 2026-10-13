@@ -365,7 +365,7 @@ export function createSidecarRuntime({
   const s = new AgentSidecar((text) => logger.child("agent", text));
   wireSidecar(s);
   // The directory a session's file tools work in: its isolated worktree
-  // (ADR 0328), resolved by host-core from its own registry, or its project.
+  // (ADR 0329), resolved by host-core from its own registry, or its project.
   const sessionFileRoot = async (sessionId: string): Promise<string | null> => {
     const host = runtimeState.host;
     if (!host) return null;
@@ -384,7 +384,7 @@ export function createSidecarRuntime({
     const instructions = projectPath?.startsWith("remote-project:")
       ? await loadInstructionChain(undefined) : await loadInstructionChain(projectPath, path);
     if (!projectPath || !runtimeState.host) return instructions;
-    // An isolated session registers its worktree as the root (ADR 0328); the
+    // An isolated session registers its worktree as the root (ADR 0329); the
     // group context stays keyed by the session's project, and the group's
     // other roots are not advertised inside the worktree.
     const project = sessionProjects.get(sessionId) ?? projectPath;

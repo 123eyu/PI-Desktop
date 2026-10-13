@@ -353,7 +353,7 @@ async function invoke<T>(channel: string, ...args: unknown[]): Promise<T> {
 
 /** `session.create` input: summary fields plus the isolation switch. */
 export type CreateSessionInput = Partial<SessionSummary> & {
-  /** Run the session in its own git worktree (ADR 0328). */
+  /** Run the session in its own git worktree (ADR 0329). */
   isolated?: boolean;
 };
 
@@ -622,7 +622,7 @@ export const api = {
       IPC.invoke.sessionCreate,
       input ?? {},
     ).then((result) => ({ ...result, session: normalizeSession(result.session) })),
-  /** Isolated sessions in git worktrees (ADR 0328). No call returns a path. */
+  /** Isolated sessions in git worktrees (ADR 0329). No call returns a path. */
   probeWorktree: (projectPath: string) =>
     invoke<WorktreeProbeResult>(IPC.invoke.worktreeProbe, { projectPath }),
   previewWorktreeMerge: (sessionId: string) =>

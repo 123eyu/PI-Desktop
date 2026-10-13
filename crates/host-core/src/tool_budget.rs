@@ -143,7 +143,7 @@ pub struct ToolBudgetSnapshot {
 struct Request {
     session_id: String,
     class: ToolClass,
-    /// Runs in a subagent's own worktree (ADR 0328), so holding the session
+    /// Runs in a subagent's own worktree (ADR 0329), so holding the session
     /// for work in the session worktree does not need to stop it.
     own_worktree: bool,
 }
@@ -404,7 +404,7 @@ impl ToolBudget {
     /// Hold `session_id` alone: wait (at most `wait`) until none of its tools
     /// is in flight, then keep every new tool of that session queued until
     /// the permit drops. Used around git operations on an isolated session's
-    /// worktree (ADR 0328) so a Bash or Write call cannot interleave with
+    /// worktree (ADR 0329) so a Bash or Write call cannot interleave with
     /// them. `None` when the session stayed busy; other sessions and global
     /// capacity are unaffected either way.
     pub async fn acquire_session_exclusive(

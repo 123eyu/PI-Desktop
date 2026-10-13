@@ -70,7 +70,9 @@ loop evaluates it after `turn_end`, once the current assistant response and
 tool batch have completed, and emits a normal `agent_end` before another model
 request. It does not cancel an active provider stream or running tool. An idle
 runtime returns `{ requested: false }`; immediate `abort()` remains the
-separate cancellation path.
+separate cancellation path. `abort()` resolves only after the named active
+operation has completed its cancellation cleanup, so the same runtime can
+accept a follow-up prompt as soon as the abort request returns.
 
 ### 4.0 Active-turn steering
 
@@ -86,8 +88,11 @@ when another input arrives before the initial user message has been consumed.
 An admission after pi's last queue poll suppresses the terminal event and
 continues once pi has released the run, with the same turn identity and without
 a second public `agent_start`. Existing context/provider recovery takes
-precedence over that continuation. Steering also wakes a parent that is idle
-waiting for background delegates; it does not cancel those delegates.
+precedence over that continuation. Steering wakes both a parent that is idle
+waiting for background delegates and an active `TaskWait`; it does not cancel
+those delegates. `TaskWait` returns `details.status: "interrupted"`, includes
+the current delegation states, and tells the parent to handle the new user
+input before waiting again. The same durable turn and pending reports remain.
 
 Abort, graceful stop, fatal errors and terminal settlement close admission.
 Accepted but unconsumed input remains transcript/context history and is removed
@@ -1191,7 +1196,7 @@ turn open and delivers the reports when they finish. User Stop, `TaskStop`,
 runtime dispose, or a parent fatal error (D352) abort a still-running
 delegate.
 
-**Isolated worktrees (ADR 0328).** In an isolated session, a delegate whose
+**Isolated worktrees (ADR 0329).** In an isolated session, a delegate whose
 tools include `Write` or `Edit` gets its own worktree before its first turn
 (`worktree.delegate.create`, keyed by the delegation chain id, so a resumed
 delegate reuses it), and its `tools.execute` calls carry that id as
@@ -1666,7 +1671,7 @@ view project-list menu provides an `AGENTS.md` editor for its corresponding
 registered project root. Its IPC does not accept arbitrary renderer file paths.
 Saves affect the next prompt without restarting the application.
 
-For an isolated session (ADR 0328) the launch metadata carries a separate
+For an isolated session (ADR 0329) the launch metadata carries a separate
 `workspaceRoot`, its git worktree: the instruction chain and its path
 resolution are rooted there, so the agent follows the worktree's own
 `AGENTS.md` files. `projectPath` stays the project identity for memory,
@@ -1708,6 +1713,9 @@ does not dispose, abort, or re-root a runtime belonging to another session.
   estimate visible thinking plus answer output at four Unicode code points per
   token and persist it as `responseOutputTokens` so stopped-turn throughput is
   still available and visibly approximate
+- preserve request-to-first-response wait and streamed thinking/answer duration
+  on assistant messages when available; stopped streams retain the elapsed
+  streamed duration captured before cancellation
 - renderer smart-stop transcript undo and structured Composer restoration are
   reconciliation after abort; they do not change runtime cancellation or roll
   back completed tool effects

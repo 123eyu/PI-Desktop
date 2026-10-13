@@ -43,7 +43,7 @@ CREATE TABLE projects (
   pinned         INTEGER NOT NULL DEFAULT 0,
   created_at     INTEGER NOT NULL,
   last_opened_at INTEGER NOT NULL,
-  -- Optional command run in every new isolated worktree (schema v24, ADR 0328).
+  -- Optional command run in every new isolated worktree (schema v24, ADR 0329).
   worktree_setup_command TEXT
 );
 

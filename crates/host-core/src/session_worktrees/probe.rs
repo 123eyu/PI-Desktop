@@ -1,5 +1,5 @@
 //! Decide whether a project can host isolated sessions, and where its
-//! repository lives (ADR 0328, PRD R6).
+//! repository lives (ADR 0329, PRD R6).
 
 use std::path::{Path, PathBuf};
 

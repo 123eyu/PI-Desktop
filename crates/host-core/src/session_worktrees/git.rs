@@ -1,4 +1,4 @@
-//! The only way host-core runs git for isolated worktrees (ADR 0328).
+//! The only way host-core runs git for isolated worktrees (ADR 0329).
 //!
 //! Every invocation is non-interactive and hardened, because host-core runs
 //! these commands on the user's behalf without a permission card:

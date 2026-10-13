@@ -215,7 +215,7 @@ struct ToolRunnerStartConfig {
     #[serde(default)]
     env_path: Option<String>,
     /// Session-scoped variables such as `PI_PORT` for an isolated worktree
-    /// (ADR 0328). Empty for every other call.
+    /// (ADR 0329). Empty for every other call.
     #[serde(default)]
     extra_env: Vec<(String, String)>,
 }
@@ -571,7 +571,7 @@ pub struct ToolsExecuteParams {
     /// permission mode. `inherit` and absent behave identically.
     #[serde(default)]
     pub permission_scope: Option<String>,
-    /// Chain id of a Write/Edit subagent with its own worktree (ADR 0328).
+    /// Chain id of a Write/Edit subagent with its own worktree (ADR 0329).
     /// host-core resolves it against its registry; an unknown id is ignored.
     #[serde(default)]
     pub delegation_id: Option<String>,
@@ -772,7 +772,7 @@ pub struct BashExecutionOptions {
     pub timeout_ms: Option<u64>,
     pub cancellation: Option<watch::Receiver<bool>>,
     pub output_tx: Option<mpsc::UnboundedSender<String>>,
-    /// Extra environment for the command, e.g. `PI_PORT` (ADR 0328).
+    /// Extra environment for the command, e.g. `PI_PORT` (ADR 0329).
     pub extra_env: Vec<(String, String)>,
 }
 
