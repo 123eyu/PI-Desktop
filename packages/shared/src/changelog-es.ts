@@ -2,6 +2,19 @@ import type { ChangelogEntry } from "./changelog.js";
 
 export const esEntries: ChangelogEntry[] = [
   {
+    "version": "0.20.0",
+    "date": "2026-10-13",
+    "highlights": [
+      "Configura endpoints personalizados sin una clave API; en ese modo las solicitudes no envían credenciales.",
+      "Abre archivos locales fuera de una carpeta de proyecto en el navegador integrado; las páginas web siguen limitadas a los archivos del proyecto.",
+      "Consulta por separado la espera del proveedor, la respuesta transmitida del modelo y el tiempo de las herramientas principales, con totales y porcentajes.",
+      "Tras detener un turno, el siguiente espera a que termine el anterior para evitar que el trabajo se solape.",
+      "El ZIP portátil de Windows ahora incluye el canal de actualización para que las copias instaladas detecten y descarguen actualizaciones.",
+      "Los plugins pueden consultar los modos de redirección que admite fetch y elegir inspeccionar o rechazar una redirección sin seguirla; las llamadas fetch existentes siguen redirigiendo de forma predeterminada.",
+      "Las estimaciones de compactación de textos largos y de velocidad de respuesta del modelo son más precisas; los flujos interrumpidos conservan la alternativa actual.",
+    ],
+  },
+  {
     "version": "0.19.1",
     "date": "2026-10-13",
     "highlights": [
