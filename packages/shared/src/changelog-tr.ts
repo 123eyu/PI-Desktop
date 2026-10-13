@@ -2,7 +2,7 @@ import type { ChangelogEntry } from "./changelog.js";
 
 export const trEntries: ChangelogEntry[] = [
   {
-    "version": "0.20.0",
+    "version": "0.20.1",
     "date": "2026-10-13",
     "highlights": [
       "Özel uç noktaları API anahtarı olmadan yapılandırın; bu modda isteklerle kimlik doğrulama bilgisi gönderilmez.",
@@ -12,6 +12,9 @@ export const trEntries: ChangelogEntry[] = [
       "Windows taşınabilir ZIP'i artık güncelleme akışını içeriyor; kurulu kopyalar güncellemeleri bulup indirebilir.",
       "Eklentiler fetch'in desteklediği yönlendirme modlarını sorgulayabilir ve yönlendirmeyi izlemeden incelemeyi veya reddetmeyi seçebilir; mevcut fetch çağrıları varsayılan olarak yönlendirmeleri izlemeyi sürdürür.",
       "Uzun metin sıkıştırma ve model yanıt hızı tahminleri daha doğrudur; kesilen akışlarda mevcut yedek yöntem korunur.",
+      "Metin seçimi açılır katmanların üzerinden sürüklerken kesintisiz kalır.",
+      "Kenar çubuğunun altındaki satırlardan açılan proje menüleri görünür kalır.",
+      "Windows eski yedekleri kaldırırken yükleme kilidini korur.",
     ],
   },
   {

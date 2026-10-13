@@ -2,7 +2,7 @@ import type { ChangelogEntry } from "./changelog.js";
 
 export const zhCNEntries: ChangelogEntry[] = [
   {
-    version: "0.20.0",
+    version: "0.20.1",
     date: "2026-10-13",
     highlights: [
       "可配置无需 API Key 的自定义接口；免密模式下不会发送认证信息。",
@@ -12,6 +12,9 @@ export const zhCNEntries: ChangelogEntry[] = [
       "Windows 便携 ZIP 现包含更新源，已安装的副本可检查并下载更新。",
       "插件可查询受支持的网络重定向方式，选择检查或拒绝重定向；现有 fetch 调用仍默认跟随。",
       "长文本压缩估算和模型响应速率统计更准确；中断的流继续使用原有估算回退方式。",
+      "拖选文本跨过弹出层时，选区会保持连续。",
+      "从侧边栏底部附近的行打开项目菜单时，菜单会保持在可视区域内。",
+      "Windows 清理旧备份时会继续持有安装锁，避免更新安装交错。",
     ],
   },
   {

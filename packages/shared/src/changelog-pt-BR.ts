@@ -2,7 +2,7 @@ import type { ChangelogEntry } from "./changelog.js";
 
 export const ptBREntries: ChangelogEntry[] = [
   {
-    "version": "0.20.0",
+    "version": "0.20.1",
     "date": "2026-10-13",
     "highlights": [
       "Configure endpoints personalizados sem chave de API; nesse modo, as solicitações não enviam informações de autenticação.",
@@ -12,6 +12,9 @@ export const ptBREntries: ChangelogEntry[] = [
       "O ZIP portátil do Windows agora inclui o feed de atualização para que cópias instaladas encontrem e baixem atualizações.",
       "Plugins podem consultar os modos de redirecionamento compatíveis com fetch e optar por inspecionar ou recusar um redirecionamento sem segui-lo; chamadas fetch existentes continuam seguindo redirecionamentos por padrão.",
       "As estimativas de compactação de textos longos e de taxa de resposta do modelo são mais precisas; fluxos interrompidos mantêm a alternativa atual.",
+      "A seleção de texto permanece contínua ao atravessar sobreposições de pop-up.",
+      "Os menus de projeto permanecem visíveis quando abertos nas linhas próximas ao fim da barra lateral.",
+      "O Windows mantém o bloqueio do instalador enquanto remove backups antigos.",
     ],
   },
   {
