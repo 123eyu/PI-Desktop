@@ -13359,6 +13359,10 @@ are withdrawn with ADR 0165.
      System immediately without clicking elsewhere. Confirm `settings.get`
      retains the URL and Bypass while `mode` is `system`. Select Custom again
      and confirm both values return to the fields and `mode` is `custom`.
+     With the valid URL saved, enter `not-a-proxy` and blur so the invalid
+     draft remains visible. Switch to System and back to Custom; confirm the
+     field returns to the remembered valid URL and `settings.get` still holds
+     that URL instead of the built-in default.
   4. Click Test against a listening proxy. Confirm a Connected status. Click
      Test against a closed port. Confirm a failure status without changing
      the saved URL. Enter `http://user:pass@127.0.0.1:<auth-port>` and
@@ -13399,8 +13403,10 @@ are withdrawn with ADR 0165.
   credentials and unsupported SOCKS4 schemes are covered by shared parser
   tests. `system-proxy-relay.test.ts` covers authenticated provider traffic,
   PAC proxy fallback, HTTP proxy forwarding, and scheme detection on
-  non-default ports. Full UI journey Draft (run only in a capable environment
-  when this surface changes).
+  non-default ports. The stale-invalid-draft Custom → System → Custom
+  restoration path is covered by `pnpm test:e2e:settings-scroll`. The full UI
+  journey remains Draft (run only in a capable environment when this surface
+  changes).
 
 #### E2E-191: Newly emitted AppError codes stay registered
 
