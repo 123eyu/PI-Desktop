@@ -95,6 +95,7 @@
     "test:e2e:remote-mvp-ui": "node scripts/e2e-remote-mvp-ui.mjs",
     "test:e2e:shortcut-settings": "node scripts/test-shortcut-settings.mjs",
     "test:e2e:dialog-overflow": "node scripts/test-dialog-overflow.mjs",
+    "test:e2e:overlay-selection": "node scripts/test-overlay-selection.mjs",
     "test:e2e:live-voice-interaction": "node scripts/test-live-voice-interaction.mjs"
   },
   "devDependencies": {

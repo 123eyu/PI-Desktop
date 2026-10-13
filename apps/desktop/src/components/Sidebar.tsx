@@ -302,6 +302,7 @@ export function Sidebar({
     hide: hideSessionHoverCard,
     scheduleHide: scheduleSessionHoverCardHide,
     keepVisible: keepSessionHoverCardVisible,
+    registerDismissGuard: registerSessionHoverCardDismissGuard,
   } = useSessionHoverCard();
   const [expandedProjectSessions, setExpandedProjectSessions] = useState<Record<string, boolean>>({});
   const [draggingSessionId, setDraggingSessionId] = useState<string | null>(null);
@@ -2565,6 +2566,7 @@ export function Sidebar({
           onOpenSession={openSessionFromHover}
           keepVisible={keepSessionHoverCardVisible}
           scheduleHide={scheduleSessionHoverCardHide}
+          registerDismissGuard={registerSessionHoverCardDismissGuard}
         />
       ) : null}
       {renameFor ? (

@@ -23,7 +23,7 @@ import {
 import { api } from "../../lib/api";
 import { useAppStore } from "../../stores/app-store";
 import { pairsToRecord, recordToPairs } from "../extensions/KeyValueRows";
-import { Button, Field, HelpIcon, Input, portalOverlay } from "../ui";
+import { OverlayBackdrop, Button, Field, HelpIcon, Input, portalOverlay } from "../ui";
 import { ProviderHeadersEditor } from "./ProviderHeadersEditor";
 import { useProviderModels } from "./useProviderModels";
 import { ModelSelectionPanes, useModelSelection } from "./ModelSelectionPanes";
@@ -594,7 +594,7 @@ export function ProviderSetupDialog({
   );
 
   return portalOverlay(
-    <div
+    <OverlayBackdrop
       className="overlay provider-setup-overlay"
       role="presentation"
       onClick={() => {
@@ -629,7 +629,7 @@ export function ProviderSetupDialog({
       </div>
 
       {advancedOpen && (named || custom) ? (
-        <div
+        <OverlayBackdrop
           className="overlay provider-advanced-overlay"
           role="presentation"
           onClick={(event) => {
@@ -666,8 +666,8 @@ export function ProviderSetupDialog({
               </div>
             </div>
           </div>
-        </div>
+        </OverlayBackdrop>
       ) : null}
-    </div>
+    </OverlayBackdrop>
   );
 }
