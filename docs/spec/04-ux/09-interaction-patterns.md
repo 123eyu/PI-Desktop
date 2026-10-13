@@ -637,6 +637,18 @@ may be retained while exactly one workspace supplies the visible shell context.
   macOS, Windows NSIS, and Linux AppImage use the in-app lane; Linux deb/rpm
   and Windows ZIP remain notify-and-link delivery modes.
 
+### 1.10 Modal backdrop and native text selection
+
+- Click-dismissable modal backdrops close only when a primary pointer press
+  starts and ends on that same backdrop. A drag from content to backdrop, or
+  from backdrop into content, never dismisses the modal. Cancelled presses and
+  window blur reset the pending interaction; a later deliberate backdrop click
+  still closes normally.
+- Click-dismissable overlays use the shared `OverlayBackdrop` primitive. Nested
+  backdrops dismiss only their own layer. Existing busy/saving guards, Escape,
+  close buttons, and focus handling remain authoritative; native selection is
+  not prevented and no pointer capture is added for dismissal.
+
 ## 2. Streaming message behavior
 
 ### 2.1 Token rendering
@@ -1516,8 +1528,17 @@ Project drag/drop follows these patterns:
 - The session row does not set a native `title` attribute. The hover card is
   the only full-title surface, so the browser tooltip never stacks on the
   card.
-- The card cancels on pointer leave, focus blur, scroll (any scroll
-  container), resize, and the moment a context menu opens.
+- Card text is natively selectable and copyable; navigation buttons remain
+  controls, not selectable text. The ordinary pointer-leave/focus-blur grace
+  period is 160ms. A primary drag started inside the card suspends dismissal,
+  even after crossing its boundary. A noncollapsed card-local text selection
+  retains the card after release for native Copy; clearing the selection resumes
+  delayed dismissal when neither pointer nor focus is inside. Row-leave timers
+  cannot override this retention.
+- Pointer release/cancel and window blur end the active drag; unmount removes
+  its listeners and dismissal guard. Escape, an outside press, scroll (any
+  scroll container), resize, visibility loss, and opening a context menu still
+  dismiss the card, including while text is selected.
 
 ### 9.1c Session row hover and row actions
 
