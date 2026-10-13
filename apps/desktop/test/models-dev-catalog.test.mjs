@@ -1979,23 +1979,24 @@ test("a vendor's sibling keys answer for a family the primary key never states",
 });
 
 test("a sibling key that contradicts the primary key cannot suppress its answer", async (t) => {
-  // The vendor's public key states one capacity and its regional key another.
-  // The primary tier still answers, exactly as it did before sibling keys were
-  // consulted: widening the owner set is added evidence, never a veto.
+  // Alibaba's public key and token-plan key disagree about the same id. The
+  // token-plan key is only in the new widened tier, so it cannot veto the
+  // primary tier's answer.
   const catalog = await loadFixtureCatalog(t, {
     gateway: { api: "https://gateway.example/v1", models: {} },
-    minimax: { models: { "MiniMax-M2.7": {
-      id: "MiniMax-M2.7", tool_call: true, limit: { context: 204_800, output: 131_072 },
+    alibaba: { models: { "qwen3.8-flash": {
+      id: "qwen3.8-flash", tool_call: true, limit: { context: 512_000, output: 64_000 },
     } } },
-    "minimax-cn": { models: { "MiniMax-M2.7": {
-      id: "MiniMax-M2.7", tool_call: true, limit: { context: 128_000, output: 65_536 },
+    "alibaba-token-plan": { models: { "qwen3.8-flash": {
+      id: "qwen3.8-flash", tool_call: true, limit: { context: 1_000_000, output: 131_072 },
     } } },
   });
-  // `minimax-cn` is already an alias of `minimax`, so both keys sit in the
-  // primary tier and their disagreement stays a final "nothing to claim".
-  assert.equal(catalog.findModel({
-    vendorKey: "custom", baseUrl: "https://relay.example/v1", modelId: "MiniMax-M2.7",
-  }), undefined);
+  const match = catalog.findModel({
+    vendorKey: "custom", baseUrl: "https://relay.example/v1", modelId: "qwen3.8-flash",
+  });
+  assert.equal(match?.providerKey, "alibaba");
+  assert.equal(match?.limit.context, 512_000);
+  assert.equal(match?.limit.output, 64_000);
 });
 
 test("a corroborated canonical declaration translates a relay-only generation name", async (t) => {
