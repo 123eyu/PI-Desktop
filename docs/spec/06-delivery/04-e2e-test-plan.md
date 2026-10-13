@@ -3024,7 +3024,7 @@ identify the platform validation still needed.
 - **Specs linked**: `04-ux/08-component-spec.md`, `04-ux/09-interaction-patterns.md`
 - **Acceptance**: Quality (sidebar interaction)
 - **Milestone**: M2
-- **Status**: Unit-covered (`sidebar-floating-menu.test.mjs`, `sidebar-navigation.test.mjs`); rendered viewport scenario Draft
+- **Status**: Automated (`node scripts/e2e-three-column-layout.mjs --sidebar-only`, `sidebar-floating-menu.test.mjs`, `sidebar-navigation.test.mjs`)
 
 #### E2E-036: Settings session-import destination retired
 

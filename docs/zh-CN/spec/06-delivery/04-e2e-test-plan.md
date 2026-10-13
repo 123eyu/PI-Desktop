@@ -1227,7 +1227,7 @@ task-candidate E2E 从请求工作树运行，但使用主工作区已经准备�
 - **链接规格**：`04-ux/08-component-spec.md`、`04-ux/09-interaction-patterns.md`
 - **接受**：品质（侧边栏交互）
 - **里程碑**：M2
-- **状态**：单元测试覆盖（`sidebar-floating-menu.test.mjs`、`sidebar-navigation.test.mjs`）；视口交互场景仍为草案
+- **状态**：自动化（`node scripts/e2e-three-column-layout.mjs --sidebar-only`、`sidebar-floating-menu.test.mjs`、`sidebar-navigation.test.mjs`）
 
 #### E2E-036：设置会话导入目的地已移除
 
