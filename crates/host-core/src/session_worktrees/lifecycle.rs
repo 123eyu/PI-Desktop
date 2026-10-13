@@ -19,7 +19,7 @@ use super::include::{copy_included, IncludeReport};
 use super::merge::{self, MergeOutcome, MergePreview, SyncOutcome};
 use super::probe::{probe, BRANCH_NAMESPACE};
 use super::registry::{self, NewWorktree, SetupStatus, WorktreeRow, WorktreeStatus};
-use super::remove::remove_worktree;
+use super::remove::{is_real_dir, is_real_dir_chain, remove_worktree};
 use super::{fnv1a64, repo_lock, WorktreeError};
 use crate::db::Database;
 use crate::sessions;
@@ -145,7 +145,7 @@ pub fn tool_root(db: &Database, session_id: &str) -> Result<Option<PathBuf>, Wor
         WorktreeStatus::Missing => Err(missing_error()),
         _ => {
             let root = row.workspace_root();
-            if root.is_dir() {
+            if is_real_dir_chain(Path::new(&row.path), &row.prefix) {
                 Ok(Some(root))
             } else {
                 Err(missing_error())
@@ -497,7 +497,7 @@ async fn merge_target(state: &SharedState, session_id: &str) -> Result<MergeTarg
             "the session has no isolated worktree",
         )
     })?;
-    if row.status == WorktreeStatus::Missing || !Path::new(&row.path).is_dir() {
+    if row.status == WorktreeStatus::Missing || !is_real_dir(Path::new(&row.path)) {
         return Err(missing_error());
     }
     let summary = sessions::session_summary(&st.db, session_id)?
@@ -522,6 +522,31 @@ fn ensure_idle(db: &Database, session_id: &str) -> Result<(), WorktreeError> {
     Ok(())
 }
 
+/// Hold the session's own tools for the whole of a merge or sync: once no
+/// tool of the session is in flight, every new Write, Edit, or Bash call of
+/// it queues until the returned permit drops, so nothing can land between
+/// the preview check, the checkpoint commit, and the merge. Taken after the
+/// repo lock, the same order as the subagent merge-back.
+async fn hold_session(
+    state: &SharedState,
+    session_id: &str,
+) -> Result<crate::tool_budget::SessionExclusivePermit, WorktreeError> {
+    let budget = state.lock().await.tool_budget.clone();
+    let permit = budget
+        .acquire_session_exclusive(session_id, super::delegate::SESSION_QUIET_WAIT)
+        .await
+        .ok_or_else(|| {
+            WorktreeError::new(
+                "WORKTREE_BUSY",
+                "a tool of the session is still running; wait for it to finish",
+            )
+        })?;
+    // A turn may have started while this waited; its tools now queue, but a
+    // running session is still not merged.
+    ensure_idle(&state.lock().await.db, session_id)?;
+    Ok(permit)
+}
+
 pub async fn preview_session(
     state: &SharedState,
     git: &GitRunner,
@@ -540,6 +565,7 @@ pub async fn merge_session(
     let target = merge_target(state, session_id).await?;
     ensure_idle(&state.lock().await.db, session_id)?;
     let _guard = repo_lock::lock(Path::new(&target.row.common_dir)).await;
+    let _hold = hold_session(state, session_id).await?;
     let result = merge::merge(
         git,
         &target.row,
@@ -615,7 +641,7 @@ pub async fn behind_all(
                 row.status,
                 WorktreeStatus::Missing | WorktreeStatus::Creating
             )
-            || !Path::new(&row.path).is_dir()
+            || !is_real_dir(Path::new(&row.path))
         {
             continue;
         }
@@ -653,6 +679,7 @@ pub async fn sync_session(
     let target = merge_target(state, session_id).await?;
     ensure_idle(&state.lock().await.db, session_id)?;
     let _guard = repo_lock::lock(Path::new(&target.row.common_dir)).await;
+    let _hold = hold_session(state, session_id).await?;
     let result =
         merge::sync_from_owner(git, &target.row, &merge::commit_message(&target.title)).await;
     let status = match &result {
@@ -689,6 +716,9 @@ pub async fn refresh_conflict_status(
         }
     };
     let root = Path::new(&row.path);
+    if !is_real_dir(root) {
+        return false;
+    }
     let settled = async {
         Ok::<bool, WorktreeError>(
             !merge::merge_in_progress(git, root).await?
@@ -782,7 +812,7 @@ pub async fn pending_work(
         // still holds commits is still reported before it is deleted.
         pending.unmerged_commits += unmerged_commits(git, &row).await?;
         let root = Path::new(&row.path);
-        if root.is_dir() && !merge::worktree_status(git, root).await?.is_empty() {
+        if is_real_dir(root) && !merge::worktree_status(git, root).await?.is_empty() {
             pending.uncommitted_changes = true;
         }
     }
@@ -862,7 +892,7 @@ pub async fn reconcile(state: SharedState, git: GitRunner) {
             continue;
         }
         let root = Path::new(&row.path);
-        if !root.is_dir() {
+        if !is_real_dir(root) {
             let st = state.lock().await;
             let _ = registry::set_status(&st.db, &row.id, WorktreeStatus::Missing);
             continue;

@@ -3,7 +3,7 @@ use std::path::{Path, PathBuf};
 use std::time::Duration;
 
 use super::*;
-use crate::session_worktrees::test_support::{git_cmd, init_repo};
+use crate::session_worktrees::test_support::{git_cmd, init_repo, link_dir};
 
 struct Env {
     _dir: tempfile::TempDir,
@@ -682,4 +682,89 @@ async fn failed_merges_and_outside_resolutions_do_not_leave_a_stale_badge() {
     let behind = behind_all(&env.state, &env.git).await.unwrap();
     assert!(behind.statuses_changed);
     assert_eq!(status(&env), WorktreeStatus::Active);
+}
+
+/// A tool of the session still in flight blocks a merge and a sync, so no
+/// write can interleave with the checkpoint commit or the merge, and neither
+/// changes anything. Once the tool ends, the same merge goes through.
+#[tokio::test]
+async fn a_running_tool_blocks_merge_and_sync_without_changing_anything() {
+    let env = env();
+    let (session, _created, root) = isolated(&env).await;
+    fs::write(root.join("f.txt"), "session\n").unwrap();
+    git_cmd(
+        &env.project,
+        &["commit", "-q", "--allow-empty", "-m", "ahead"],
+    );
+    let token = preview_session(&env.state, &env.git, &session)
+        .await
+        .unwrap()
+        .preview_token;
+    let budget = env.state.lock().await.tool_budget.clone();
+    let running = budget.acquire(&session, "Bash").await.unwrap();
+
+    let error = merge_session(&env.state, &env.git, &session, &token)
+        .await
+        .unwrap_err();
+    assert_eq!(error.code, "WORKTREE_BUSY");
+    let error = sync_session(&env.state, &env.git, &session)
+        .await
+        .unwrap_err();
+    assert_eq!(error.code, "WORKTREE_BUSY");
+    assert_eq!(git_cmd(&root, &["status", "--porcelain"]).trim(), "M f.txt");
+    assert_eq!(git_cmd(&root, &["rev-list", "--count", "HEAD"]).trim(), "2");
+    assert_eq!(
+        fs::read_to_string(env.project.join("f.txt")).unwrap(),
+        "base\n"
+    );
+
+    drop(running);
+    assert!(matches!(
+        merge_session(&env.state, &env.git, &session, &token)
+            .await
+            .unwrap(),
+        MergeOutcome::Merged { .. }
+    ));
+}
+
+/// A registered worktree folder replaced by a link (a junction on Windows)
+/// is never used as a tool root, merged, or emptied; deleting the session
+/// removes the link itself and the branch, never the link's target.
+#[tokio::test]
+async fn a_worktree_folder_replaced_by_a_link_is_never_followed() {
+    let env = env();
+    let (session, created, root) = isolated(&env).await;
+    let outside = env._dir.path().join("user-folder");
+    fs::create_dir_all(outside.join("nested")).unwrap();
+    fs::write(outside.join("KEEP_ME.txt"), "keep").unwrap();
+    fs::write(outside.join("nested/KEEP_TOO.txt"), "keep").unwrap();
+    fs::rename(&root, env._dir.path().join("moved-away")).unwrap();
+    link_dir(&outside, &root);
+
+    let error = tool_root(&env.state.lock().await.db, &session).unwrap_err();
+    assert_eq!(error.code, "WORKTREE_MISSING");
+    let error = preview_session(&env.state, &env.git, &session)
+        .await
+        .unwrap_err();
+    assert_eq!(error.code, "WORKTREE_MISSING");
+    let error = sync_session(&env.state, &env.git, &session)
+        .await
+        .unwrap_err();
+    assert_eq!(error.code, "WORKTREE_MISSING");
+    let pending = pending_work(&env.state, &env.git, &session).await.unwrap();
+    assert!(!pending.uncommitted_changes);
+
+    remove_session_worktrees(&env.state, &env.git, &session)
+        .await
+        .unwrap();
+    assert!(fs::symlink_metadata(&root).is_err());
+    assert_eq!(
+        fs::read_to_string(outside.join("KEEP_ME.txt")).unwrap(),
+        "keep"
+    );
+    assert_eq!(
+        fs::read_to_string(outside.join("nested/KEEP_TOO.txt")).unwrap(),
+        "keep"
+    );
+    assert!(!git_cmd(&env.project, &["branch", "--list"]).contains(&created.worktree.branch));
 }

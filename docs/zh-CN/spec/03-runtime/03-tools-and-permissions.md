@@ -314,15 +314,18 @@ type ReviewChange = {
   `WORKTREE_*` 错误）；
 - `AGENTS.md` 指令从 worktree 读取，而项目身份（记忆、技能、插件、MCP、子代理）仍以
   项目路径为键；
-- Bash 获得 `PI_PORT`（41000–48999 中一个 10 端口块的首端口）、`PI_PROJECT_ROOT`
-  和 `PI_WORKTREE_ROOT`；
+- Bash 获得 `PI_PORT`（41000–48999 中一个 10 端口块的首端口；只有整段 10 个端口都空闲时才分配该块）、
+  `PI_PROJECT_ROOT` 和 `PI_WORKTREE_ROOT`；
 - 可选的项目初始化命令在每个新 worktree 中运行一次，带同样的变量，使用用户的默认命令
   shell（`defaultCommandShell`，未设置时用平台默认：Windows 上为 Windows PowerShell，
   其他平台为 bash）。命令不会在方言之间转换，因此在 Windows 上必须使用 PowerShell 语法
   （`$env:PI_PORT`；Windows PowerShell 5.1 用 `;` 而不是 `&&`），除非默认 shell 配置为
   Git Bash 等 POSIX shell；
 - 宿主在 worktree 中运行的 git 命令禁用 hooks 和 fsmonitor，删除时绝不跟随链接越出
-  worktree。
+  worktree；
+- 登记的 worktree 文件夹必须是真实目录：若它（或通往项目子目录的某一级目录）被替换为符号链接或
+  Windows junction，即视为缺失（`WORKTREE_MISSING`），不会被用作工具根目录、合并或同步；删除会话时
+  只删除链接本身，绝不删除其目标。
 
 合并到项目是显式的用户操作（先预览，再携带预览令牌合并）：先把项目分支同步进
 worktree，项目只做快进，因此冲突留在 worktree 中。删除隔离会话即丢弃其 worktree

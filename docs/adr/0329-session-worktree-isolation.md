@@ -42,7 +42,12 @@ the project directory.
    branch into the session branch inside the worktree (conflicts stay there),
    then fast-forwards the project branch. The project never enters a
    merge-in-progress state and git refuses to overwrite uncommitted project
-   changes.
+   changes. The preview token also covers the project branch tip and the
+   full content of untracked files, so nothing the user did not see lands.
+   Both checkouts' branches are checked before every write, the
+   fast-forward is bound to the checked commit and verified afterwards, and
+   the session's own tools are held for the whole merge or sync (at most
+   five seconds' wait for a running tool, then `WORKTREE_BUSY`).
 5. Inside an isolated session, a subagent whose tools include Write or Edit
    gets its own temporary worktree and is merged back automatically with the
    same algorithm; a conflict is reported to the parent, which can resume the
@@ -50,7 +55,9 @@ the project directory.
 6. Deleting an isolated session removes its worktrees and branches after a
    loss warning; there is no separate discard. Removal deletes links as links
    before calling git, because Git for Windows follows directory junctions
-   during `git worktree remove --force` (openai/codex#34702, #49995).
+   during `git worktree remove --force` (openai/codex#34702, #49995). A
+   registered worktree folder that was itself replaced by a link is treated
+   as missing everywhere and only the link is removed.
 7. Every git command host-core runs disables hooks and `core.fsmonitor` and
    sets `safe.bareRepository=explicit`. A relative `core.hooksPath` resolves
    inside the worktree, so a hook written with Write/Edit alone would

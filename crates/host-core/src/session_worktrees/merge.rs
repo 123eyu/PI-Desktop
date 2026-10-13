@@ -112,13 +112,27 @@ pub async fn preview(git: &GitRunner, row: &WorktreeRow) -> Result<MergePreview,
 
     let conflict = merge_in_progress(git, worktree).await?;
     let head = git.run(worktree, &["rev-parse", "HEAD"]).await?;
+    // The merge brings the owner branch in too, so a project commit made
+    // after the preview must invalidate it like a session change does.
+    let owner_tip = git
+        .run(
+            worktree,
+            &[
+                "rev-parse",
+                "--verify",
+                "--quiet",
+                &head_ref(&row.owner_branch),
+            ],
+        )
+        .await?;
     let content = content_fingerprint(git, worktree, &status).await?;
     let token = format!(
         "{:016x}",
         fnv1a64(
             format!(
-                "{}\n{}\n{}\n{:016x}",
+                "{}\n{}\n{}\n{}\n{:016x}",
                 head.trim(),
+                owner_tip.trim(),
                 conflict,
                 status,
                 content
@@ -149,7 +163,7 @@ pub async fn merge(
     if current.preview_token != preview_token {
         return Err(WorktreeError::new(
             "WORKTREE_CHANGED_SINCE_PREVIEW",
-            "the session changed after the preview; review the changes again",
+            "the session or the project branch changed after the preview; review the changes again",
         ));
     }
     if current.is_empty() {
@@ -177,18 +191,8 @@ pub async fn land(
 ) -> Result<(), WorktreeError> {
     let worktree = Path::new(&row.path);
     // Checked before anything is committed, so a refusal changes nothing.
-    let checked_out = git
-        .output(owner_checkout, &["symbolic-ref", "--quiet", "HEAD"])
-        .await?;
-    if !checked_out.success() || checked_out.stdout.trim() != head_ref(&row.owner_branch) {
-        return Err(WorktreeError::new(
-            "WORKTREE_OWNER_BRANCH_CHANGED",
-            format!(
-                "the target is no longer on `{}`; check that branch out again to merge",
-                row.owner_branch
-            ),
-        ));
-    }
+    ensure_owner_branch(git, owner_checkout, row).await?;
+    ensure_own_branch(git, row).await?;
 
     if merge_in_progress(git, worktree).await? {
         conclude_resolved_merge(git, worktree).await?;
@@ -197,16 +201,22 @@ pub async fn land(
 
     // One retry covers the owner branch moving between the two steps.
     for attempt in 0..2 {
+        ensure_own_branch(git, row).await?;
         sync_owner_into_session(git, worktree, &row.owner_branch).await?;
+        // Bound to the exact commit just built and checked again right
+        // before the only write to the owner checkout.
+        let landing = rev_parse(git, worktree, &head_ref(&row.branch)).await?;
+        ensure_owner_branch(git, owner_checkout, row).await?;
         let forwarded = git
             .output(
                 owner_checkout,
-                &["merge", "--ff-only", "--no-edit", &head_ref(&row.branch)],
+                &["merge", "--ff-only", "--no-edit", &landing],
             )
             .await?;
         if forwarded.success() {
-            return Ok(());
+            return verify_landed(git, owner_checkout, row, &landing).await;
         }
+        ensure_owner_branch(git, owner_checkout, row).await?;
         let owner_contained = git
             .output(
                 owner_checkout,
@@ -214,7 +224,7 @@ pub async fn land(
                     "merge-base",
                     "--is-ancestor",
                     &head_ref(&row.owner_branch),
-                    &head_ref(&row.branch),
+                    &landing,
                 ],
             )
             .await?
@@ -230,6 +240,82 @@ pub async fn land(
         }
     }
     unreachable!("the loop returns on its second attempt")
+}
+
+/// Refuse unless the owner checkout still has the owner branch checked out.
+async fn ensure_owner_branch(
+    git: &GitRunner,
+    owner_checkout: &Path,
+    row: &WorktreeRow,
+) -> Result<(), WorktreeError> {
+    if checked_out_branch(git, owner_checkout).await? == head_ref(&row.owner_branch) {
+        return Ok(());
+    }
+    Err(WorktreeError::new(
+        "WORKTREE_OWNER_BRANCH_CHANGED",
+        format!(
+            "the target is no longer on `{}`; check that branch out again to merge",
+            row.owner_branch
+        ),
+    ))
+}
+
+/// Refuse unless `row`'s worktree still has its own branch checked out, so a
+/// branch the agent switched to never receives a checkpoint or a merge.
+async fn ensure_own_branch(git: &GitRunner, row: &WorktreeRow) -> Result<(), WorktreeError> {
+    if checked_out_branch(git, Path::new(&row.path)).await? == head_ref(&row.branch) {
+        return Ok(());
+    }
+    Err(WorktreeError::new(
+        "WORKTREE_SESSION_BRANCH_CHANGED",
+        format!(
+            "the worktree is no longer on `{}`; check that branch out again in it",
+            row.branch
+        ),
+    ))
+}
+
+/// The full ref checked out in `checkout`; empty for a detached `HEAD`.
+async fn checked_out_branch(git: &GitRunner, checkout: &Path) -> Result<String, WorktreeError> {
+    let head = git
+        .output(checkout, &["symbolic-ref", "--quiet", "HEAD"])
+        .await?;
+    Ok(if head.success() {
+        head.stdout.trim().to_string()
+    } else {
+        String::new()
+    })
+}
+
+async fn rev_parse(git: &GitRunner, dir: &Path, rev: &str) -> Result<String, WorktreeError> {
+    Ok(git
+        .run(dir, &["rev-parse", "--verify", "--quiet", rev])
+        .await?
+        .trim()
+        .to_string())
+}
+
+/// After the fast-forward: the owner branch must now be exactly the commit
+/// that was checked, still checked out in the owner checkout. A branch switch
+/// in the instant between the last check and git's own `HEAD` read would
+/// have moved the other branch instead; that is reported, not hidden.
+async fn verify_landed(
+    git: &GitRunner,
+    owner_checkout: &Path,
+    row: &WorktreeRow,
+    landing: &str,
+) -> Result<(), WorktreeError> {
+    ensure_owner_branch(git, owner_checkout, row).await?;
+    if rev_parse(git, owner_checkout, &head_ref(&row.owner_branch)).await? == landing {
+        return Ok(());
+    }
+    Err(WorktreeError::new(
+        "WORKTREE_OWNER_BRANCH_CHANGED",
+        format!(
+            "`{}` did not receive the merge because the target switched branches meanwhile",
+            row.owner_branch
+        ),
+    ))
 }
 
 /// Commit every change in `worktree` with `message`; nothing to do when clean.
@@ -287,6 +373,7 @@ pub async fn sync_from_owner(
     message: &str,
 ) -> Result<SyncOutcome, WorktreeError> {
     let worktree = Path::new(&row.path);
+    ensure_own_branch(git, row).await?;
     if merge_in_progress(git, worktree).await? {
         conclude_resolved_merge(git, worktree).await?;
     }
@@ -295,6 +382,7 @@ pub async fn sync_from_owner(
         return Ok(SyncOutcome::UpToDate);
     }
     commit_all(git, worktree, message).await?;
+    ensure_own_branch(git, row).await?;
     sync_owner_into_session(git, worktree, &row.owner_branch).await?;
     Ok(SyncOutcome::Synced { commits: behind })
 }
@@ -559,11 +647,6 @@ async fn content_fingerprint(
     .map_err(|error| WorktreeError::new("WORKTREE_INTERNAL", error.to_string()))
 }
 
-/// Bytes of one untracked file read into a preview token. Larger files add
-/// their size and modification time instead, so a huge file cannot stall the
-/// host; the agent cannot change one without changing either.
-const FINGERPRINT_FILE_LIMIT: u64 = 16 * 1024 * 1024;
-
 fn fnv_extend(mut hash: u64, bytes: &[u8]) -> u64 {
     for byte in bytes {
         hash ^= u64::from(*byte);
@@ -573,7 +656,10 @@ fn fnv_extend(mut hash: u64, bytes: &[u8]) -> u64 {
 }
 
 /// Never follows a link and never opens anything but a regular file, so a
-/// link to `/dev/zero` or a FIFO cannot hang or exhaust the host.
+/// link to `/dev/zero` or a FIFO cannot hang or exhaust the host. The whole
+/// file is hashed in fixed-size chunks, so a same-length rewrite that
+/// restores the modification time still changes the token, and a large file
+/// never sits in memory. Callers run this off the async workers.
 fn untracked_entry_hash(hash: u64, path: &Path) -> u64 {
     use std::io::Read;
     let Ok(metadata) = std::fs::symlink_metadata(path) else {
@@ -589,25 +675,19 @@ fn untracked_entry_hash(hash: u64, path: &Path) -> u64 {
     if !metadata.is_file() {
         return fnv_extend(hash, b"special");
     }
-    let modified = metadata
-        .modified()
-        .ok()
-        .and_then(|time| time.duration_since(std::time::UNIX_EPOCH).ok())
-        .map_or(0, |duration| duration.as_nanos());
     let hash = fnv_extend(hash, &metadata.len().to_le_bytes());
-    if metadata.len() > FINGERPRINT_FILE_LIMIT {
-        return fnv_extend(hash, &modified.to_le_bytes());
-    }
-    let Ok(file) = std::fs::File::open(path) else {
+    let Ok(mut file) = std::fs::File::open(path) else {
         return fnv_extend(hash, b"unreadable");
     };
-    let mut reader = file.take(FINGERPRINT_FILE_LIMIT);
-    let mut buffer = [0u8; 64 * 1024];
+    let mut buffer = vec![0u8; 64 * 1024];
     let mut hash = hash;
     loop {
-        match reader.read(&mut buffer) {
-            Ok(0) | Err(_) => break hash,
+        match file.read(&mut buffer) {
+            Ok(0) => break hash,
             Ok(read) => hash = fnv_extend(hash, &buffer[..read]),
+            Err(error) if error.kind() == std::io::ErrorKind::Interrupted => {}
+            // A read that fails part-way still yields a stable, distinct token.
+            Err(_) => break fnv_extend(hash, b"read-error"),
         }
     }
 }

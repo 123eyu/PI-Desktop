@@ -14,6 +14,28 @@ use super::git::GitRunner;
 use super::registry::WorktreeRow;
 use super::WorktreeError;
 
+/// Whether `path` is a real directory, never following a link. A symbolic
+/// link or a Windows junction is not one (`symlink_metadata` reports both as
+/// links; a cloud-file placeholder folder still counts as a directory). A
+/// registered worktree folder replaced by a link to somewhere else must never
+/// become a tool root, be merged in, or be emptied.
+pub fn is_real_dir(path: &Path) -> bool {
+    fs::symlink_metadata(path).is_ok_and(|metadata| metadata.is_dir())
+}
+
+/// `is_real_dir` for `root` and every directory from it down to
+/// `root/<prefix>` (a project that is a repository subdirectory).
+pub fn is_real_dir_chain(root: &Path, prefix: &str) -> bool {
+    if !is_real_dir(root) {
+        return false;
+    }
+    let mut current = root.to_path_buf();
+    Path::new(prefix).components().all(|component| {
+        current.push(component);
+        is_real_dir(&current)
+    })
+}
+
 /// Delete everything inside `root` except its `.git` link file. Links are
 /// removed as links; their targets are never traversed.
 pub fn clear_contents(root: &Path) -> io::Result<()> {
@@ -81,19 +103,26 @@ pub async fn remove_worktree(git: &GitRunner, row: &WorktreeRow) -> Result<(), W
     let root = Path::new(&row.path);
     let common_dir = Path::new(&row.common_dir);
     let repository_exists = common_dir.is_dir();
-    if root.exists() {
-        if repository_exists {
-            // Not locked when creation failed half-way; that is fine.
-            let _ = git.output(root, &["worktree", "unlock", &row.path]).await;
+    match fs::symlink_metadata(root) {
+        // The registered folder was replaced by a link (or a file): remove
+        // that entry alone; its target is never read or emptied.
+        Ok(metadata) if !metadata.is_dir() => remove_entry(root)?,
+        Ok(_) => {
+            if repository_exists {
+                // Not locked when creation failed half-way; that is fine.
+                let _ = git.output(root, &["worktree", "unlock", &row.path]).await;
+            }
+            clear_contents(root)?;
+            if repository_exists {
+                git.run_git_dir(common_dir, &["worktree", "remove", "--force", &row.path])
+                    .await?;
+            }
+            if is_real_dir(root) {
+                fs::remove_dir_all(root)?;
+            }
         }
-        clear_contents(root)?;
-        if repository_exists {
-            git.run_git_dir(common_dir, &["worktree", "remove", "--force", &row.path])
-                .await?;
-        }
-        if root.exists() {
-            fs::remove_dir_all(root)?;
-        }
+        Err(error) if error.kind() == io::ErrorKind::NotFound => {}
+        Err(error) => return Err(error.into()),
     }
     if repository_exists {
         drop_admin_entry(common_dir, root)?;

@@ -421,17 +421,20 @@ off | minimal | low | medium | high | xhigh | max
   `{ available: false, errorCode, message }`。`session.create` 对远程主机项目的 `isolated: true` 以同一代码拒绝，
   不会创建任何会话。
 - `worktree.preview({ sessionId })` → `{ preview }`，包含将要合入的提交、文件及
-  `previewToken`。
-- `worktree.merge({ sessionId, previewToken })` → `{ outcome }`。令牌过期为
+  `previewToken`。令牌覆盖会话 `HEAD`、项目分支最新提交、冲突状态，以及所有未提交和未跟踪文件的完整内容。
+- `worktree.merge({ sessionId, previewToken })` → `{ outcome }`。令牌不再匹配（会话或项目分支有变化）为
   `WORKTREE_CHANGED_SINCE_PREVIEW`；项目有未提交改动为 `WORKTREE_PROJECT_DIRTY`；冲突为
-  `WORKTREE_CONFLICT`，worktree 保持冲突状态，项目不受影响。
+  `WORKTREE_CONFLICT`，worktree 保持冲突状态，项目不受影响。项目检出必须仍在会话的所属分支上、worktree
+  必须仍在自己的分支上，每次写入前都会重新检查（`WORKTREE_OWNER_BRANCH_CHANGED`、
+  `WORKTREE_SESSION_BRANCH_CHANGED`）；快进绑定到检查过的那个提交，完成后再核对。执行期间宿主持有会话的工具：
+  最多等待正在运行的工具五秒，超时返回 `WORKTREE_BUSY`，新的工具调用排队等到结束。
 - `worktree.behind({ sessionId })` → `{ commits }`，即会话尚未包含的项目分支提交数。
 - `worktree.behindAll()` → `{ counts, statusesChanged }`：以会话 id 为键给出每个隔离会话的同一计数
   （读不到的会话省略），每次并发检查少量会话。处于冲突状态的会话会先检查是否已解决；
   `statusesChanged` 提示渲染层刷新会话列表。渲染层在后台读取，用于侧边栏标记。
 - `worktree.sync({ sessionId })` → `{ outcome }`（`synced` 及 `commits`，或 `upToDate`）：
-  “从项目同步”先提交会话中待提交的工作，再把项目分支合入会话 worktree。不改动项目检出；
-  冲突为 `WORKTREE_CONFLICT`，留在 worktree 中，并像合并冲突一样标记会话。
+  “从项目同步”先提交会话中待提交的工作，再把项目分支合入会话 worktree，与合并一样持有会话工具并检查自身分支。
+  不改动项目检出；冲突为 `WORKTREE_CONFLICT`，留在 worktree 中，并像合并冲突一样标记会话。
 - `worktree.pendingWork({ sessionId })` → `{ pending }`，即删除会丢弃的未合并工作。
 - `worktree.setupLog({ sessionId })` → `{ setupStatus, log }`。
 - `worktree.location({ sessionId })` → `{ path }`；仅供 Electron Main 的“在文件夹中显示”

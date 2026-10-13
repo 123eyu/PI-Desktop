@@ -15,6 +15,7 @@ const ERROR_KEYS: Record<string, string> = {
   [WorktreeErrorCodes.BUSY]: "worktree.errors.busy",
   [WorktreeErrorCodes.CHANGED_SINCE_PREVIEW]: "worktree.errors.changedSincePreview",
   [WorktreeErrorCodes.OWNER_BRANCH_CHANGED]: "worktree.errors.ownerBranchChanged",
+  [WorktreeErrorCodes.SESSION_BRANCH_CHANGED]: "worktree.errors.sessionBranchChanged",
   [WorktreeErrorCodes.PROJECT_DIRTY]: "worktree.errors.projectDirty",
   [WorktreeErrorCodes.MISSING]: "worktree.errors.missing",
   [WorktreeErrorCodes.COMMIT_FAILED]: "worktree.errors.commitFailed",

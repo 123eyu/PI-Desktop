@@ -275,17 +275,21 @@ pub fn remove(db: &Database, id: &str) -> Result<bool> {
         > 0)
 }
 
-/// Lowest port block not held by any row whose first port `is_free` accepts.
-/// The unique index on `port_base` still guards the insert against a race.
+/// Lowest port block not held by any row whose every port `is_free` accepts:
+/// the agent may use any port of its block, so one busy port rules the block
+/// out. The unique index on `port_base` still guards the insert against a
+/// race.
 pub fn next_port_base(db: &Database, is_free: impl Fn(u16) -> bool) -> Result<Option<i64>> {
     let used: std::collections::HashSet<i64> = db
         .conn()
         .prepare_cached("SELECT port_base FROM worktrees WHERE port_base IS NOT NULL")?
         .query_map([], |row| row.get(0))?
         .collect::<rusqlite::Result<_>>()?;
+    let block_is_free =
+        |base: i64| (base..base + PORT_BLOCK).all(|port| u16::try_from(port).is_ok_and(&is_free));
     let mut base = PORT_RANGE_START;
     while base <= PORT_RANGE_LAST_BASE {
-        if !used.contains(&base) && u16::try_from(base).is_ok_and(&is_free) {
+        if !used.contains(&base) && block_is_free(base) {
             return Ok(Some(base));
         }
         base += PORT_BLOCK;
@@ -373,5 +377,22 @@ mod tests {
             Some(PORT_RANGE_START + 2 * PORT_BLOCK)
         );
         assert_eq!(next_port_base(&db, |_| false).unwrap(), None);
+    }
+
+    /// A block whose base is free but whose fifth port another program
+    /// holds is skipped: the agent may use any port of its block.
+    #[test]
+    fn a_busy_port_inside_a_block_skips_the_whole_block() {
+        let (_dir, db, _session) = db_with_session();
+        let busy = (PORT_RANGE_START + 5) as u16;
+        assert_eq!(
+            next_port_base(&db, |port| port != busy).unwrap(),
+            Some(PORT_RANGE_START + PORT_BLOCK)
+        );
+        let last = (PORT_RANGE_START + PORT_BLOCK - 1) as u16;
+        assert_eq!(
+            next_port_base(&db, |port| port != last).unwrap(),
+            Some(PORT_RANGE_START + PORT_BLOCK)
+        );
     }
 }

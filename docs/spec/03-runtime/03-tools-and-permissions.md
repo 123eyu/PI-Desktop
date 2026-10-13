@@ -378,8 +378,9 @@ project changes are not copied; git-ignored files listed in
   (a missing worktree fails with a `WORKTREE_*` error);
 - `AGENTS.md` instructions are read from the worktree, while project identity
   (memory, skills, plugins, MCP, subagents) stays keyed to the project path;
-- Bash receives `PI_PORT` (first port of a 10-port block in 41000–48999),
-  `PI_PROJECT_ROOT`, and `PI_WORKTREE_ROOT`;
+- Bash receives `PI_PORT` (first port of a 10-port block in 41000–48999; a
+  block is assigned only when all ten ports are free), `PI_PROJECT_ROOT`, and
+  `PI_WORKTREE_ROOT`;
 - the optional per-project setup command runs once in each new worktree, with
   the same variables, in the user's default command shell
   (`defaultCommandShell`, otherwise the platform default: Windows PowerShell on
@@ -388,7 +389,12 @@ project changes are not copied; git-ignored files listed in
   `&&` on Windows PowerShell 5.1) unless a POSIX shell such as Git Bash is
   the configured default;
 - git hooks and fsmonitor are disabled for host-run git commands in the
-  worktree, and removal never follows links out of it.
+  worktree, and removal never follows links out of it;
+- the registered worktree folder must be a real directory: if it (or a
+  directory down to the project subdirectory) was replaced by a symbolic
+  link or a Windows junction, it is treated as missing (`WORKTREE_MISSING`)
+  and is never used as a tool root, merged, or synced, and deleting the
+  session removes only the link, never its target.
 
 Merging into the project is an explicit user action (preview, then merge with
 the preview token); it syncs the project branch into the worktree and only

@@ -375,3 +375,114 @@ fn porcelain_entries_keep_rename_targets_and_mark_untracked() {
         ]
     );
 }
+
+/// The merge brings the project branch in too, so a project commit made
+/// after the preview invalidates the token instead of landing unseen.
+#[tokio::test]
+async fn a_project_commit_after_the_preview_stops_the_merge() {
+    let f = fixture("a\n");
+    fs::write(wt(&f).join("s.txt"), "s").unwrap();
+    let git = GitRunner::default();
+    let token = preview(&git, &f.row).await.unwrap().preview_token;
+    fs::write(f.repo.join("p.txt"), "p").unwrap();
+    git_cmd(&f.repo, &["add", "p.txt"]);
+    git_cmd(&f.repo, &["commit", "-q", "-m", "project moved on"]);
+
+    let error = merge(&git, &f.row, &f.repo, "t", &token).await.unwrap_err();
+    assert_eq!(error.code, "WORKTREE_CHANGED_SINCE_PREVIEW");
+    assert!(!f.repo.join("s.txt").exists());
+    assert!(!wt(&f).join("p.txt").exists());
+
+    let fresh = preview(&git, &f.row).await.unwrap().preview_token;
+    assert!(matches!(
+        merge(&git, &f.row, &f.repo, "t", &fresh).await.unwrap(),
+        MergeOutcome::Merged { .. }
+    ));
+}
+
+/// A large untracked file rewritten in place with the same length and its
+/// old modification time still invalidates the preview: the whole file is
+/// hashed, not only its size and time.
+#[tokio::test]
+async fn a_large_untracked_rewrite_that_keeps_size_and_time_stops_the_merge() {
+    let f = fixture("a\n");
+    let big = wt(&f).join("big.bin");
+    let size = 17 * 1024 * 1024;
+    fs::write(&big, vec![b'a'; size]).unwrap();
+    let modified = fs::metadata(&big).unwrap().modified().unwrap();
+    let git = GitRunner::default();
+    let token = preview(&git, &f.row).await.unwrap().preview_token;
+
+    let mut rewritten = vec![b'a'; size];
+    rewritten[size - 1] = b'b';
+    fs::write(&big, rewritten).unwrap();
+    fs::File::options()
+        .write(true)
+        .open(&big)
+        .unwrap()
+        .set_modified(modified)
+        .unwrap();
+    assert_eq!(fs::metadata(&big).unwrap().modified().unwrap(), modified);
+
+    let error = merge(&git, &f.row, &f.repo, "t", &token).await.unwrap_err();
+    assert_eq!(error.code, "WORKTREE_CHANGED_SINCE_PREVIEW");
+    assert!(!f.repo.join("big.bin").exists());
+}
+
+/// When the session worktree is on another branch (for example after the
+/// agent ran `git checkout`), nothing is committed there and nothing merges.
+#[tokio::test]
+async fn a_worktree_on_another_branch_is_neither_committed_nor_merged() {
+    let f = fixture("a\n");
+    git_cmd(wt(&f), &["checkout", "-q", "-b", "side"]);
+    fs::write(wt(&f).join("s.txt"), "s").unwrap();
+    git_cmd(&f.repo, &["commit", "-q", "--allow-empty", "-m", "project"]);
+    let git = GitRunner::default();
+    let token = preview(&git, &f.row).await.unwrap().preview_token;
+
+    let error = merge(&git, &f.row, &f.repo, "t", &token).await.unwrap_err();
+    assert_eq!(error.code, "WORKTREE_SESSION_BRANCH_CHANGED");
+    let error = sync_from_owner(&git, &f.row, "t").await.unwrap_err();
+    assert_eq!(error.code, "WORKTREE_SESSION_BRANCH_CHANGED");
+    assert_eq!(
+        git_cmd(wt(&f), &["status", "--porcelain"]).trim(),
+        "?? s.txt"
+    );
+    assert_eq!(
+        git_cmd(&f.repo, &["rev-parse", "side"]),
+        git_cmd(&f.repo, &["rev-parse", "pi-desktop/s1"])
+    );
+    assert!(!f.repo.join("s.txt").exists());
+}
+
+/// The fast-forward is checked after the fact: if the project switched
+/// branches in the instant before git read its `HEAD`, the wrong branch is
+/// reported instead of a silent success.
+#[tokio::test]
+async fn a_landing_on_a_switched_target_is_reported() {
+    let f = fixture("a\n");
+    fs::write(wt(&f).join("f.txt"), "b\n").unwrap();
+    git_cmd(wt(&f), &["commit", "-q", "-am", "s"]);
+    let git = GitRunner::default();
+    let landing = rev_parse(&git, wt(&f), &head_ref(&f.row.branch))
+        .await
+        .unwrap();
+
+    // `other`, not `main`, received the session's commit.
+    git_cmd(&f.repo, &["checkout", "-q", "-b", "other"]);
+    git_cmd(&f.repo, &["merge", "-q", "--ff-only", &landing]);
+    let error = verify_landed(&git, &f.repo, &f.row, &landing)
+        .await
+        .unwrap_err();
+    assert_eq!(error.code, "WORKTREE_OWNER_BRANCH_CHANGED");
+    git_cmd(&f.repo, &["checkout", "-q", "main"]);
+    let error = verify_landed(&git, &f.repo, &f.row, &landing)
+        .await
+        .unwrap_err();
+    assert_eq!(error.code, "WORKTREE_OWNER_BRANCH_CHANGED");
+
+    git_cmd(&f.repo, &["merge", "-q", "--ff-only", &landing]);
+    verify_landed(&git, &f.repo, &f.row, &landing)
+        .await
+        .unwrap();
+}

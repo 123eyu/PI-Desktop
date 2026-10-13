@@ -615,11 +615,20 @@ Additive `worktree.*` methods; no protocol version bump. Failures use code
   `session.create` refuses `isolated: true` for a remote-host project with the
   same code before any session is created.
 - `worktree.preview({ sessionId })` → `{ preview }` with the commits and files
-  that would land and a `previewToken`.
-- `worktree.merge({ sessionId, previewToken })` → `{ outcome }`. A stale token
-  is `WORKTREE_CHANGED_SINCE_PREVIEW`; a dirty project is
+  that would land and a `previewToken`. The token covers the session `HEAD`,
+  the project branch tip, the conflict state, and the full content of every
+  uncommitted and untracked file.
+- `worktree.merge({ sessionId, previewToken })` → `{ outcome }`. A token
+  that no longer matches (the session or the project branch changed) is
+  `WORKTREE_CHANGED_SINCE_PREVIEW`; a dirty project is
   `WORKTREE_PROJECT_DIRTY`; a conflict is `WORKTREE_CONFLICT` and leaves the
-  worktree conflicted and the project untouched.
+  worktree conflicted and the project untouched. The project checkout must
+  still be on the session's owner branch and the worktree on its own branch,
+  checked again before every write (`WORKTREE_OWNER_BRANCH_CHANGED`,
+  `WORKTREE_SESSION_BRANCH_CHANGED`); the fast-forward is bound to the exact
+  commit that was checked and verified afterwards. While it runs, host-core
+  holds the session's tools: it waits up to five seconds for a running tool,
+  then fails with `WORKTREE_BUSY`, and queues new ones until it is done.
 - `worktree.behind({ sessionId })` → `{ commits }`, project-branch commits the
   session does not have yet.
 - `worktree.behindAll()` → `{ counts, statusesChanged }`: the same count for
@@ -630,9 +639,10 @@ Additive `worktree.*` methods; no protocol version bump. Failures use code
   sidebar marker.
 - `worktree.sync({ sessionId })` → `{ outcome }` (`synced` with `commits`, or
   `upToDate`): "Sync from project" merges the project branch into the session
-  worktree after committing pending session work. The project checkout is not
-  touched; a conflict is `WORKTREE_CONFLICT`, stays in the worktree, and marks
-  the session like a merge conflict.
+  worktree after committing pending session work, under the same tool hold
+  and own-branch check as a merge. The project checkout is not touched; a
+  conflict is `WORKTREE_CONFLICT`, stays in the worktree, and marks the
+  session like a merge conflict.
 - `worktree.pendingWork({ sessionId })` → `{ pending }`, the unmerged work a
   delete would discard.
 - `worktree.setupLog({ sessionId })` → `{ setupStatus, log }`.

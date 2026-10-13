@@ -26,7 +26,7 @@ use super::lifecycle::{
 use super::merge::{self, commit_all, commits_ahead, land, merge_in_progress};
 use super::probe::BRANCH_NAMESPACE;
 use super::registry::{self, NewWorktree, SetupStatus, WorktreeRow, WorktreeStatus};
-use super::remove::{drop_admin_entry, remove_worktree};
+use super::remove::{drop_admin_entry, is_real_dir, is_real_dir_chain, remove_worktree};
 use super::{repo_lock, WorktreeError};
 use crate::db::Database;
 use crate::sessions;
@@ -65,7 +65,9 @@ pub fn tool_root(
         return Ok(None);
     };
     let root = row.workspace_root();
-    if row.status == WorktreeStatus::Missing || !root.is_dir() {
+    if row.status == WorktreeStatus::Missing
+        || !is_real_dir_chain(Path::new(&row.path), &row.prefix)
+    {
         return Err(missing_error());
     }
     Ok(Some(root))
@@ -99,15 +101,16 @@ async fn session_row(state: &SharedState, session_id: &str) -> Result<WorktreeRo
             "the session has no isolated worktree",
         )
     })?;
-    if row.status == WorktreeStatus::Missing || !Path::new(&row.path).is_dir() {
+    if row.status == WorktreeStatus::Missing || !is_real_dir(Path::new(&row.path)) {
         return Err(missing_error());
     }
     Ok(row)
 }
 
-/// How long a subagent's create/merge waits for the session's in-flight tools
-/// before it falls back to holding only the write permit.
-const SESSION_QUIET_WAIT: Duration = Duration::from_secs(5);
+/// How long a merge, sync, or subagent create/merge waits for the session's
+/// in-flight tools before it gives up (or, for a subagent, falls back to
+/// holding only the write permit).
+pub(super) const SESSION_QUIET_WAIT: Duration = Duration::from_secs(5);
 
 /// Keeps the session's own tools away from its worktree while held.
 enum SessionHold {
@@ -214,7 +217,7 @@ pub async fn create_delegate_worktree(
     if let Some(row) = existing {
         let _guard = repo_lock::lock(Path::new(&row.common_dir)).await;
         if row.status != WorktreeStatus::Creating {
-            if Path::new(&row.path).is_dir() {
+            if is_real_dir(Path::new(&row.path)) {
                 // A re-attach that failed after `worktree add` left the
                 // folder back but the row `missing`; the folder decides.
                 if row.status == WorktreeStatus::Missing {
@@ -356,7 +359,7 @@ pub async fn settle_delegate_worktree(
     };
     let _guard = repo_lock::lock(Path::new(&row.common_dir)).await;
     let worktree = Path::new(&row.path);
-    if !worktree.is_dir() {
+    if !is_real_dir(worktree) {
         // The folder vanished; its branch may still hold committed work,
         // which a resume re-attaches instead of deleting.
         if unmerged_commits(git, &row).await? > 0 {
