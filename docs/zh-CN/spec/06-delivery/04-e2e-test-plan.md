@@ -9426,7 +9426,9 @@ Follow the [current S3 acceptance scenario](/spec/06-delivery/04-e2e-test-plan#e
   `03-runtime/06-host-rpc-protocol.md`；`04-ux/01-ui-ia.md` §3.2；ADR 0329。
 - **覆盖：** host-core `session_worktrees` 测试（创建、合并、冲突、删除、链接安全、启动
   对账、子代理）、worktree IPC 契约测试、渲染层 `worktree-ui` 测试和 agent-runtime 子代理
-  测试。Windows 检查需要 Windows 主机。`pnpm test:e2e:worktree-live`
+  测试。Windows 检查在 Windows 主机上以 host-core 测试运行：junction 删除（`remove::tests`）、
+  根目录被替换为链接（`lifecycle::tests`），以及经 RPC 用户路径的深路径和文件占用时删除
+  （`rpc::worktree_rpc::tests`）。`pnpm test:e2e:worktree-live`
   （`scripts/e2e-worktree-live.mjs`）在协议层用真实模型执行上述步骤，不经过渲染层。
 - **状态：** Partially automated
 

@@ -387,3 +387,118 @@ async fn behind(state: &Arc<Mutex<AppState>>, session_id: &str) -> Value {
         .unwrap()["commits"]
         .clone()
 }
+
+/// A handshaken host on `data` with one isolated session of `project`;
+/// returns the state, the session id, and its tool root.
+async fn isolated_session_of(
+    project: &Path,
+    data: &Path,
+) -> (Arc<Mutex<AppState>>, String, PathBuf) {
+    fs::create_dir_all(data).unwrap();
+    let mut app = AppState::open(data).unwrap();
+    app.handshook = true;
+    let state = Arc::new(Mutex::new(app));
+    let created = call(
+        &state,
+        "session.create",
+        json!({ "projectPath": project.to_string_lossy(), "isolated": true, "title": "Windows" }),
+    )
+    .await
+    .unwrap();
+    let session_id = created["session"]["id"].as_str().unwrap().to_string();
+    let root = {
+        let st = state.lock().await;
+        PathBuf::from(resolve_tool_workspace(&st, &session_id).unwrap().unwrap())
+    };
+    (state, session_id, root)
+}
+
+fn session_branches(project: &Path) -> String {
+    git_cmd(project, &["branch", "--list", "pi-desktop/*"])
+}
+
+/// E2E-WORKTREE-isolated-session-lifecycle, Windows check: a path beyond 260
+/// characters is checked out into the worktree, written through the tools,
+/// and removed with the session. Git for Windows needs `core.longpaths` for
+/// such a project, which a project that already holds them has set.
+#[tokio::test]
+async fn a_path_beyond_260_characters_is_created_and_removed() {
+    let dir = tempfile::tempdir().unwrap();
+    let project = init_repo(&dir.path().join("project"));
+    git_cmd(&project, &["config", "core.longpaths", "true"]);
+    let deep: PathBuf = (0..12)
+        .map(|index| format!("segment-{index:02}-abcdefghijklmnop"))
+        .collect();
+    fs::create_dir_all(project.join(&deep)).unwrap();
+    fs::write(project.join(&deep).join("deep.txt"), "deep\n").unwrap();
+    git_cmd(&project, &["add", "-A"]);
+    git_cmd(&project, &["commit", "-q", "-m", "deep"]);
+
+    let (state, session_id, root) = isolated_session_of(&project, &dir.path().join("data")).await;
+    let checked_out = root.join(&deep).join("deep.txt");
+    assert!(checked_out.to_string_lossy().len() > 260, "{checked_out:?}");
+    assert_eq!(fs::read_to_string(&checked_out).unwrap(), "deep\n");
+    let written = crate::tools::execute_tool_with_path_access(
+        Some(&root),
+        None,
+        "Write",
+        &json!({ "path": deep.join("new.txt").to_string_lossy(), "content": "new\n" }),
+        tool_options(None),
+    )
+    .await;
+    assert!(written.ok, "{:?}", written.content);
+    assert_eq!(
+        fs::read_to_string(root.join(&deep).join("new.txt")).unwrap(),
+        "new\n"
+    );
+
+    call(&state, "session.delete", json!({ "id": session_id }))
+        .await
+        .unwrap();
+    assert!(!root.exists());
+    assert_eq!(session_branches(&project).trim(), "");
+    assert_eq!(
+        fs::read_to_string(project.join(&deep).join("deep.txt")).unwrap(),
+        "deep\n"
+    );
+}
+
+/// E2E-WORKTREE-isolated-session-lifecycle, Windows check: deleting while a
+/// file in the worktree is held open without delete sharing fails visibly
+/// (`WORKTREE_IO`), keeps the session and its worktree registration, and the
+/// same delete succeeds once the file is released.
+#[cfg(windows)]
+#[tokio::test]
+async fn deleting_with_a_locked_file_fails_visibly_and_can_be_retried() {
+    use std::os::windows::fs::OpenOptionsExt;
+    let dir = tempfile::tempdir().unwrap();
+    let project = init_repo(&dir.path().join("project"));
+    let (state, session_id, root) = isolated_session_of(&project, &dir.path().join("data")).await;
+    fs::write(root.join("locked.txt"), "x").unwrap();
+    let lock = fs::OpenOptions::new()
+        .read(true)
+        .share_mode(0)
+        .open(root.join("locked.txt"))
+        .unwrap();
+
+    let failed = call(&state, "session.delete", json!({ "id": session_id }))
+        .await
+        .unwrap_err();
+    assert_eq!(failed["code"], 1025);
+    assert_eq!(failed["errorCode"], "WORKTREE_IO");
+    let listed = call(&state, "session.list", json!({})).await.unwrap();
+    assert!(listed["sessions"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .any(|session| session["id"] == session_id.as_str()));
+    assert!(root.join("locked.txt").exists());
+    assert_ne!(session_branches(&project).trim(), "");
+
+    drop(lock);
+    call(&state, "session.delete", json!({ "id": session_id }))
+        .await
+        .unwrap();
+    assert!(!root.exists());
+    assert_eq!(session_branches(&project).trim(), "");
+}

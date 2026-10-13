@@ -409,7 +409,10 @@
 - **Coverage:** host-core `session_worktrees` tests (create, merge, conflict,
   removal, link safety, reconcile, delegates), worktree IPC contract tests,
   renderer `worktree-ui` tests, and agent-runtime delegate tests. The Windows
-  checks need a Windows host. `pnpm test:e2e:worktree-live`
+  checks run as host-core tests on a Windows host: junction removal
+  (`remove::tests`), the replaced-root link (`lifecycle::tests`), and the deep
+  path and locked-file delete through the RPC user path
+  (`rpc::worktree_rpc::tests`). `pnpm test:e2e:worktree-live`
   (`scripts/e2e-worktree-live.mjs`) runs the steps above against a real model
   at protocol level, without the renderer.
 - **Status:** Partially automated

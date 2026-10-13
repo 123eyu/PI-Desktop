@@ -133,4 +133,7 @@ user-path tests cover the sidebar. `pnpm test:e2e:worktree-live` runs the
 lifecycle against a real model. The hook-suppression, link-safe removal, and
 `.worktreeinclude` link tests also run on Windows with directory junctions,
 where Git for Windows runs hooks without an executable bit and lists files
-inside a junction. Long paths and locked-file removal require Windows E2E.
+inside a junction. On Windows, RPC user-path tests also create and delete a
+session with a path beyond 260 characters and show that a delete blocked by a
+locked file fails with `WORKTREE_IO`, keeps the session, and succeeds on
+retry; the renderer-level live-model run of the scenario is still manual.
