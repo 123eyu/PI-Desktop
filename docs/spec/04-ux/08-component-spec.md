@@ -1912,8 +1912,14 @@ Single message render — either user (plaintext) or assistant (markdown streami
   regardless of display mode, without making color the only signal.
   Clicking the trigger (or activating it from the keyboard) toggles a
   non-modal panel whose heading follows the same display-mode figure,
-  followed by used/window counts and two
-  unboxed turn/speed summary values. Model usage is compressed into one
+  followed by used/window counts, unboxed turn/speed summary values, and the
+  elapsed session time. Three compact timing rows show request-to-first-response
+  wait, streamed model response time (thinking plus answer), and top-level tool
+  execution time, each with its share of the session span. Network/provider wait
+  and streamed response are separate; parallel top-level tools count overlapping
+  time once, and nested delegate timing is excluded. Older messages retain the
+  existing response duration for the model row but cannot contribute request
+  wait. Model usage is compressed into one
   inline summary row that retains exact last-request
   input/output/cache/reasoning values
   and the provider-reported cache hit rate when available. Tool usage is

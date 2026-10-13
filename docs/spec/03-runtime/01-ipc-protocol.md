@@ -962,7 +962,9 @@ type UiMessage = {
  sessionMessage?: SessionMessageOrigin;
  thinking?: string; // assistant reasoning, never folded into content
  usage?: MessageUsage; // provider-reported assistant usage
- responseDurationMs?: number; // model stream duration for throughput
+ responseDurationMs?: number; // elapsed assistant response duration for throughput
+ providerWaitMs?: number; // request start to first model response event
+ modelStreamDurationMs?: number; // streamed thinking and answer duration
  responseOutputTokens?: number; // estimated partial output when stop has no final usage
  toolName?: string;
  toolCallId?: string;
@@ -1184,15 +1186,24 @@ same normalized `AppError` carried by the lifecycle `error` event to the
 assistant message before `message_end`. Error messages persist with the
 transcript but are excluded from restored model context.
 
-The context inspector consumes two additive usage signals. `MessageUsage` is
-the provider-reported assistant usage and `responseDurationMs` is the
+The context inspector consumes additive usage and timing signals. `MessageUsage`
+is the provider-reported assistant usage and `responseDurationMs` is the
 elapsed request duration used to display output tokens per second. Completed
 responses use pi-ai 1.1.0's monotonic `AssistantMessage.durationMs`; when
-that value is unavailable, the sidecar stopwatch remains the fallback. `ToolTokenUsage`
-is a runtime estimate from the tool call arguments and result; providers do not
-report per-tool allocation, so the renderer labels these rows as estimates and
-never merges them into the exact provider total. Older peers may omit all of
-these optional fields without breaking the v6 handshake.
+that value is unavailable, the sidecar stopwatch remains the fallback.
+`providerWaitMs` measures from the model request start to the first response
+event, including transport and provider-side first-response wait;
+`modelStreamDurationMs` measures streamed thinking and answer content after
+that event. Both are persisted as optional assistant-message metadata. Older
+messages without split timing keep their prior `responseDurationMs` as the
+model-duration fallback; their request-wait duration cannot be recovered. The
+inspector sums top-level model timing and tool duration against elapsed session
+time; nested delegate timings are excluded, and overlapping top-level tool
+calls count once. `ToolTokenUsage` is a runtime estimate from the tool call
+arguments and result; providers do not report per-tool allocation, so the
+renderer labels these rows as estimates and never merges them into the exact
+provider total. Older peers may omit all of these optional fields without
+breaking the v6 handshake.
 
 `turn_end.subagentUsage` is the settled subagent total since the previous
 emitted `turn_end` of the same durable turn. Parent `message.usage` stays the

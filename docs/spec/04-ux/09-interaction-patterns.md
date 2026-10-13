@@ -860,12 +860,14 @@ may be retained while exactly one workspace supplies the visible shell context.
 - The context usage inspector keeps one muted line for the newest checkpoint,
   shown while its panel is open — the count and summary cost sit below the
   compact model/tool usage summaries without adding explanatory copy.
-- The open context usage inspector also shows the session's elapsed wall time
-  and the cumulative duration of its top-level model responses. The response
-  percentage compares those recorded request-to-completion durations with the
-  session span; nested delegate responses are excluded because they may overlap.
-  Long transcripts load earlier response timings in bounded pages only while
-  the inspector is open.
+- The open context usage inspector shows elapsed session wall time plus three
+  cumulative timing rows: request-to-first-response wait, streamed model
+  response time (thinking and answer), and top-level tool execution time.
+  Each row shows its share of the elapsed session span. Nested delegate timing
+  is excluded, and overlapping top-level tool calls count once. Long transcripts
+  load earlier timing metadata in bounded pages only while the inspector is open.
+  Older messages use their existing response duration for the model row; their
+  request-wait time is unavailable.
 
 ## 4. Long content collapse / expand
 

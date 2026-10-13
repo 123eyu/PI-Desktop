@@ -1685,6 +1685,9 @@ does not dispose, abort, or re-root a runtime belonging to another session.
   estimate visible thinking plus answer output at four Unicode code points per
   token and persist it as `responseOutputTokens` so stopped-turn throughput is
   still available and visibly approximate
+- preserve request-to-first-response wait and streamed thinking/answer duration
+  on assistant messages when available; stopped streams retain the elapsed
+  streamed duration captured before cancellation
 - renderer smart-stop transcript undo and structured Composer restoration are
   reconciliation after abort; they do not change runtime cancellation or roll
   back completed tool effects

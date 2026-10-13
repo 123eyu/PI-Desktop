@@ -4918,12 +4918,15 @@ must keep splitting are covered by `markdown-blocks.test.mjs`.
   badge and no context inspector under the answer. 3) Hover the composer
   toolbar inspector trigger, confirm the panel stays closed, then click it.
   4) Inspect the remaining-token-plus-percentage heading, used/window counts,
-  unboxed turn/speed values, session duration, cumulative model response time
-  with its share of session duration, one inline provider-usage summary, and
-  one aggregate tool-usage summary, with no doubled heading rule and no inner
-  section hairlines. For a transcript with more than one loaded page, wait for
-  the earlier response timings to finish loading and confirm the cumulative
-  value includes them. 5) Scroll the transcript and resize the window while the
+  unboxed turn/speed values, total session duration, and three timing rows for
+  network/provider wait, streamed model response (including thinking and
+  answer), and tool execution, each with its share of session duration. Confirm
+  overlapping top-level tool calls are counted once, nested delegate timings
+  are excluded, and one inline provider-usage summary plus one aggregate
+  tool-usage summary remain. There is no doubled heading rule or inner section
+  hairline. For a transcript with more than one loaded page, wait for earlier
+  timing metadata to finish loading and confirm the cumulative values include
+  it. 5) Scroll the transcript and resize the window while the
   panel is open. Toggle and resize the sidebar and work panel while the panel
   remains open. 6) Move the pointer away from the panel, then dismiss it by
   clicking the trigger again, clicking outside it, and pressing Escape from
@@ -4943,9 +4946,11 @@ must keep splitting are covered by `markdown-blocks.test.mjs`.
   survives the pointer leaving it and closes on a second trigger activation,
   an outside click, or Escape, which returns focus to the trigger. Session
   duration runs from session creation to the latest activity (or to now while
-  running); cumulative model response time sums recorded top-level model
-  request durations and its percentage is relative to that wall-time span.
-  Earlier transcript pages load only while the inspector is open. Provider
+  running). Network request wait ends at the first model response event; model
+  response includes streamed thinking and answer, and tool time excludes nested
+  delegates and unions overlapping top-level calls. Each cumulative timing
+  percentage is relative to that wall-time span. Earlier transcript pages load
+  only while the inspector is open. Provider
   values remain exact, tool values remain visibly approximate through the `~`
   aggregate total, and no per-tool list, source badge, progress bar, or
   explanatory estimate paragraph is rendered. Occupancy, turn total, and
