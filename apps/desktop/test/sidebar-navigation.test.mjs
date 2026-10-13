@@ -281,7 +281,7 @@ test("session title buttons use hover cards without native title tooltips", () =
 
   assert.match(sessionMain, /showSessionHoverCard\(/);
   assert.doesNotMatch(sessionMain, /\btitle=\{/);
-  assert.match(hoverSource, /className="sidebar-session-hover-card"/);
+  assert.match(hoverSource, /className="sidebar-session-hover-card selectable"/);
   assert.match(hoverSource, /className="sidebar-session-hover-card-title"/);
   assert.match(sessionMain, /onFocusCapture=/);
   assert.match(sessionMain, /aria-describedby=/);
@@ -303,7 +303,7 @@ test("session hover cards expose readable models and keyboard-navigable session 
   assert.match(hoverSource, /summary\.createdSessions\.slice\(0, 8\)/);
   assert.match(hoverSource, /type="button"/);
   assert.match(hoverSource, /onClick=\{\(\) => openSessionReference/);
-  assert.match(hoverSource, /onFocusCapture=\{keepVisible\}/);
+  assert.match(hoverSource, /useHoverCardSelection\(elementRef, keepVisible, scheduleHide, registerDismissGuard\)/);
   assert.match(hoverHookSource, /setTimeout\(\(\) => \{[\s\S]*?hide\(\);[\s\S]*?\}, 160\)/);
   assert.match(globalStyles, /\.sidebar-session-hover-card\s*\{[\s\S]*?pointer-events:\s*auto;/);
   assert.match(globalStyles, /\.sidebar-session-hover-card-session-link:focus-visible\s*\{[\s\S]*?outline:/);

@@ -16776,6 +16776,34 @@ the latest destination. These assertions measure work counts, not device FPS.
 - **Status:** Automated at the runtime level; no UI driver reads the plugin
   page's error text.
 
+### E2E-DIALOG-native-selection-across-boundaries
+
+- **Preconditions:** Built renderer, isolated Electron profile, real production
+  React dialogs/hover card and stylesheet; only preload IPC is stubbed. Reveal
+  and dismissal delays use a controlled clock, not arbitrary sleeps.
+- **Steps:** Drag from release-note/table text onto the backdrop and Copy with
+  the native keyboard shortcut; repeat content-to-backdrop and reverse drags in
+  project instructions and provider setup. Open provider Advanced, drag across
+  its boundary, then deliberately click its backdrop. Cancel a backdrop press
+  or blur the window before release, then try a fresh outside click. Save project
+  instructions while trying outside click/Escape, then use the close button.
+  Hover a session row, drag card text outside, advance past the grace period
+  while held and after release, Copy, revisit/leave the row, clear selection,
+  and repeat ordinary leave, cancellation, Escape and outside press.
+- **Expected:** Cross-boundary drags preserve the modal and native selection;
+  deliberate backdrop clicks still dismiss. Cancelled/blurred presses never
+  dismiss; the next fresh click works. Nested clicks close only Advanced and
+  saving protections remain effective. The hover card survives dragging and
+  remains copyable while its text selection exists; row timers cannot override
+  retention. Clearing selection or ending an unselected/cancelled drag resumes
+  ordinary 160ms dismissal. Escape/outside press still dismiss selected cards.
+- **Specs:** `04-ux/09-interaction-patterns.md` sections 1.10 and 9.1b;
+  `04-ux/07-ui-design-system.md` section 11.4.
+- **Automation:** `pnpm test:e2e:overlay-selection`; production Chromium mouse
+  and keyboard input with deterministic host replies. No running user app or
+  real provider is used.
+- **Status:** Automated on Windows; macOS/Linux native evidence pending.
+
 ### E2E-DIALOG-long-text-boundaries
 
 - **Preconditions:** Built renderer assets and an isolated Electron component
