@@ -400,7 +400,8 @@ The host's workspace diff collector applies the same Git hardening to every
 repository it inspects, including non-isolated workspaces. Each host-started
 Git command disables repository-configured hooks and `core.fsmonitor`, and
 removes environment variables that can redirect Git to another repository or
-inject command-scope configuration.
+inject command-scope configuration. Diff invocations also disable external diff
+and text-conversion helpers.
 
 Merging into the project is an explicit user action (preview, then merge with
 the preview token); it syncs the project branch into the worktree and only
