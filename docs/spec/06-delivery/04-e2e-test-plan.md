@@ -17739,10 +17739,11 @@ host-created files. The full app's file-preview viewer is covered separately.
 ### E2E-PLUGIN-automatic-jsx-activation
 
 - Preconditions: a granted renderer plugin whose compiled entry imports
-  `react/jsx-runtime`, with React externalized to the host.
-- Steps: activate the entry through the host import map; render an automatic
-  JSX component that reads a host context with a hook.
-- Expected: the entry resolves and renders the supplied context value without
+  `react/jsx-runtime` or `react/jsx-dev-runtime`, with React externalized to the
+  host.
+- Steps: activate production and development entries through the host import
+  map; render automatic JSX components that read a host context with a hook.
+- Expected: both entries resolve and render the supplied context value without
   bundling a second React instance. Legacy React bindings remain unchanged.
 - Automated regression: `apps/desktop/test/plugin-renderer-import-map.test.mjs`
   evaluates the generated shims and renders an automatic JSX component using

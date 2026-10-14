@@ -23,21 +23,23 @@ try {
   const plugin = await import('/plugin.mjs');
   const Context = React.createContext('missing');
   const rootView = createRoot(document.querySelector('#root'));
-  rootView.render(React.createElement(Context.Provider,{value:'Revenue chart'},React.createElement(plugin.Chart,{context:Context})));
+  rootView.render(React.createElement(React.Fragment,null,
+    React.createElement(Context.Provider,{value:'Production JSX'},React.createElement(plugin.Chart,{context:Context})),
+    React.createElement(Context.Provider,{value:'Development JSX'},React.createElement(plugin.DevChart,{context:Context}))));
   await new Promise((resolve,reject)=>{
     const observer=new MutationObserver(check);
-    const timer=setTimeout(()=>{observer.disconnect();reject(new Error('automatic JSX plugin did not render'));},10000);
-    function check(){if(document.querySelector('figure')?.textContent==='Revenue chart'){clearTimeout(timer);observer.disconnect();resolve();}}
+    const timer=setTimeout(()=>{observer.disconnect();const figures=[...document.querySelectorAll('figure')].map(node=>node.textContent);reject(new Error('automatic JSX plugins did not render: '+JSON.stringify({figures,html:document.querySelector('#root')?.innerHTML})));},10000);
+    function check(){const figures=[...document.querySelectorAll('figure')].map(node=>node.textContent);if(figures[0]==='Production JSX'&&figures[1]==='Development JSX'){clearTimeout(timer);observer.disconnect();resolve();}}
     observer.observe(document.body,{childList:true,subtree:true});check();
   });
-  window.__jsxSmoke={ok:true,text:document.querySelector('figure').textContent,imports:Object.keys(REACT_IMPORT_MAP)};
+  window.__jsxSmoke={ok:true,text:[...document.querySelectorAll('figure')].map(node=>node.textContent),imports:Object.keys(REACT_IMPORT_MAP)};
   rootView.unmount();
 }catch(error){window.__jsxSmoke={ok:false,error:error.stack};}
 </script></body></html>`;
   server = createServer(async (req, res) => {
     const path = new URL(req.url, "http://localhost").pathname;
     try {
-      const bytes = path === "/" ? page : path === "/host.mjs" ? await readFile(join(scratch, "host.mjs")) : path === "/plugin.mjs" ? 'import {jsx} from "react/jsx-runtime"; import {useContext} from "react"; export function Chart({context}) {return jsx("figure", {children:useContext(context)});}' : null;
+      const bytes = path === "/" ? page : path === "/host.mjs" ? await readFile(join(scratch, "host.mjs")) : path === "/plugin.mjs" ? 'import {jsx} from "react/jsx-runtime"; import {jsxDEV} from "react/jsx-dev-runtime"; import {useContext} from "react"; export function Chart({context}) {return jsx("figure", {children:useContext(context)});} export function DevChart({context}) {return jsxDEV("figure", {children:useContext(context)}, undefined, false, {fileName:"plugin.tsx",lineNumber:1,columnNumber:1});}' : null;
       if (bytes === null) { res.writeHead(404); res.end(); return; }
       res.setHeader("content-type", path === "/" ? "text/html" : "text/javascript"); res.end(bytes);
     } catch { res.writeHead(404); res.end(); }
@@ -55,7 +57,7 @@ try {
   assert.equal(code, 0, output);
   const result = JSON.parse(output.split("\n").find(line => line.startsWith("JSX_SMOKE ")).slice("JSX_SMOKE ".length));
   assert.equal(result.ok, true);
-  console.log("PASS automatic JSX plugin activation with host hooks and context", JSON.stringify(result));
+  console.log("PASS production and development JSX plugin activation with host hooks and context", JSON.stringify(result));
 } finally {
   if (server) await new Promise(done => server.close(done));
   await rm(scratch, { recursive: true, force: true });

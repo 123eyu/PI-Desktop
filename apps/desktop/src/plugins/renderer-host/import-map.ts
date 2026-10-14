@@ -4,7 +4,8 @@
  * A plugin that brought its own React would break hooks and context in the
  * first component that mixed the two, and the failure looks like a plugin bug
  * rather than a duplicate module. The host therefore answers the bare
- * specifiers `react`, `react/jsx-runtime`, `react-dom` and `react-dom/client`, through a
+ * specifiers `react`, `react/jsx-dev-runtime`, `react/jsx-runtime`, `react-dom`
+ * and `react-dom/client`, through a
  * document import map pointing at generated blob modules.
  *
  * The shims are generated from the live namespaces rather than a hand-written
@@ -14,6 +15,7 @@
 import * as ReactDom from "react-dom";
 import * as ReactDomClient from "react-dom/client";
 import * as React from "react";
+import * as ReactJsxDevRuntime from "react/jsx-dev-runtime";
 import * as ReactJsxRuntime from "react/jsx-runtime";
 
 /** Where the generated shims read their modules from. Not a plugin API. */
@@ -21,6 +23,7 @@ export const RENDERER_HOST_KEY = "__PI_RENDERER_HOST__";
 
 type RendererHostModules = {
   react: typeof React;
+  reactJsxDevRuntime: typeof ReactJsxDevRuntime;
   reactJsxRuntime: typeof ReactJsxRuntime;
   reactDom: typeof ReactDom;
   reactDomClient: typeof ReactDomClient;
@@ -28,9 +31,22 @@ type RendererHostModules = {
 
 export const REACT_IMPORT_MAP: Readonly<Record<string, keyof RendererHostModules>> = {
   react: "react",
+  "react/jsx-dev-runtime": "reactJsxDevRuntime",
   "react/jsx-runtime": "reactJsxRuntime",
   "react-dom": "reactDom",
   "react-dom/client": "reactDomClient",
+};
+
+const ReactJsxDevRuntimeHost: typeof ReactJsxDevRuntime = {
+  ...ReactJsxDevRuntime,
+  // Production React omits jsxDEV; development-compiled plugins still need a
+  // valid entry point when they run in a production host.
+  jsxDEV: (...args) => {
+    const [type, props, key] = args;
+    return ReactJsxDevRuntime.jsxDEV
+      ? ReactJsxDevRuntime.jsxDEV(...args)
+      : ReactJsxRuntime.jsx(type, props, key);
+  },
 };
 
 let installed = false;
@@ -70,6 +86,7 @@ export function installRendererImportMap(): void {
   installed = true;
   const modules: RendererHostModules = {
     react: React,
+    reactJsxDevRuntime: ReactJsxDevRuntimeHost,
     reactJsxRuntime: ReactJsxRuntime,
     reactDom: ReactDom,
     reactDomClient: ReactDomClient,
