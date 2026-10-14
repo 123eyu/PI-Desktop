@@ -53,7 +53,7 @@ try {
   const code = await new Promise((done, reject) => { child.on("error", reject); child.on("exit", done); });
   clearTimeout(timer);
   assert.equal(code, 0, output);
-  const result = JSON.parse(output.split("\n").find(line => line.startsWith("JSX_SMOKE ")).slice(12));
+  const result = JSON.parse(output.split("\n").find(line => line.startsWith("JSX_SMOKE ")).slice("JSX_SMOKE ".length));
   assert.equal(result.ok, true);
   console.log("PASS automatic JSX plugin activation with host hooks and context", JSON.stringify(result));
 } finally {
