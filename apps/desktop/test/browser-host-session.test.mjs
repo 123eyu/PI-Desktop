@@ -20,9 +20,9 @@ function harness() {
       setVisible(value) { this.visible = value; },
       getState: () => state, getWebContents: () => null,
       invalidateNavigation: () => {},
-      navigateAndWait(target, fileRoots) {
+      navigateAndWait(target, fileRoot) {
         const done = deferred();
-        loads.push({ target, fileRoots, pane, finish() {
+        loads.push({ target, fileRoot, pane, finish() {
           state = { url: target, title: target, isLoading: false, canGoBack: false, canGoForward: false };
           onState(state); done.resolve(state);
         }, fail: () => done.resolve(null) });
@@ -111,7 +111,7 @@ test("a temporary preview uses its own scratch even while a project session is v
   assert.equal(h.roots.at(-1).sessionId, "temporary");
   h.roots.at(-1).resolve(null);
   await settled();
-  assert.deepEqual(h.loads.at(-1).fileRoots, ["/scratch/temporary"]);
+  assert.equal(h.loads.at(-1).fileRoot, "/scratch/temporary");
   h.loads.at(-1).finish();
   await settled();
   h.host.setChromeSession("project", "project-tab");

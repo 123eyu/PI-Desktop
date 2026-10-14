@@ -2,19 +2,21 @@ import { useEffect, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import type { RemoteHostSummary } from "@pi-desktop/shared";
 import { api } from "../../lib/api";
+import { remoteHostErrorKey } from "../../lib/remote-host-errors";
 import { Button, Field, Input, Select } from "../ui";
 import { RemoteFolderDialog } from "./RemoteFolderDialog";
 
 export type RemoteProjectSelection = { hostKey: string; hostLabel: string; path: string };
 
-export function RemoteProjectPicker({ busy, onChange, onBrowsingChange }: {
+export function RemoteProjectPicker({ busy, initialHostKey, onChange, onBrowsingChange }: {
   busy: boolean;
+  initialHostKey?: string;
   onChange: (selection: RemoteProjectSelection | null) => void;
   onBrowsingChange: (open: boolean) => void;
 }) {
   const { t } = useTranslation();
   const [hosts, setHosts] = useState<RemoteHostSummary[]>([]);
-  const [hostKey, setHostKey] = useState("");
+  const [hostKey, setHostKey] = useState(initialHostKey ?? "");
   const [path, setPath] = useState("");
   const [loading, setLoading] = useState(true);
   const [browseOpen, setBrowseOpen] = useState(false);
@@ -29,14 +31,13 @@ export function RemoteProjectPicker({ busy, onChange, onBrowsingChange }: {
     let active = true;
     void api.listRemoteHosts().then(({ hosts }) => {
       if (!active) return;
-      const connected = hosts.filter((host) => host.connected);
-      setHosts(connected);
-      setHostKey(connected[0]?.hostKey ?? "");
+      setHosts(hosts);
+      setHostKey(hosts.find((host) => host.hostKey === initialHostKey)?.hostKey ?? hosts.find((host) => host.connected)?.hostKey ?? hosts[0]?.hostKey ?? "");
     }).catch((error: unknown) => {
-      if (active) setError(error instanceof Error ? error.message : String(error));
+      if (active) setError(t(remoteHostErrorKey(error)));
     }).finally(() => { if (active) setLoading(false); });
     return () => { active = false; selectionCallback.current(null); browsingCallback.current(false); };
-  }, []);
+  }, [initialHostKey, t]);
 
   useEffect(() => {
     selectionCallback.current(host && path.trim().startsWith("/") ? { hostKey, hostLabel: host.label, path: path.trim() } : null);
@@ -49,10 +50,11 @@ export function RemoteProjectPicker({ busy, onChange, onBrowsingChange }: {
         selectionCallback.current(null); setPath(""); setHostKey(event.target.value); setBrowsing(false);
       }}>
         {!hosts.length ? <option value="">{t("remote:noConnectedHosts")}</option> : null}
-        {hosts.map((host) => <option key={host.hostKey} value={host.hostKey}>{host.label}</option>)}
+        {hosts.map((host) => <option key={host.hostKey} value={host.hostKey}>{host.connected ? host.label : t("remote:offlineHost", { label: host.label })}</option>)}
       </Select>
     </Field>
     {host ? <>
+      {!host.connected ? <p role="status">{t("remote:reconnectOnUse")}</p> : null}
       <Field label={t("remote:projectFolder")}>
         <div className="remote-folder-dialog-path-entry">
           <Input value={path} aria-label={t("remote:projectFolder")} placeholder={t("remote:pathPlaceholder")} disabled={busy}

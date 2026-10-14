@@ -5,6 +5,7 @@ import { isRemoteSession, sessionAllows } from "../lib/remote-session-safety";
 import {
   useCallback,
   useEffect,
+  useLayoutEffect,
   useMemo,
   useRef,
   useState,
@@ -18,7 +19,8 @@ import { TooltipButton, cx } from "./ui";
 
 import { portalToBody } from "../lib/portal-visibility";
 import {
-  clampSidebarFloatingMenuTop,
+  placeSidebarFloatingMenuTop,
+  SIDEBAR_FLOATING_MENU_MAX_HEIGHT,
   SIDEBAR_MENU_VIEWPORT_PADDING,
 } from "../lib/sidebar-floating-menu";
 import { useTranslation } from "react-i18next";
@@ -72,6 +74,14 @@ import {
 import { BrandLogo } from "./BrandLogo";
 import { NotificationCenter } from "./NotificationCenter";
 import { ProjectEditDialog } from "./ProjectEditDialog";
+import {
+  WorktreeBadge,
+  WorktreeDeleteLossNote,
+  WorktreeDialogs,
+  WorktreeProjectMenuItems,
+  WorktreeSessionMenuItems,
+} from "../features/worktree/WorktreeSidebarParts";
+import { WorktreeBehindWatcher } from "../features/worktree/WorktreeBehind";
 import { useArmedDelete } from "../hooks/use-armed-delete";
 import { ProjectDeleteDialog } from "./ProjectDeleteDialog";
 import { SessionRenameDialog } from "./SessionRenameDialog";
@@ -259,14 +269,12 @@ export function Sidebar({
   const refreshProject = useAppStore((s) => s.refreshProject);
   const clearProject = useAppStore((s) => s.clearProject);
   const activateProject = useAppStore((s) => s.activateProject);
-  const closeProjectAction = useAppStore((s) => s.closeProject);
   const renameProject = useAppStore((s) => s.renameProject);
   const toggleSessionPinned = useAppStore((s) => s.toggleSessionPinned);
   const archiveSessionAction = useAppStore((s) => s.archiveSession);
   const restoreSession = useAppStore((s) => s.restoreSession);
   const renameSession = useAppStore((s) => s.renameSession);
   const deleteSessionAction = useAppStore((s) => s.deleteSession);
-  const deleteProjectAction = useAppStore((s) => s.deleteProject);
   const setSessionSort = useAppStore((s) => s.setSessionSort);
   const moveSessionProject = useAppStore((s) => s.moveSessionProject);
   const setSessionArchiveVisibility = useAppStore((s) => s.setSessionArchiveVisibility);
@@ -297,6 +305,8 @@ export function Sidebar({
   const [menuPosition, setMenuPosition] = useState<{
     top: number;
     left: number;
+    anchorTop: number;
+    anchorBottom: number;
   } | null>(null);
   const {
     card: sessionHoverCard,
@@ -304,6 +314,7 @@ export function Sidebar({
     hide: hideSessionHoverCard,
     scheduleHide: scheduleSessionHoverCardHide,
     keepVisible: keepSessionHoverCardVisible,
+    registerDismissGuard: registerSessionHoverCardDismissGuard,
   } = useSessionHoverCard();
   const [expandedProjectSessions, setExpandedProjectSessions] = useState<Record<string, boolean>>({});
   const [draggingSessionId, setDraggingSessionId] = useState<string | null>(null);
@@ -316,6 +327,7 @@ export function Sidebar({
 
   const menuTriggerRef = useRef<HTMLButtonElement | null>(null);
   const menuFirstItemRef = useRef<HTMLButtonElement | null>(null);
+  const floatingMenuRef = useRef<HTMLDivElement | null>(null);
   const sessionPrefetchTimerRef = useRef<number | undefined>(undefined);
   const sidebarResizeRef = useRef<SidebarResizeState | null>(null);
   const projectReorderRef = useRef<ProjectReorderPointerState | null>(null);
@@ -504,18 +516,32 @@ export function Sidebar({
 
   const placeMenu = useCallback((event: ReactMouseEvent<HTMLButtonElement>) => {
     const rect = event.currentTarget.getBoundingClientRect();
+    const anchor = { top: rect.top, bottom: rect.bottom };
     setMenuPosition({
-      top: clampSidebarFloatingMenuTop(rect.bottom + 4, window.innerHeight),
+      top: placeSidebarFloatingMenuTop(
+        anchor,
+        SIDEBAR_FLOATING_MENU_MAX_HEIGHT,
+        window.innerHeight,
+      ),
       left: Math.max(SIDEBAR_MENU_VIEWPORT_PADDING, rect.right + 4),
+      anchorTop: anchor.top,
+      anchorBottom: anchor.bottom,
     });
   }, []);
 
   // Body-level sidebar menus always anchor their left edge to the right side
   // of the trigger or pointer; they never flip to the left at the viewport edge.
   const placeMenuAtPoint = useCallback((x: number, y: number) => {
+    const anchor = { top: y, bottom: y };
     setMenuPosition({
-      top: clampSidebarFloatingMenuTop(y + 4, window.innerHeight),
+      top: placeSidebarFloatingMenuTop(
+        anchor,
+        SIDEBAR_FLOATING_MENU_MAX_HEIGHT,
+        window.innerHeight,
+      ),
       left: Math.max(SIDEBAR_MENU_VIEWPORT_PADDING, x + 4),
+      anchorTop: anchor.top,
+      anchorBottom: anchor.bottom,
     });
   }, []);
 
@@ -584,6 +610,39 @@ export function Sidebar({
     if (!sessionMenu && !projectMenu && !sectionMenu && !sortOpen) return;
     requestAnimationFrame(() => menuFirstItemRef.current?.focus());
   }, [sessionMenu, projectMenu, sectionMenu, sortOpen]);
+
+  const menuAnchorTop = menuPosition?.anchorTop;
+  const menuAnchorBottom = menuPosition?.anchorBottom;
+
+  useLayoutEffect(() => {
+    if (menuAnchorTop === undefined || menuAnchorBottom === undefined) return;
+    const menu = floatingMenuRef.current;
+    if (!menu) return;
+
+    const reposition = () => {
+      const top = placeSidebarFloatingMenuTop(
+        { top: menuAnchorTop, bottom: menuAnchorBottom },
+        menu.getBoundingClientRect().height,
+        window.innerHeight,
+      );
+      setMenuPosition((current) =>
+        current && current.top !== top ? { ...current, top } : current,
+      );
+    };
+
+    reposition();
+    if (typeof ResizeObserver === "undefined") return;
+    const observer = new ResizeObserver(reposition);
+    observer.observe(menu);
+    return () => observer.disconnect();
+  }, [
+    menuAnchorTop,
+    menuAnchorBottom,
+    sessionMenu,
+    projectMenu,
+    sectionMenu,
+    sortOpen,
+  ]);
 
   // Footer utility bar: settings / plugins / notifications + build chip.
 
@@ -1393,37 +1452,10 @@ export function Sidebar({
     setSelectedIds(new Set());
   };
 
-  /** Menu items of different surfaces never share an armed key. */
-  const projectDeleteKey = (entry: ProjectEntry) => `project:${entry.key}`;
-
-  /**
-   * Two-step delete for a project row that keeps the running-task safety. The
-   * second click deletes an idle project straight away; a project whose turn is
-   * still live opens the dialog that names those sessions and stops them.
-   */
-  const requestDeleteProject = async (entry: ProjectEntry) => {
-    const key = projectDeleteKey(entry);
-    if (armedDelete !== key) {
-      setArmedDelete(key);
-      return;
-    }
-    setArmedDelete(null);
+  /** Always route project deletion through the explicit confirmation dialog. */
+  const requestDeleteProject = (entry: ProjectEntry) => {
     closeMenus(false);
-    if (entry.sessions.some((session) => runningSessions[session.id] === true)) {
-      setDeleteProjectFor(entry);
-      return;
-    }
-    try {
-      await deleteProjectAction(entry.path);
-      showToast(t("project.deleted", { name: entry.name }), { variant: "success" });
-    } catch (error) {
-      // The host refuses a project whose task started after this render.
-      reportError(
-        (error as { errorCode?: unknown } | null)?.errorCode === ErrorCodes.CONFLICT
-          ? new Error(t("project.deleteRunningBlocked"))
-          : error,
-      );
-    }
+    setDeleteProjectFor(entry);
   };
 
   const openProjectFolder = async (entry: ProjectEntry) => {
@@ -1514,15 +1546,6 @@ export function Sidebar({
         }
       }
       archiveProjectAction(entry.path);
-    } catch (error) {
-      reportError(error);
-    }
-  };
-
-  const closeProject = async (entry: ProjectEntry) => {
-    closeMenus();
-    try {
-      await closeProjectAction(entry.path);
     } catch (error) {
       reportError(error);
     }
@@ -1808,6 +1831,7 @@ export function Sidebar({
             <span className="thread-item-source" title="Native Pi session">Pi</span>
           ) : null}
           {isRemoteSession(session) && <span className="thread-item-source" title={session.remoteHostLabel}>{t("remote:remote")}</span>}
+          <WorktreeBadge worktree={session.worktree} sessionId={session.id} />
           <span className="thread-item-title">{taskTitle(session.title)}</span>
           {options?.global ? (
             <span className="thread-item-project">
@@ -2057,6 +2081,7 @@ export function Sidebar({
       const Icon = isSessions ? IconNewSession : IconNewProject;
       return portalToBody(
         <div
+          ref={floatingMenuRef}
           className="sidebar-row-menu sidebar-floating-menu sidebar-section-menu"
           role="menu"
           data-sidebar-section-menu={sectionMenu}
@@ -2086,6 +2111,7 @@ export function Sidebar({
     if (sortOpen) {
       return portalToBody(
         <div
+          ref={floatingMenuRef}
           className="sidebar-popover sidebar-sort-menu sidebar-floating-menu"
           role="menu"
           onKeyDown={onMenuKeyDown}
@@ -2120,6 +2146,7 @@ export function Sidebar({
     if (!session && !entry) return null;
     return portalToBody(
       <div
+        ref={floatingMenuRef}
         className="sidebar-row-menu sidebar-floating-menu"
         role="menu"
         onKeyDown={onMenuKeyDown}
@@ -2217,6 +2244,13 @@ export function Sidebar({
                 {t("nav.createBranch")}
               </button>
             ) : null}
+            <WorktreeSessionMenuItems
+              sessionId={session.id}
+              title={taskTitle(session.title)}
+              worktree={session.worktree}
+              running={Boolean(runningSessions[session.id])}
+              onDone={() => closeMenus(false)}
+            />
             <button
               type="button"
               role="menuitem"
@@ -2258,9 +2292,10 @@ export function Sidebar({
                 onClick={() => requestDeleteSession(session)}
               >
                 <IconX size={14} />
-                {armedDelete === session.id
-                  ? t("nav.deleteTaskConfirm", { defaultValue: "Delete?" })
-                  : t("nav.deleteTask", { defaultValue: "Delete" })}
+                {armedDelete === session.id ? t("nav.deleteTaskConfirm", { defaultValue: "Delete?" }) : t("nav.deleteTask", { defaultValue: "Delete" })}
+                {armedDelete === session.id && session.worktree ? (
+                  <WorktreeDeleteLossNote sessionId={session.id} />
+                ) : null}
               </button>
             ) : null}
           </>
@@ -2290,6 +2325,11 @@ export function Sidebar({
               <IconPencil size={14} />
               {t("project.edit", { defaultValue: "Edit project" })}
             </button>
+            <WorktreeProjectMenuItems
+              projectPath={entry.path}
+              projectName={entry.name}
+              onDone={() => closeMenus(false)}
+            />
             <button
               type="button"
               role="menuitem"
@@ -2317,26 +2357,13 @@ export function Sidebar({
             <button
               type="button"
               role="menuitem"
-              className={cx("danger", armedDelete === projectDeleteKey(entry) && "is-armed")}
+              className="danger"
               data-action="delete-project"
-              data-armed={armedDelete === projectDeleteKey(entry) ? "true" : undefined}
-              onClick={() => void requestDeleteProject(entry)}
+              onClick={() => requestDeleteProject(entry)}
             >
               <IconTrash size={14} />
-              {armedDelete === projectDeleteKey(entry)
-                ? t("project.deleteMenuConfirm", { defaultValue: "Delete?" })
-                : t("project.delete", { defaultValue: "Delete project" })}
+              {t("project.delete", { defaultValue: "Delete project" })}
             </button>
-            {entry.open ? (
-              <button
-                type="button"
-                role="menuitem"
-                onClick={() => void closeProject(entry)}
-              >
-                <IconX size={14} />
-                {t("project.close")}
-              </button>
-            ) : null}
           </>
         ) : null}
       </div>,
@@ -2616,8 +2643,11 @@ export function Sidebar({
           onOpenSession={openSessionFromHover}
           keepVisible={keepSessionHoverCardVisible}
           scheduleHide={scheduleSessionHoverCardHide}
+          registerDismissGuard={registerSessionHoverCardDismissGuard}
         />
       ) : null}
+      <WorktreeDialogs />
+      <WorktreeBehindWatcher />
       {renameFor ? (
         <SessionRenameDialog
           session={renameFor}

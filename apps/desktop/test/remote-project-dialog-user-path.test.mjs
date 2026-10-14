@@ -18,6 +18,7 @@ import { initReactI18next } from "react-i18next";
 import { catalogs, flattenCatalog } from "@pi-desktop/i18n";
 import { IPC } from "@pi-desktop/shared";
 import { ProjectCreateDialog } from "../../apps/desktop/src/components/ProjectCreateDialog";
+import { RemoteHostsPage } from "../../apps/desktop/src/components/settings/RemoteHostsPage";
 import { FilesTab } from "../../apps/desktop/src/components/workpanel/FilesTab";
 import { ProjectEditDialog } from "../../apps/desktop/src/components/ProjectEditDialog";
 import { useAppStore } from "../../apps/desktop/src/stores/app-store";
@@ -41,7 +42,7 @@ window.piDesktop = { platform: "darwin", channels: IPC, on() { return () => {}; 
    case IPC.invoke.remoteHostList: return { hosts: [{ hostKey: "h1", label: "Server 1", connected: true }, { hostKey: "h2", label: "Server 2", connected: true }, { hostKey: "offline", label: "Offline", connected: false }] };
    case IPC.invoke.remoteHostBrowseProjects:
     if (input.hostKey === "h1") return new Promise((resolve) => { releaseOldBrowse = () => resolve({ path: "/old", entries: [{ name: "stale", path: "/old/stale" }] }); });
-    if (input.path === "/missing") throw new Error("Directory not found");
+    if (input.path === "/missing") throw Object.assign(new Error("private diagnostic ppt1.secret"), { errorCode: "REMOTE_PATH_NOT_FOUND" });
     return { path: input.path ?? "/home/user", parent: input.path === "/home/user/app" ? "/home/user" : "/home", entries: input.path === "/home/user/app" ? [] : [{ name: "app", path: "/home/user/app" }] };
    case IPC.invoke.projectGroupCreateRemote: return new Promise((resolve) => { releaseCreate = () => resolve({ group: { ...group, name: input.name } }); });
    case IPC.invoke.projectSet: return { workspace: { path: input, name: group.name, remote: group.remote, projectGroup: group } };
@@ -67,18 +68,25 @@ function choose(node, value) { flushSync(() => { Object.getOwnPropertyDescriptor
 function input(node, value) { flushSync(() => { Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, "value").set.call(node, value); node.dispatchEvent(new Event("input", { bubbles: true })); }); }
 const picker = () => document.querySelector(".remote-folder-dialog");
 window.remoteProjectProbe = async () => {
- useAppStore.setState({ workspace: { path: "/local/app", name: "app" }, activeProjectPath: "/local/app", openProjectPaths: ["/local/app"], openProjects: [{ path: "/local/app", name: "app" }], sessions: [], page: "chat" });
- await useAppStore.getState().openProject();
- flushSync(() => view.render(React.createElement(ProjectCreateDialog)));
- await until(() => button("Remote"), "remote source button missing");
+ useAppStore.setState({ workspace: { path: "/local/app", name: "app" }, activeProjectPath: "/local/app", openProjectPaths: ["/local/app"], openProjects: [{ path: "/local/app", name: "app" }], sessions: [], page: "settings" });
+ flushSync(() => view.render(React.createElement(React.Fragment, null, React.createElement(RemoteHostsPage), React.createElement(ProjectCreateDialog))));
+ await until(() => document.querySelectorAll(".settings-remote-host-card").length === 3, "remote host inventory did not load");
+ const hostCard = [...document.querySelectorAll(".settings-remote-host-card")].find((card) => card.textContent.includes("Server 2"));
+ check(hostCard, "requested host card missing");
+ const createButton = button("New project", hostCard);
+ check(createButton, "host card has no new project action");
+ createButton.click();
+ await until(() => document.querySelector(".project-create-dialog") && document.querySelector("select")?.value === "h2", "new project did not preselect remote source and host");
+ check(document.querySelector('.project-create-dialog [data-project-source="remote"]')?.getAttribute("aria-pressed") === "true", "remote project source was not selected");
+ check(!document.querySelector(".remote-host-workbench"), "remote host page still opens a session workbench");
+ check(!calls.some((entry) => entry.channel === IPC.invoke.remoteHostSessions), "opening project management listed remote sessions");
  input(document.querySelector("#project-create-name"), "My server app");
- button("Remote").click();
- await until(() => document.querySelector('select')?.value === "h1", "hosts did not load");
  check(document.querySelector("#project-create-name").value === "My server app", "remote source lost editable local name");
- check(!document.querySelector('option[value="offline"]'), "disconnected host offered");
- check(document.querySelectorAll('select').length === 1, "host project catalog still required");
+ check(document.querySelector('option[value="offline"]'), "disconnected paired host not offered");
+ check(document.querySelectorAll("select").length === 1, "host project catalog still required");
  check(!calls.some((entry) => entry.channel === IPC.invoke.remoteHostProjects), "host project catalog was fetched");
  check(!calls.some((entry) => entry.channel === IPC.invoke.remoteHostBrowseProjects), "browse loaded inside project form");
+ choose(document.querySelector("select"), "h1");
  button("Browse folders").click();
  await until(() => releaseOldBrowse && picker(), "folder dialog missing");
  check(document.querySelector('.project-create-dialog').inert, "project form was interactive behind folder dialog");
@@ -86,6 +94,12 @@ window.remoteProjectProbe = async () => {
  await until(() => !picker(), "Escape did not close picker"); await settle();
  check(document.querySelector('.project-create-dialog'), "Escape closed parent project dialog");
  check(document.activeElement === button("Browse folders"), "cancel did not restore browse focus");
+ choose(document.querySelector("select"), "offline");
+ button("Browse folders").click();
+ await until(() => picker()?.querySelector(".remote-project-browser-path")?.textContent === "/home/user", "offline paired host did not browse after restore");
+ check(calls.some((entry) => entry.channel === IPC.invoke.remoteHostBrowseProjects && entry.input.hostKey === "offline"), "offline browse did not reach recovery entry");
+ button("Cancel", picker()).click();
+ await until(() => !picker(), "offline browse cancel failed");
  choose(document.querySelector("select"), "h2");
  button("Browse folders").click();
  await until(() => picker()?.querySelector(".remote-project-browser-path")?.textContent === "/home/user", "new host did not load");
@@ -102,7 +116,8 @@ window.remoteProjectProbe = async () => {
  await until(() => picker()?.querySelector(".remote-project-browser-path")?.textContent === "/home/user", "parent navigation failed");
  input(picker().querySelector("input"), "/missing");
  picker().querySelector('form').dispatchEvent(new Event("submit", { bubbles: true, cancelable: true }));
- await until(() => picker()?.querySelector('[role="alert"]')?.textContent.includes("Directory not found"), "directory error missing");
+ await until(() => picker()?.querySelector('[role="alert"]')?.textContent.includes("remote directory"), "safe directory error missing");
+ check(!document.body.textContent.includes("ppt1.secret"), "raw remote diagnostic leaked");
  check(button("Use this folder", picker()).disabled, "failed directory still selectable");
  input(picker().querySelector("input"), "/home/user/app");
  picker().querySelector('form').dispatchEvent(new Event("submit", { bubbles: true, cancelable: true }));
@@ -123,7 +138,7 @@ window.remoteProjectProbe = async () => {
  input(document.querySelector(".remote-project-picker input"), "relative"); await settle();
  check(document.querySelector('button[type="submit"]').disabled, "relative remote path accepted");
  input(document.querySelector(".remote-project-picker input"), "/home/user/app"); await settle();
- const form = document.querySelector("form");
+ const form = document.querySelector(".project-create-dialog form");
  form.dispatchEvent(new Event("submit", { bubbles: true, cancelable: true }));
  form.dispatchEvent(new Event("submit", { bubbles: true, cancelable: true }));
  await until(() => releaseCreate, "local remote-bound project creation did not start");
@@ -161,10 +176,9 @@ window.remoteProjectProbe = async () => {
  check(unexpectedCalls.length === 0, "unexpected IPC calls: " + unexpectedCalls.join(", "));
  return { passed: true };
 };
-
 `;
 
-test("home project dialog chooses remote folders and creates and renames a local project", {
+test("remote host page opens a preselected remote project and creates a local project", {
   skip: process.platform === "linux" && !process.env.DISPLAY ? "Electron requires a display" : false,
 }, async () => {
   const temp = await mkdtemp(join(root, "apps/desktop/.remote-project-ui-"));

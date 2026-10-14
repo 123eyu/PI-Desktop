@@ -3,8 +3,9 @@ import { createPortal } from "react-dom";
 import { useTranslation } from "react-i18next";
 import type { RemoteHostBrowseProjectsResult } from "@pi-desktop/shared";
 import { api } from "../../lib/api";
+import { remoteHostErrorKey } from "../../lib/remote-host-errors";
 import { useBlockingOverlay } from "../../lib/blocking-overlay";
-import { Button, Field, Input, TooltipButton } from "../ui";
+import { OverlayBackdrop, Button, Field, Input, TooltipButton } from "../ui";
 import { IconChevronRight, IconClose, IconFolder } from "../icons";
 
 /** Directory navigation belongs to a separate modal, never the project form. */
@@ -35,7 +36,7 @@ export function RemoteFolderDialog({ hostKey, hostLabel, initialPath, onChoose, 
       setDirectory(result);
       setPath(result.path);
     } catch (error) {
-      if (request === generation.current) setError(error instanceof Error ? error.message : String(error));
+      if (request === generation.current) setError(t(remoteHostErrorKey(error)));
     } finally {
       if (request === generation.current) setBrowsing(false);
     }
@@ -63,7 +64,7 @@ export function RemoteFolderDialog({ hostKey, hostLabel, initialPath, onChoose, 
     if (!directory || browsing || error || path !== directory.path) return;
     onChoose(directory.path);
   };
-  const dialog = <div className="overlay remote-folder-dialog-overlay" role="presentation"
+  const dialog = <OverlayBackdrop className="overlay remote-folder-dialog-overlay" role="presentation"
     onClick={(event) => { if (event.target === event.currentTarget) closeRef.current(); }}>
     <div ref={dialogRef} className="dialog remote-folder-dialog" role="dialog" aria-modal="true"
       aria-labelledby="remote-folder-dialog-title" aria-describedby="remote-folder-dialog-host"
@@ -119,6 +120,6 @@ export function RemoteFolderDialog({ hostKey, hostLabel, initialPath, onChoose, 
         <Button type="button" variant="primary" disabled={!directory || browsing || !!error || path !== directory.path} onClick={choose}>{t("remote:useFolder")}</Button>
       </div>
     </div>
-  </div>;
+  </OverlayBackdrop>;
   return createPortal(dialog, document.body);
 }

@@ -931,9 +931,9 @@
 }
 
 /*
-  Remote hosts: inventory tiles, one Add form with SSH/Pair tabs, and
-  Experimental rows. The form keeps a two-column grid; host cards are
-  inventory rows rather than settings-copy + control.
+  Remote hosts: inventory tiles, explicit Add actions with on-demand SSH/Pair
+  forms, and Experimental rows. The form keeps a two-column grid; host cards
+  are inventory rows rather than settings-copy + control.
 */
 .settings-remote-host-list {
   display: grid;
@@ -1018,6 +1018,50 @@
   margin-bottom: 0;
 }
 
+.settings-remote-host-add-actions {
+  display: inline-flex;
+  align-items: center;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 8px;
+}
+
+.settings-remote-host-add-button-content {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.settings-remote-host-add-overlay {
+  z-index: 45;
+}
+
+.settings-remote-host-add-dialog {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  width: min(100%, 640px);
+  max-height: min(90vh, 760px);
+  overflow: hidden;
+  padding: 16px;
+}
+
+.settings-remote-host-add-dialog-title {
+  margin: 0;
+  color: var(--ds-text-primary);
+  font-size: var(--text-base-plus);
+  font-weight: var(--font-weight-semibold);
+  line-height: var(--leading-tight);
+}
+
+.settings-remote-host-add-dialog .settings-remote-host-form {
+  min-height: 0;
+  overflow-x: hidden;
+  overflow-y: auto;
+  padding: 2px;
+  overscroll-behavior: contain;
+}
+
 .settings-remote-host-form {
   display: grid;
   gap: 12px;
@@ -1036,6 +1080,17 @@
 
 .settings-remote-host-form-row.is-narrow-port {
   grid-template-columns: minmax(0, 1fr) minmax(120px, 0.4fr);
+}
+
+.settings-remote-host-identity-file {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto auto;
+  align-items: center;
+  gap: 8px;
+}
+
+.settings-remote-host-identity-file-input {
+  display: none;
 }
 
 .settings-remote-host-form-auth {

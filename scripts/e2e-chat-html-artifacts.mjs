@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 // Real transcript clicks, Rust storage, preload IPC and native HTML guests.
-// No provider requests: seed only synthetic messages in an isolated profile.
+// Only the loopback model fixture receives requests; all session data is synthetic.
 import assert from "node:assert/strict";
 import { mkdir, mkdtemp, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";

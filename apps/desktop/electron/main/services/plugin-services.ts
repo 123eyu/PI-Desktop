@@ -603,10 +603,18 @@ export function createPluginServices({
     isPluginLoaded: (pluginId) => Boolean(plugins.getLoaded(pluginId)),
     getFileRoots: async (sessionId) => {
       if (!sessionId) return projectFolderPaths(getWorkspacePath());
-      const res = await getHost()?.call<{ session: { projectPath?: string } | null }>(
+      const host = getHost();
+      if (!host) throw new Error("Browser preview host is unavailable.");
+      const res = await host.call<{ session: { projectPath?: string; worktree?: unknown } | null }>(
         "session.get", { id: sessionId },
       );
       if (!res?.session) throw new Error("Browser preview session is unavailable.");
+      if (res.session.worktree) {
+        const location = await host.call<{ path?: string }>("worktree.location", { sessionId });
+        const path = location.path?.trim();
+        if (!path) throw new Error("Browser preview worktree is unavailable.");
+        return [path, join(dataDir, "scratch", sessionId)];
+      }
       return [
         ...projectFolderPaths(res.session.projectPath?.trim() || null),
         join(dataDir, "scratch", sessionId),
