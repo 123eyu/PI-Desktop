@@ -4656,6 +4656,28 @@ window; opening a normal panel afterward must still work.
 - **Milestone**: M5
 - **Status**: Partial automation: `scripts/e2e-browser-local-file-access.mjs` covers native local-file navigation; the address-bar and overlay workflow remains manual.
 
+#### E2E-CHAT-html-artifacts: Open generated pages from ordinary and project conversations
+
+- **Preconditions**: Isolated Electron profile, real Host storage and loopback
+  model fixture; no credentials or paid provider requests.
+- **Steps**: Open assistant Markdown links to ordinary-session scratch HTML,
+  primary project HTML, secondary project-folder HTML, project scratch HTML
+  and an isolated session's worktree HTML. Repeat with a `file:` URL containing
+  Unicode/spaces. Interact with each rendered page using native pointer input.
+  Try a missing file, an outside file and a positioned HTML
+  source reference. Send a prompt that invokes BrowserPreview through the real
+  sidecar in ordinary, project and isolated conversations. Disable Browser and click
+  again. Switch conversations between cases.
+- **Expected**: Valid pages render and execute in the side browser at their
+  canonical path. Missing/restricted files report errors without guest loads.
+  A line reference opens source, not execution. Disabled Browser remains
+  disabled and reports an error. BrowserPreview uses its originating session's
+  roots and delivers a valid resource tab. No visible-project fallback.
+- **Automation**: `node scripts/e2e-chat-html-artifacts.mjs`, after building
+  Host, runtime and Electron. Captures and synthetic profiles are retained in
+  `PI_TEST_OUTPUT` (or the OS temporary directory).
+- **Status**: Electron user-path covered on Windows; other OSes pending.
+
 #### E2E-BROWSER-capture-resize: Capture preserves live placement and restores the latest viewport
 
 - **Preconditions**: Isolated Electron profile and a local responsive page
