@@ -4661,11 +4661,12 @@ window; opening a normal panel afterward must still work.
 - **Preconditions**: Isolated Electron profile, real Host storage and loopback
   model fixture; no credentials or paid provider requests.
 - **Steps**: Open assistant Markdown links to ordinary-session scratch HTML,
-  primary project HTML, secondary project-folder HTML and project scratch HTML.
-  Repeat with a `file:` URL containing Unicode/spaces. Interact with the
-  rendered page. Try a missing file, an outside file and a positioned HTML
+  primary project HTML, secondary project-folder HTML, project scratch HTML
+  and an isolated session's worktree HTML. Repeat with a `file:` URL containing
+  Unicode/spaces. Interact with each rendered page using native pointer input.
+  Try a missing file, an outside file and a positioned HTML
   source reference. Send a prompt that invokes BrowserPreview through the real
-  sidecar in an ordinary and a project conversation. Disable Browser and click
+  sidecar in ordinary, project and isolated conversations. Disable Browser and click
   again. Switch conversations between cases.
 - **Expected**: Valid pages render and execute in the side browser at their
   canonical path. Missing/restricted files report errors without guest loads.

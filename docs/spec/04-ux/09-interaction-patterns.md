@@ -1352,7 +1352,7 @@ Project drag/drop follows these patterns:
   available), a session-scratch or attachment file in the host `file:` tab, and
   an unpositioned `.html`/`.htm` page from any project folder or the current
   session's scratch directory in the side browser. HTML navigation uses the
-  resolved absolute path; the browser validates the owning session's roots.
+  resolved absolute path after file-reference resolution checks its roots.
   No project is required to open a scratch artifact. Missing workspace state
   is normalized consistently across asynchronous session-change guards.
   Local `file:` Markdown URLs are converted to file references before

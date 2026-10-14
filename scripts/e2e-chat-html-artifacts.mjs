@@ -4,10 +4,11 @@
 import assert from "node:assert/strict";
 import { mkdir, mkdtemp, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
-import { join } from "node:path";
+import { basename, join } from "node:path";
 import { pathToFileURL } from "node:url";
 import { randomUUID } from "node:crypto";
 import { createRequire } from "node:module";
+import { execFileSync } from "node:child_process";
 import { Host, resolveHostBinary } from "./e2e/host.mjs";
 import { repositoryRoot, resolveElectronBinary } from "./e2e/boot.mjs";
 import { startHtmlPreviewModel } from "./e2e/html-preview-model.mjs";
@@ -38,12 +39,23 @@ try {
   await host.call("project.group.create", { name: "HTML project", folders: [primary, secondary] });
   await host.call("workspace.set", { path: primary });
   const project = (await host.call("session.create", { title: "HTML project conversation", projectPath: primary })).session;
+  // A real isolated session must preview its worktree, not the parent checkout.
+  const git = (...args) => execFileSync("git", args, { cwd: primary, stdio: "pipe" });
+  git("init", "-q");
+  git("-c", "user.name=HTML fixture", "-c", "user.email=html@example.invalid",
+    "commit", "--allow-empty", "-qm", "Initialize HTML fixture");
+  const isolated = (await host.call("session.create", {
+    title: "HTML isolated conversation", projectPath: primary, isolated: true,
+  }, 120_000)).session;
+  const worktree = (await host.call("worktree.location", { sessionId: isolated.id })).path;
+  assert.ok(worktree && worktree !== primary, "isolated session has its own checkout");
   for (const [session, dir, label, spelling] of [
     [plain, join(data, "scratch", plain.id), "Ordinary scratch", "relative"],
     [project, primary, "Project primary", "relative"],
     [project, secondary, "Project secondary", "absolute"],
     [project, join(data, "scratch", project.id), "Project scratch", "absolute"],
     [plain, join(data, "scratch", plain.id), "File URL Unicode", "url"],
+    [isolated, worktree, "Isolated worktree", "relative"],
   ]) {
     await mkdir(dir, { recursive: true });
     const name = spelling === "url" ? "鹈鹕 animation.html" : label.replaceAll(" ", "-") + ".html";
@@ -79,6 +91,12 @@ try {
         id: randomUUID(), role, content: text, status: "complete", createdAt: new Date().toISOString(),
       } });
     }
+  }
+  for (const [role, content] of [["user", "Inspect isolated HTML source"],
+    ["assistant", "Source: Isolated-worktree.html:1"]]) {
+    await host.call("session.appendMessage", { sessionId: isolated.id, message: {
+      id: randomUUID(), role, content, status: "complete", createdAt: new Date().toISOString(),
+    } });
   }
 } finally { await host.stop(); }
 
@@ -124,11 +142,21 @@ try {
       if (!BrowserWindow.getAllWindows().some(window => visibleGuest(window.contentView.children))) {
         throw new Error("The loaded guest is not attached to a visible native surface");
       }
-      // WebContentsView is a native child outside Playwright's DOM. The guest
-      // interaction is executed in that same real page after its visible
-      // attachment is verified above; the screenshot below proves the rendered
-      // page, rather than a mocked link, is the surface under test.
-      return wc.executeJavaScript("document.querySelector('button').click();document.querySelector('#result').textContent");
+      // WebContentsView is outside the renderer DOM: send native pointer
+      // input to the rendered guest instead of invoking a DOM click handler.
+      const point = await wc.executeJavaScript("(() => { const r = document.querySelector('button').getBoundingClientRect(); return { x: Math.round(r.x + r.width / 2), y: Math.round(r.y + r.height / 2) }; })()");
+      wc.focus();
+      wc.sendInputEvent({ type: "mouseMove", ...point });
+      wc.sendInputEvent({ type: "mouseDown", ...point, button: "left", clickCount: 1 });
+      wc.sendInputEvent({ type: "mouseUp", ...point, button: "left", clickCount: 1 });
+      const until = Date.now() + 5_000;
+      let text;
+      do {
+        text = await wc.executeJavaScript("document.querySelector('#result').textContent");
+        if (text === "Animation opened") return text;
+        await new Promise(resolve => setTimeout(resolve, 50));
+      } while (Date.now() < until);
+      return text;
     }, guest), "Animation opened");
     const png = await app.evaluate(async ({ webContents }, id) =>
       (await webContents.fromId(id).capturePage()).toPNG().toString("base64"), guest);
@@ -145,30 +173,59 @@ try {
   assert.equal(await app.evaluate(({ webContents }, url) =>
     webContents.getAllWebContents().some(wc => wc.getURL() === url), pathToFileURL(outside).href), false);
   results.push("outside HTML is rejected without guest navigation");
+  for (const dismiss of await page.locator(".toast-dismiss").all()) await dismiss.click();
+  await page.locator(".toast").first().waitFor({ state: "hidden" });
   await page.getByText("Ordinary-scratch.html:1", { exact: true }).click();
   await page.locator(".file-viewer").waitFor();
   results.push("positioned HTML opens source, not execution");
+  await page.evaluate(id => window.__PI_DESKTOP__.selectSession(id), cases[5].sessionId);
+  await page.getByText("Isolated-worktree.html:1", { exact: true }).click();
+  await page.locator(".file-viewer").waitFor();
+  await page.locator(".file-viewer").getByText(/Pelican bicycle animation/).waitFor();
+  results.push("isolated HTML source reads the session worktree");
   // Exercise BrowserPreview through a user send, ToolSearch, sidecar and main.
   // The only fake is the loopback provider, which requests a deterministic tool.
-  for (const item of [cases[0], cases[2]]) {
+  for (const item of [cases[0], cases[2], cases[5]]) {
     await page.evaluate(id => window.__PI_DESKTOP__.selectSession(id), item.sessionId);
-    model.preview(item.file);
+    model.preview(item === cases[2] ? item.file : basename(item.file));
     const composer = page.locator('.composer-input[contenteditable="true"]');
     await composer.fill("Open the generated HTML with BrowserPreview.");
     await composer.press("Enter");
     await page.getByText("HTML preview tool completed.", { exact: true })
       .filter({ visible: true }).waitFor({ timeout: 45_000 });
-    assert.equal(await app.evaluate(({ webContents, BrowserWindow }, url) => {
-      const guest = webContents.getAllWebContents().find(item => item.getURL() === url);
-      const visible = views => views.some(view => view.getVisible() &&
-        (view.webContents?.id === guest?.id || visible(view.children)));
-      return Boolean(guest && BrowserWindow.getAllWindows().some(window => visible(window.contentView.children)));
-    }, pathToFileURL(item.file).href), true, "BrowserPreview opens its HTML in the visible native panel");
+    // BrowserPreview creates a new resource tab even if an older, hidden tab
+    // already holds the same URL. Wait for that new native page to appear.
+    const deadline = Date.now() + 15_000;
+    let visible = false;
+    do {
+      visible = await app.evaluate(({ webContents, BrowserWindow }, url) => {
+        const ids = new Set(webContents.getAllWebContents()
+          .filter(item => item.getURL() === url).map(item => item.id));
+        const attached = views => views.some(view => view.getVisible() &&
+          (ids.has(view.webContents?.id) || attached(view.children)));
+        return BrowserWindow.getAllWindows().some(window => attached(window.contentView.children));
+      }, pathToFileURL(item.file).href);
+      if (visible) break;
+      await new Promise(resolve => setTimeout(resolve, 100));
+    } while (Date.now() < deadline);
+    assert.equal(visible, true, "BrowserPreview opens its HTML in the visible native panel");
     assert.deepEqual(model.failures, []);
     results.push("BrowserPreview through actual send: " + item.label);
   }
   await page.screenshot({ path: join(output, "browser-preview-visible.png") });
-  results.push("full Electron window captured with BrowserPreview visible");
+  results.push("renderer shell captured; native HTML guests captured separately");
+  if (process.platform === "win32") {
+    const native = await app.evaluate(async ({ desktopCapturer }) => {
+      const sources = await desktopCapturer.getSources({
+        types: ["window"], thumbnailSize: { width: 1600, height: 1200 },
+      });
+      const source = sources.find(item => item.name === "PI HTML Link Regression QA");
+      if (!source || source.thumbnail.isEmpty()) throw new Error("Test-window native capture unavailable");
+      return source.thumbnail.toPNG().toString("base64");
+    });
+    await writeFile(join(output, "native-window.png"), Buffer.from(native, "base64"));
+    results.push("native Windows window captured with browser guest");
+  }
   await page.evaluate(id => window.__PI_DESKTOP__.selectSession(id), cases[0].sessionId);
   await page.evaluate(async () => {
     const result = await window.piDesktop.invoke("pi-desktop/plugin/disable", "pi.browser");
