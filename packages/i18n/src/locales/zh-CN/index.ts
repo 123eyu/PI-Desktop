@@ -39,7 +39,7 @@ export const zhCN = {
       conflict: "这些文件与项目冲突，请在会话中解决：{{files}}",
     },
     setupCommand: {
-      menu: "Worktree 初始化命令…",
+      menu: "初始化命令…",
       title: "Worktree 初始化命令",
       description: "在本项目每个新的隔离 worktree 中运行，例如安装依赖。失败会提示，但不影响会话使用。",
       label: "命令",

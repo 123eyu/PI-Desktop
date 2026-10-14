@@ -39,7 +39,7 @@ export const ptBR = {
       conflict: "Estes arquivos conflitam com o projeto. Resolva-os na sessão: {{files}}",
     },
     setupCommand: {
-      menu: "Comando de preparação do worktree…",
+      menu: "Comando de setup…",
       title: "Comando de preparação do worktree",
       description: "Executa em cada novo worktree isolado deste projeto, por exemplo para instalar dependências. Uma falha é exibida, mas não interrompe a sessão.",
       label: "Comando",

@@ -39,7 +39,7 @@ export const zhTW = {
       conflict: "這些檔案與專案衝突，請在工作階段中解決：{{files}}",
     },
     setupCommand: {
-      menu: "Worktree 初始化指令…",
+      menu: "初始化指令…",
       title: "Worktree 初始化指令",
       description: "在本專案每個新的隔離 worktree 中執行，例如安裝相依套件。失敗會提示，但不影響工作階段使用。",
       label: "指令",

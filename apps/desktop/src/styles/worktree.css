@@ -6,6 +6,15 @@
   margin-inline-end: 4px;
 }
 
+/* Keep long localized project-menu labels aligned without widening the menu. */
+.worktree-menu-label {
+  min-width: 0;
+  flex: 1 1 auto;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
 .worktree-dialog-body {
   display: flex;
   flex-direction: column;
