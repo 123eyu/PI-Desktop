@@ -240,7 +240,7 @@ import {
   openCodeEndpointFromProvider,
   withOpenCodeSessionHeaders,
 } from "./opencode-session-headers.js";
-import { withSessionAffinityPayload } from "./session-affinity.js";
+import { withSessionAffinityOptions } from "./session-affinity.js";
 import { withCompactionRequestHeaders } from "./compaction-request.js";
 import type { CompactionRequestShape } from "./compaction-diagnostics.js";
 import {
@@ -2182,7 +2182,7 @@ Do not invent objections or turn speculative risks into blockers. Stop when the 
           ),
           m.api,
         );
-        const hookedOptions = withSessionAffinityPayload(
+        const hookedOptions = withSessionAffinityOptions(
           this.withExtensionProviderHooks(requestOptions, m),
           {
             provider: this.provider,
