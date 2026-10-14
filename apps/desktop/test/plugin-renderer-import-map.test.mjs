@@ -3,6 +3,8 @@ import { readFileSync } from "node:fs";
 import { register } from "node:module";
 import test from "node:test";
 import * as React from "react";
+import * as ReactJsxRuntime from "react/jsx-runtime";
+import { renderToStaticMarkup } from "react-dom/server";
 import * as ReactDom from "react-dom";
 import * as ReactDomClient from "react-dom/client";
 register(new URL("./helpers/ts-import-hooks.mjs", import.meta.url));
@@ -51,16 +53,16 @@ async function evaluate(blobs, url) {
   return import(`data:text/javascript,${encodeURIComponent(source)}`);
 }
 
-test("react, react-dom and react-dom/client resolve to the host's own modules", async (t) => {
+test("React and automatic JSX resolve to the host's own modules", async (t) => {
   const { scripts, blobs } = fakeDocument(t);
   installRendererImportMap();
 
   assert.equal(scripts.length, 1);
   assert.equal(scripts[0].type, "importmap");
   const { imports } = JSON.parse(scripts[0].textContent);
-  assert.deepEqual(Object.keys(imports), ["react", "react-dom", "react-dom/client"]);
+  assert.deepEqual(Object.keys(imports), ["react", "react/jsx-runtime", "react-dom", "react-dom/client"]);
 
-  const expected = { react: React, "react-dom": ReactDom, "react-dom/client": ReactDomClient };
+  const expected = { react: React, "react/jsx-runtime": ReactJsxRuntime, "react-dom": ReactDom, "react-dom/client": ReactDomClient };
   for (const [specifier, host] of Object.entries(expected)) {
     const shim = await evaluate(blobs, imports[specifier]);
     // Node's CommonJS interop adds a `module.exports` key, which no import
@@ -85,4 +87,20 @@ test("the page lets the shims and plugin modules load", () => {
   const scriptSrc = html.match(/script-src([^;]*);/)?.[1] ?? "";
   assert.match(scriptSrc, /\bblob:/);
   assert.match(scriptSrc, /\bplugin-renderer:/);
+});
+
+test("automatic JSX plugin components render with the host hooks and context", async (t) => {
+  const { scripts, blobs } = fakeDocument(t);
+  installRendererImportMap();
+  const { imports } = JSON.parse(scripts[0].textContent);
+  assert.ok(imports["react/jsx-runtime"], "automatic JSX entry must resolve before plugin activation");
+  const runtime = await evaluate(blobs, imports["react/jsx-runtime"]);
+  const hostReact = await evaluate(blobs, imports.react);
+  const Context = hostReact.createContext("missing");
+  function PluginChart() {
+    const title = hostReact.useContext(Context);
+    return runtime.jsx("figure", { children: title });
+  }
+  const html = renderToStaticMarkup(runtime.jsx(Context.Provider, { value: "Revenue chart", children: runtime.jsx(PluginChart, {}) }));
+  assert.equal(html, "<figure>Revenue chart</figure>");
 });
