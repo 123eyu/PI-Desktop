@@ -396,6 +396,12 @@ project changes are not copied; git-ignored files listed in
   and is never used as a tool root, merged, or synced, and deleting the
   session removes only the link, never its target.
 
+The host's workspace diff collector applies the same Git hardening to every
+repository it inspects, including non-isolated workspaces. Each host-started
+Git command disables repository-configured hooks and `core.fsmonitor`, and
+removes environment variables that can redirect Git to another repository or
+inject command-scope configuration.
+
 Merging into the project is an explicit user action (preview, then merge with
 the preview token); it syncs the project branch into the worktree and only
 fast-forwards the project, so conflicts stay in the worktree. Deleting an
