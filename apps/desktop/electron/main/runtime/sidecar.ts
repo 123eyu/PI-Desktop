@@ -579,27 +579,25 @@ export function createSidecarRuntime({
         content: "BrowserPreview: `path` is required.",
       };
     }
-    let root: string | null = null;
+    let roots: readonly string[];
     try {
-      root = await sessionFileRoot(sessionId);
-    } catch {
-      root = null;
-    }
-    if (!root) {
+      roots = await browserHost.getFileRoots(sessionId);
+    } catch (error) {
       return {
         ok: false,
         isError: true,
-        content: "BrowserPreview: no workspace is open.",
+        content: `BrowserPreview: ${error instanceof Error ? error.message : String(error)}`,
       };
     }
-    if (!resolveLocalFile(raw, root)) {
+    const file = roots.map((root) => resolveLocalFile(raw, root)).find((path) => path !== null);
+    if (!file) {
       return {
         ok: false,
         isError: true,
-        content: `BrowserPreview: "${raw}" does not resolve to an existing file inside the workspace.`,
+        content: `BrowserPreview: "${raw}" does not resolve to an existing file inside this session's project or scratch directory.`,
       };
     }
-    const preview = await browserHost.previewWorkspaceFile(sessionId, raw, root);
+    const preview = await browserHost.previewFile();
     if (!preview.ok) {
       return {
         ok: false,
@@ -609,7 +607,7 @@ export function createSidecarRuntime({
     }
     sendToRenderer(IPC.event.browserPreview, {
       sessionId,
-      path: raw,
+      path: file,
     });
     return {
       ok: true,
