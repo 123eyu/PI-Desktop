@@ -39,7 +39,7 @@ export const tr = {
       conflict: "Bu dosyalar projeyle çakışıyor. Bunları oturumda çözün: {{files}}",
     },
     setupCommand: {
-      menu: "Worktree hazırlık komutu…",
+      menu: "Hazırlık komutu…",
       title: "Worktree hazırlık komutu",
       description: "Bu projenin her yeni yalıtılmış worktree'sinde çalışır, örneğin bağımlılıkları kurmak için. Hata gösterilir ancak oturumu durdurmaz.",
       label: "Komut",

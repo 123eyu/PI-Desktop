@@ -37,7 +37,7 @@ export const en = {
       conflict: "These files conflict with the project. Resolve them in the session: {{files}}",
     },
     setupCommand: {
-      menu: "Worktree setup command…",
+      menu: "Setup command…",
       title: "Worktree setup command",
       description: "Runs in every new isolated worktree of this project, for example to install dependencies. A failure is shown but does not stop the session.",
       label: "Command",

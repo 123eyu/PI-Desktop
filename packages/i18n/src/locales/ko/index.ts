@@ -39,7 +39,7 @@ export const ko = {
       conflict: "이 파일들이 프로젝트와 충돌합니다. 세션에서 해결하세요: {{files}}",
     },
     setupCommand: {
-      menu: "Worktree 설정 명령…",
+      menu: "초기화 명령…",
       title: "Worktree 설정 명령",
       description: "이 프로젝트의 새 격리 worktree마다 실행됩니다(예: 의존성 설치). 실패해도 알림만 표시되고 세션은 계속 사용할 수 있습니다.",
       label: "명령",

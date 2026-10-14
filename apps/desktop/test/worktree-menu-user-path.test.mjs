@@ -95,6 +95,12 @@ window.menuProbe = async () => {
   check(item().disabled, "switching project re-probes");
   await answer();
   check(!item().disabled && !reason(), "a git project must enable the item");
+  const setupCommandItem = document.querySelector('[data-action="worktree-setup-command"]');
+  check(
+    setupCommandItem?.querySelector(".worktree-menu-label")?.textContent === i18n.t("worktree.setupCommand.menu"),
+    "setup command label must use the shrinkable text container",
+  );
+  check(setupCommandItem?.getAttribute("title") === i18n.t("worktree.setupCommand.menu"), "full label must remain available on hover");
   item().click();
   await answer();
   await settle();
