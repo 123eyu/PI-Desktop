@@ -662,6 +662,16 @@ export const de = {
     "renameSave": "Speichern",
     "renameSaving": "Speichern…"
   },
+  backgroundTasks: {
+    running: "Läuft",
+    exited: "Beendet",
+    failed: "Fehlgeschlagen",
+    stopped: "Gestoppt",
+    title: "Hintergrundbefehle",
+    output: "Ausgabe",
+    stop: "Stoppen",
+    stopping: "Stoppe…",
+  },
   planHistory: {
     pending: "Genehmigung ausstehend",
     approved: "Genehmigt",
