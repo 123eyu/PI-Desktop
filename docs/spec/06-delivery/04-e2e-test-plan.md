@@ -9666,13 +9666,16 @@ must keep splitting are covered by `markdown-blocks.test.mjs`.
   model discovery, explicitly select Step 5 Preview, then save.
 - **Expected**: The chooser and connection summary both visibly include
   `api.stepfun.com/step_plan/v1`. Discovery receives `https://api.stepfun.com/step_plan/v1`,
-  `anthropic_messages` and the entered key. Save retains that URL and format,
+  `anthropic_messages`, and the entered key sent as `Authorization: Bearer` rather
+  than the Anthropic `x-api-key`. Save retains that URL and format,
   the catalog vendor `stepfun-step-plan`, and the selected model. The ordinary
   StepFun `/v1` endpoint is not substituted for the subscription endpoint.
 - **Automation**: `pnpm test:e2e:provider-api-style` uses real settings components
   with only the API boundary stubbed. `provider-presets.test.ts` checks the
   preset contract and ordinary-endpoint separation; `service-catalog.test.mjs`
-  checks discoverability by localized label, name, vendor key, and URL.
+  checks discoverability by localized label, name, vendor key, and URL;
+  `provider-stepfun-plan-discovery.test.mjs` drives the real provider handlers
+  and pins the Bearer model list for both discovery and the connection test.
 - **Scope**: Save/discovery payloads are covered; host persistence, live model
   calls, and visual layout are not asserted by this fixture.
 - **Specs linked**: `03-runtime/12-provider-config-schema.md`, `guide/stepfun.md`.
