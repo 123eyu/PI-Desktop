@@ -1851,9 +1851,16 @@ Command sources:
 
 Work panel channels are Electron-main implementations. User-driven workspace
 operations resolve the visible root from `workspace.get` and fail closed
-without one. Agent-driven BrowserPreview routing resolves the originating
-conversation through `session.get`, so a background preview never inherits the
-visible session's workspace.
+without one. Agent-driven BrowserPreview resolves the owning conversation
+through `session.get`, allowing its project-group folders (or its isolated
+worktree) and its own `<data_dir>/scratch/<sessionId>` directory. A temporary
+conversation needs no workspace to preview its generated HTML. A missing
+session fails explicitly; a background preview never inherits the visible
+session's roots. BrowserPreview validates realpath containment before emitting
+the absolute path to the existing resource-tab owner. Chat links to other
+sessions' scratch files and attachments retain the read-only file surface.
+This does not restrict the Browser's explicit absolute-path / `file:` address
+entry or local-page navigation, which follow its existing local-file policy.
 
 ### workspace
 
@@ -1913,9 +1920,13 @@ Renderer IPC kept for the Plan-safe preview facade and URL fallback:
   `.mp4` symlink inside its private app-data directory before the OS handoff,
   so the extensionless blob has a media association without copying its bytes.
 - `fs/resolveRef({ref, sessionId?})` → `FsChatRefResolveResult`
+  (for isolated sessions, lookup and file reads use `worktree.location` rather
+  than the parent project checkout)
   (`{ match: FsChatRefMatch | null, reason?: "outside-allowed-roots" }`, the match naming the answering `root`
   (`workspace` / `scratch` / `attachments`), the `relativePath` relative to that
-  root, the absolute `absolutePath`, `matchedBy` (`exact-relative` /
+  root, optional `sessionScratch: true` for the current session's own scratch
+  (not the wider read-only scratch containment store), the absolute
+  `absolutePath`, `matchedBy` (`exact-relative` /
   `exact-absolute` / `path-suffix` / `basename`), and — for a `workspace` match
   — `projectRoot` (`{ path, name, primary }`), which names the project folder
   that answered); `sessionId` selects the

@@ -115,13 +115,14 @@ export function WorktreeProjectMenuItems({
         type="button"
         role="menuitem"
         data-action="worktree-setup-command"
+        title={t("worktree.setupCommand.menu")}
         onClick={() => {
           onDone();
           open({ kind: "setupCommand", projectPath, projectName });
         }}
       >
         <IconWrench size={14} />
-        {t("worktree.setupCommand.menu")}
+        <span className="worktree-menu-label">{t("worktree.setupCommand.menu")}</span>
       </button>
     </>
   );

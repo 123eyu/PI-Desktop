@@ -240,6 +240,7 @@ import {
   openCodeEndpointFromProvider,
   withOpenCodeSessionHeaders,
 } from "./opencode-session-headers.js";
+import { withSessionAffinityOptions } from "./session-affinity.js";
 import { withCompactionRequestHeaders } from "./compaction-request.js";
 import type { CompactionRequestShape } from "./compaction-diagnostics.js";
 import {
@@ -2181,7 +2182,15 @@ Do not invent objections or turn speculative risks into blockers. Stop when the 
           ),
           m.api,
         );
-        const hookedOptions = this.withExtensionProviderHooks(requestOptions, m);
+        const hookedOptions = withSessionAffinityOptions(
+          this.withExtensionProviderHooks(requestOptions, m),
+          {
+            provider: this.provider,
+            api: m.api,
+            baseUrl: m.baseUrl,
+            sessionId: this.sessionId,
+          },
+        );
         // The watchdog must be able to *stop* what it abandons. It wraps the
         // retry adapter, so draining alone would let the adapter wake from its
         // backoff and open a second request for this turn while the runtime is
@@ -3043,7 +3052,9 @@ Do not invent objections or turn speculative risks into blockers. Stop when the 
       if (m.parentToolCallId) continue;
       const timestamp = Date.parse(m.createdAt) || Date.now();
       if (m.role === "system" && m.modelSystem) {
-        toolCarrier = undefined;
+        // An update recorded while a tool ran sits between the call and its
+        // result. It keeps the carrier: Pi holds the update until the results
+        // are written, which is the shape the live request had.
         append(m.id, this.systemJournal.restore(m));
       } else if (m.role === "user") {
         toolCarrier = undefined;
@@ -3226,7 +3237,7 @@ Do not invent objections or turn speculative risks into blockers. Stop when the 
       if (scheduledToolDescriptions[toolName]) return scheduledToolDescriptions[toolName];
       switch (toolName) {
         case "BrowserPreview":
-          return "Open a workspace HTML file in PI-Desktop's built-in browser panel. `path` is workspace-relative (e.g. \"demo/index.html\"). The preview live-reloads on later edits to the file or its sibling assets, so call once per page.";
+          return "Open an HTML file in PI-Desktop's built-in browser panel. `path` may be relative to a project folder or this session's scratch directory, or an absolute path inside those roots. No project is required for scratch previews. The preview live-reloads on later edits to the file or its sibling assets, so call once per page.";
         case "Read":
           return (
             "Read a bounded window from an existing regular text file, never a directory. " +
@@ -3292,7 +3303,7 @@ Do not invent objections or turn speculative risks into blockers. Stop when the 
         ),
       },
       BrowserPreview: {
-        path: pathParam("File to preview; workspace-relative."),
+        path: pathParam("File to preview inside the session's project folders or scratch directory."),
         file_path: aliasParam("path"),
       },
       Glob: {

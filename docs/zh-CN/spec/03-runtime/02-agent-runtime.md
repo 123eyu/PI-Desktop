@@ -595,7 +595,8 @@ Goal 批准所承诺的内容与 Plan 批准所承诺的内容完全相同：`mo
   而不是折叠成裸露的聊天文本（D127）。中断的刀具行
   恢复为错误结果；辅助行丢失的工具行
   获得合成的仅呼叫辅助运营商，以便 call/result 对保留
-格式良好，适用于每个提供商 API。
+格式良好，适用于每个提供商 API。工具执行期间保存的模型系统记录恢复在该调用与其结果之间，
+  不会结束助手的调用，因此调用仍挂在发出它的助手消息上，与实时请求一致。
 - 每个请求里的工具调用 id 必须唯一。转录是仅追加的快照流，容忍重试造成的重复追加，因此同一次调用可能两次进入组装后的
   上下文——同一个行 id（宿主按 keep-last 读取时已折叠），或者两个不同的行 id（宿主无法折叠）。因此上线前的最后一个视图
   对每个 `toolCall` id 只保留第一次出现，丢弃其后重复的调用或结果，使提供商校验的「一调用一结果」配对保持完整；没有重复的
@@ -942,8 +943,38 @@ agent 运行时的职责，与官方 Pi 编码 agent 的归属层保持一致；
 后端的网关会以 400 `invalid_responses_request` 拒绝这种请求。因此对
 `openai-responses` 与 `openai-codex-responses`，摘要载荷会带上会话 id 作为
 `prompt_cache_key`（按适配器的 64 字符上限截断），除非适配器或调用方已设置过。
-其他线协议的载荷保持适配器构造的原样；该键添加在副本上，因此调用方的载荷钩子仍
-保留自己的对象，其返回值仍然生效。
+其他线协议的载荷保持适配器构造的原样，§6.3 的未识别端点键除外；该键添加在副本
+上，因此调用方的载荷钩子仍保留自己的对象，其返回值仍然生效。
+
+### 6.3 适配器不作标识的端点上的会话身份（issue #1634）
+
+pi-ai 只在厂商自己发布了约定时才自带对话标识：Responses 适配器每个请求都会发送
+`session_id` 与 `x-client-request-id`，而 Chat Completions 与 Anthropic Messages
+适配器只在 `compat.sendSessionAffinityHeaders` 为真时才发送，该默认值仅有
+OpenRouter；Chat Completions 的请求体键更窄，硬编码在 `api.openai.com` 上。因此，
+用户把某一提供商行指向自己的网关或中转时，同一凭据下的所有会话没有可靠的字段可以
+区分：反向代理通常会丢弃名称含下划线的 `session_id`，许多网关也不会把
+`x-client-request-id` 识别为稳定会话键。
+
+对这种 base URL 主机不属于任何已发布厂商主机（`NAMED_ENDPOINT_PRESETS`）的行，
+agent-runtime 自己补上该身份，覆盖 `openai-completions`、`anthropic-messages` 与
+`openai-responses` 三种线协议，但不对已经自带会话标头的 OpenCode 线路（§6.2）生效：
+
+- 在 Completions 与 Anthropic 上，构造出的模型 `compat` 补上
+  `sendSessionAffinityHeaders: true` 与
+  `sessionAffinityFormat: "openai"`，适配器据此写出 `x-session-affinity` 与
+  `x-client-request-id`，并在格式为 `openai` 时一并写出 `session_id`。该默认值
+  展开在行自身 `compat` 之下，因此显式的目录项仍然优先。
+- 自建 Responses 端点保留适配器原有的 `session_id`、`x-client-request-id` 与
+  `prompt_cache_key`；agent-runtime 通过 stream options 再加上稳定的
+  `x-session-affinity`，即使反向代理丢掉下划线标头也能路由会话。
+- Chat Completions 的请求体若不含 `prompt_cache_key`，补上会话 id 作为该键，按
+  适配器的 64 字符上限截断。该键添加在载荷副本上，且排在其它所有载荷钩子之后，
+  因此重写载荷的扩展无法把它丢掉。
+
+该身份覆盖会话回合、子智能体回合、上下文压缩摘要，以及拿到会话 id 的插件一次性
+调用。属于已发布厂商主机的行保持原有出网字节；没有会话 id 的调用方不会得到会话亲和
+标头或请求体键。
 
 
 ## 7. 系统提示组成

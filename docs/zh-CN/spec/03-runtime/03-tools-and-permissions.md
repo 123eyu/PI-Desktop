@@ -327,6 +327,9 @@ type ReviewChange = {
   Windows junction，即视为缺失（`WORKTREE_MISSING`），不会被用作工具根目录、合并或同步；删除会话时
   只删除链接本身，绝不删除其目标。
 
+宿主的工作区差异收集器会对其检查的所有仓库应用相同的 Git 加固措施，包括非隔离工作区。每次由宿主启动
+Git 命令都会禁用仓库配置的 hooks 和 `core.fsmonitor`，并移除可将 Git 重定向到其他仓库或注入命令级配置的环境变量。差异命令也会禁用外部 diff 和文本转换辅助程序。
+
 合并到项目是显式的用户操作（先预览，再携带预览令牌合并）：先把项目分支同步进
 worktree，项目只做快进，因此冲突留在 worktree 中。删除隔离会话即丢弃其 worktree
 和分支。
@@ -362,7 +365,7 @@ tool/protocol 名称，请求中单独携带固定的 shell ID。
 2. Unix：众所周知的位置（`/bin/bash`、`/usr/bin/bash`、`/usr/local/bin/bash`、Homebrew），然后是 PATH
 3. Windows：来自 Git 的 Windows 的 `bash.exe` — 派生自 PATH 上的 `git`，然后是标准安装目录，然后是排除 `System32` 中的 WSL 启动器的 PATH
 
-- Unix 调用 `bash -lc`（登录 shell 为 Finder/Dock 启动保留配置文件路径）； Windows 使用 `CREATE_NO_WINDOW` 调用 `bash -c`
+- Unix 调用 `bash -lc`（登录 shell 为 Finder/Dock 启动保留配置文件路径）；Windows 使用 `CREATE_NO_WINDOW` 调用 `bash -c`。负责拥有命令树的隐藏 host-core runner 还会使用 `CREATE_BREAKAWAY_FROM_JOB` 创建，然后被分配到自己的 kill-on-close Job Object 中。这样，启动器或策略 Job 不会成为 Desktop 进程的终止范围。如果 Windows 拒绝 breakaway，runner 会安全失败而不启动命令；shell 本身仍留在 host 拥有的 job 中，因此超时和中止仍会终止完整的命令树。
 - 在 Unix 上，Bash 工具另外探测用户的登录 shell 以获取其信息
   路径 — `$SHELL`（回退 `/bin/zsh` → `/bin/bash` → `/bin/sh`）
   `-lic 'printf %s "$PATH"'`，5 秒范围内，每个进程缓存 — 并注入它
@@ -374,6 +377,10 @@ tool/protocol 名称，请求中单独携带固定的 shell ID。
 - 安装程序中没有捆绑 bash：Windows 的 Git 是 Windows 的先决条件（无论如何，该应用程序都需要 git）
 - 解决失败返回稳定的 `SHELL_NOT_FOUND` 并提供安装指导
 - Windows PowerShell 和 cmd 使用其本机非交互式调用。
+- PowerShell 输出经过 PowerShell 自身的格式化器，因此对象（表格、列表、哈希表、
+  `Measure-Object` 结果）以控制台显示的形式交给 Agent，而不是类型名。原生命令
+  写入 stderr 的行会转发到 stderr，但本身不会使调用失败：调用报告原生命令的退出码。
+  其他 PowerShell 错误会使调用以退出码 1 失败。
 - PowerShell 7 先解析 `%ProgramFiles%\PowerShell\7`（宿主进程为 32 位时为
   `ProgramW6432`）下的 `pwsh.exe`，再回退到 PATH，覆盖机器级安装、Store、
   用户级与便携安装。它与 Windows PowerShell 5.1 共用同一调用契约，且从不被

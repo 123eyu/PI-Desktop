@@ -396,6 +396,13 @@ project changes are not copied; git-ignored files listed in
   and is never used as a tool root, merged, or synced, and deleting the
   session removes only the link, never its target.
 
+The host's workspace diff collector applies the same Git hardening to every
+repository it inspects, including non-isolated workspaces. Each host-started
+Git command disables repository-configured hooks and `core.fsmonitor`, and
+removes environment variables that can redirect Git to another repository or
+inject command-scope configuration. Diff invocations also disable external diff
+and text-conversion helpers.
+
 Merging into the project is an explicit user action (preview, then merge with
 the preview token); it syncs the project branch into the worktree and only
 fast-forwards the project, so conflicts stay in the worktree. Deleting an
@@ -433,7 +440,7 @@ or executable path hash is accepted as shell identity.
 2. Unix: well-known locations (`/bin/bash`, `/usr/bin/bash`, `/usr/local/bin/bash`, Homebrew), then PATH
 3. Windows: `bash.exe` from Git for Windows — derived from the `git` on PATH, then standard install dirs, then PATH excluding the WSL launcher in `System32`
 
-- Unix invokes `bash -lc` (login shell keeps profile PATH for Finder/Dock launches); Windows invokes `bash -c` with `CREATE_NO_WINDOW`
+- Unix invokes `bash -lc` (login shell keeps profile PATH for Finder/Dock launches); Windows invokes `bash -c` with `CREATE_NO_WINDOW`. The hidden host-core runner that owns the command tree is created with both `CREATE_NO_WINDOW` and `CREATE_BREAKAWAY_FROM_JOB`, then assigned to its own kill-on-close Job Object. This keeps a launcher or policy Job around the Desktop process from becoming the runner's termination scope. If Windows refuses the breakaway, runner creation fails closed; the shell itself stays inside the host-owned job so timeout and abort still terminate the complete command tree.
 - On Unix, the Bash tool additionally probes the user's login shell for its
   PATH — `$SHELL` (fallback `/bin/zsh` → `/bin/bash` → `/bin/sh`) with
   `-lic 'printf %s "$PATH"'`, 5s-bounded, cached per process — and injects it
@@ -447,6 +454,12 @@ or executable path hash is accepted as shell identity.
 - No bash bundled in the installer: Git for Windows is the Windows prerequisite (the app requires git anyway)
 - Resolution failure returns stable `SHELL_NOT_FOUND` with install guidance
 - Windows PowerShell and cmd use their native non-interactive invocation.
+- PowerShell output passes through PowerShell's own formatter, so objects
+  (tables, lists, hashtables, `Measure-Object` results) reach the agent as a
+  console shows them, not as type names. Stderr lines from native commands are
+  forwarded to stderr and do not fail the call by themselves: the call reports
+  the native exit code. Any other PowerShell error fails the call with exit
+  code 1.
 - PowerShell 7 resolves `pwsh.exe` from `%ProgramFiles%\PowerShell\7` (or
   `ProgramW6432` when the host process is 32-bit), then PATH, which covers
   machine-scope, Store, user-scope, and portable installs. The PATH probe

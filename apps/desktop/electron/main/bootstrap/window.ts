@@ -22,6 +22,8 @@ import {
   displayWorkAreaKey,
   emptyWorkPanelReservationState,
   isWorkPanelOuterResizeEdge,
+  maximizedBoundsExceedWorkArea,
+  maximizedBoundsForWorkArea,
   planWorkPanelChatResize,
   planWorkPanelReservation,
   WORK_PANEL_MAX_WIDTH,
@@ -597,7 +599,7 @@ export async function createWindow({
   window.on("enter-full-screen", sendFullScreen);
   window.on("leave-full-screen", () => {
     sendFullScreen();
-    refitWindowToWorkArea();
+    refitWindowToWorkArea(true);
     scheduleWorkPanelReservation();
   });
   window.webContents.on("did-finish-load", sendFullScreen);
@@ -614,9 +616,20 @@ export async function createWindow({
   // area — e.g. a display-scale or accessibility "text size" change inflated a
   // persisted rect past the screen (issue #544). Fit them back inside so the
   // window never lands partly off-screen. macOS keeps its own restore behavior.
-  const refitWindowToWorkArea = () => {
+  // A `leave-full-screen` fires while the window may still report the stale
+  // maximize flag from the pre-fullscreen state (issue #1655). The refit must
+  // still run there, or the window keeps bounds sized for a display it is no
+  // longer on. Callers that legitimately sit on a maximized window (unmaximize,
+  // restore) keep the original bail-out.
+  const refitWindowToWorkArea = (ignoreMaximized = false) => {
     if (!isLiveWindow() || process.platform === "darwin") return;
-    if (window.isMaximized() || isWindowFullScreen(window) || window.isMinimized()) return;
+    if (
+      (window.isMaximized() && !ignoreMaximized) ||
+      isWindowFullScreen(window) ||
+      window.isMinimized()
+    ) {
+      return;
+    }
     const currentBounds = window.getBounds();
     const workArea = screen.getDisplayMatching(currentBounds).workArea;
     const minimum = clampMinimumSizeToWorkArea(
@@ -706,7 +719,11 @@ export async function createWindow({
     // A scale or text-size change shrinks the DIP work area in place; re-cap the
     // minimum so the OS never enforces one the display cannot show (issue #1175).
     // Keep the open work panel's reservation in the minimum; only cap it.
-    if (isLiveWindow() && !window.isFullScreen()) {
+    // `isWindowFullScreen` rather than `isFullScreen`: the borderless Win32
+    // fallback leaves Electron's own flag false while the window really is
+    // fullscreen, and resizing the minimum then fights the fullscreen state
+    // (issue #1655).
+    if (isLiveWindow() && !isWindowFullScreen(window)) {
       const minimum = clampMinimumSizeToWorkArea(
         { width: workPanelMinimumWindowWidth(), height: windowMinHeight },
         screen.getDisplayMatching(window.getBounds()).workArea,
@@ -905,6 +922,35 @@ export async function createWindow({
   window.on("show", () => ensureStableBounds(false));
   window.on("focus", () => ensureStableBounds(false));
   window.on("restore", () => ensureStableBounds(false));
+
+  // Windows restores a frameless maximized window to the full monitor rect
+  // instead of the work area, so the window covers the taskbar and reads as
+  // fullscreen (issue #1655). Re-apply the work-area-based maximized rect.
+  const reconcileRestoredMaximize = () => {
+    if (!isLiveWindow() || process.platform !== "win32") return;
+    if (
+      !window.isMaximized() ||
+      isWindowFullScreen(window) ||
+      window.isMinimized()
+    ) {
+      return;
+    }
+    const bounds = window.getBounds();
+    const workArea = screen.getDisplayMatching(bounds).workArea;
+    if (!maximizedBoundsExceedWorkArea(bounds, workArea)) return;
+    window.setBounds(maximizedBoundsForWorkArea(bounds, workArea));
+  };
+  // The OS finishes the restore after the event dispatch, overwriting a
+  // synchronous correction, so try now and again once the transition settles.
+  let restoredMaximizeTimer: NodeJS.Timeout | null = null;
+  window.on("restore", () => {
+    reconcileRestoredMaximize();
+    if (restoredMaximizeTimer) clearTimeout(restoredMaximizeTimer);
+    restoredMaximizeTimer = setTimeout(() => {
+      restoredMaximizeTimer = null;
+      reconcileRestoredMaximize();
+    }, windowBoundsSettleMs);
+  });
   window.on("resize", observeNativeWorkPanelResize);
   window.on("move", scheduleBoundsCheck);
   window.on("move", noteUserWindowMove);
@@ -1074,6 +1120,10 @@ export async function createWindow({
     if (workPanelSettleExpiryTimer) {
       clearTimeout(workPanelSettleExpiryTimer);
       workPanelSettleExpiryTimer = null;
+    }
+    if (restoredMaximizeTimer) {
+      clearTimeout(restoredMaximizeTimer);
+      restoredMaximizeTimer = null;
     }
     if (boundsWatchdog) clearInterval(boundsWatchdog);
   });

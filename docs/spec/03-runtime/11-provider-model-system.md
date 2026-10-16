@@ -85,6 +85,16 @@ rather than wrapped (issue #1072). Because those adapters never see the wrapper 
 transport cause: `Retry-After` falls back to the bounded backoff ladder, and
 the issue-234 transport diagnostics and rebuild do not fire for it.
 
+Session identity follows the endpoint's owner. On `openai-completions` and
+`anthropic-messages`, a row whose base URL host is not a published vendor host
+receives the session-affinity headers and, on Chat Completions, a
+`prompt_cache_key` body key. A custom `openai-responses` row keeps the
+adapter's existing session headers and cache key, and also receives the
+hyphenated `x-session-affinity` alias so a reverse proxy can route it after
+dropped underscore headers. A published vendor host and the OpenCode path
+keep their current request bytes (issue #1634;
+`03-runtime/02-agent-runtime.md` §6.3).
+
 When an OAuth vendor is rebuilt around a local provider-row id, runtime keeps
 the native pi-ai transport metadata instead of treating the row as a generic
 OpenAI endpoint. GitHub Copilot requests retain the pinned model's IDE identity
@@ -117,7 +127,9 @@ Non-official DeepSeek endpoints also set `requiresNonEmptyReasoningReplay` so
 missing reasoning is filled with a documented placeholder instead of `""`
 (OpenCode / third-party relays reject empty echoes after compaction; see
 ADR 0256 / #296). Official `deepseek.com` rows keep empty-string fill (#223).
-The overlay does not change `thinkingFormat`.
+Both official and relay rows set `supportsReasoningEffort: false`; DeepSeek
+does not accept the generic OpenAI `reasoning_effort` request field even when
+thinking is enabled. The overlay does not change `thinkingFormat`.
 
 Anthropic Messages requests set `forceAdaptiveThinking: true` when the
 models.dev record publishes a reasoning `effort` option and no
