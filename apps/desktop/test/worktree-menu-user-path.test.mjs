@@ -20,7 +20,7 @@ import i18n from "i18next";
 import { initReactI18next } from "react-i18next";
 import { catalogs, flattenCatalog } from "@pi-desktop/i18n";
 import { IPC } from "@pi-desktop/shared";
-import { WorktreeBadge, WorktreeProjectMenuItems, WorktreeSessionMenuItems } from "../../apps/desktop/src/features/worktree/WorktreeSidebarParts";
+import { WorktreeBadge, useWorktreeProjectMenuItems, useWorktreeSessionMenuItems } from "../../apps/desktop/src/features/worktree/WorktreeSidebarParts";
 import { WorktreeBehindWatcher } from "../../apps/desktop/src/features/worktree/WorktreeBehind";
 import { WorktreeMergeDialog } from "../../apps/desktop/src/features/worktree/WorktreeMergeDialog";
 import { useAppStore } from "../../apps/desktop/src/stores/app-store";
@@ -70,12 +70,48 @@ async function settle() { await frame(); await frame(); }
 function check(condition, message) { if (!condition) throw new Error(message); }
 const item = () => document.querySelector('[data-action="new-isolated-session"]');
 const reason = () => document.querySelector("[data-worktree-unavailable]");
+/*
+  The sidebar's rows are menu data now, so these fixtures render the item list
+  the way the sidebar menu panel does: one button per row, the availability
+  reason attached to the disabled row it explains.
+*/
+const ProjectItems = ({ projectPath, projectName, onDone }) => {
+  const items = useWorktreeProjectMenuItems({ projectPath, projectName, onDone });
+  return React.createElement(React.Fragment, null, items.map((entry) =>
+    React.createElement(React.Fragment, { key: entry.id },
+      React.createElement("button", { type: "button", role: "menuitem",
+        "data-action": entry.id, disabled: entry.disabled,
+        "aria-busy": entry.busy || undefined,
+        "aria-describedby": entry.describedBy, title: entry.title,
+        onClick: entry.onSelect },
+        entry.icon,
+        React.createElement("span", { className: "sidebar-menu-label" }, entry.label)),
+      entry.disabled && entry.describedBy
+        ? React.createElement("p", { id: entry.describedBy, "data-worktree-unavailable": "" }, entry.title)
+        : null)));
+};
+const SessionItems = ({ sessionId, title, running, worktree, onDone }) => {
+  const items = useWorktreeSessionMenuItems({ sessionId, title, running, worktree, onDone });
+  return React.createElement(React.Fragment, null, items.map((entry) =>
+    React.createElement("button", { key: entry.id, type: "button", role: "menuitem",
+      "data-action": entry.id, disabled: entry.disabled,
+      "aria-busy": entry.busy || undefined, title: entry.title,
+      onClick: entry.onSelect },
+      entry.icon,
+      React.createElement("span", { className: "sidebar-menu-label" }, entry.label))));
+};
 const rootNode = createRoot(document.getElementById("root"));
 function show(projectPath) {
-  flushSync(() => rootNode.render(React.createElement(WorktreeProjectMenuItems,
+  flushSync(() => rootNode.render(React.createElement(ProjectItems,
     { projectPath, projectName: "P", onDone() {} })));
 }
-async function answer() { while (pending.length) pending.shift()(); await settle(); }
+async function answer() {
+  while (pending.length) pending.shift()();
+  await settle();
+  // The row's own action probes again; drain whatever that queued.
+  while (pending.length) pending.shift()();
+  await settle();
+}
 window.menuProbe = async () => {
   show("/plain");
   check(item().disabled, "item must be disabled while the probe runs");
@@ -97,7 +133,7 @@ window.menuProbe = async () => {
   check(!item().disabled && !reason(), "a git project must enable the item");
   const setupCommandItem = document.querySelector('[data-action="worktree-setup-command"]');
   check(
-    setupCommandItem?.querySelector(".worktree-menu-label")?.textContent === i18n.t("worktree.setupCommand.menu"),
+    setupCommandItem?.querySelector(".sidebar-menu-label")?.textContent === i18n.t("worktree.setupCommand.menu"),
     "setup command label must use the shrinkable text container",
   );
   check(setupCommandItem?.getAttribute("title") === i18n.t("worktree.setupCommand.menu"), "full label must remain available on hover");
@@ -142,7 +178,7 @@ window.menuProbe = async () => {
   // "Sync from project" shows how far behind the session is and syncs it.
   const menuRoot = createRoot(document.getElementById("root"));
   const sessionMenu = (sessionId) => flushSync(() => menuRoot.render(React.createElement(React.StrictMode, null,
-    React.createElement(WorktreeSessionMenuItems, { sessionId, title: "Task", running: false, onDone() {},
+    React.createElement(SessionItems, { sessionId, title: "Task", running: false, onDone() {},
       worktree: { branch: "pi-desktop/" + sessionId, status: "active", setupStatus: "none" } }))));
   const syncItem = () => document.querySelector('[data-action="worktree-sync"]');
   sessionMenu("current");

@@ -304,14 +304,14 @@ test("a referenced conversation never reaches the file-attachment resolver", asy
 
 test("the conversation overflow menu copies the link for every reader", () => {
   const sidebar = read("../src/components/Sidebar.tsx");
-  assert.match(sidebar, /data-action="copy-session-link"/);
+  assert.match(sidebar, /id: "copy-session-link"/);
   assert.match(sidebar, /t\("nav\.copySessionLink"\)/);
   assert.match(sidebar, /navigator\.clipboard\.writeText\(formatSessionLink\(session\.id\)\)/);
   assert.doesNotMatch(sidebar, /pi-desktop:\/\/session\//, "the scheme stays in shared");
 
-  const link = sidebar.indexOf('data-action="copy-session-link"');
-  const fork = sidebar.indexOf('data-action="fork-session"');
-  const developer = sidebar.indexOf('data-action="copy-conversation-id"');
+  const link = sidebar.indexOf('id: "copy-session-link"');
+  const fork = sidebar.indexOf('id: "fork-session"');
+  const developer = sidebar.indexOf('id: "copy-conversation-id"');
   assert.ok(
     link > 0 && link > fork && link < developer,
     "an ordinary reader sees it; the developer-only actions stay behind their gate",

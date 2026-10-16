@@ -2,6 +2,7 @@ import { en, type EnglishCatalog } from "../en/index.js";
 
 export const ptBR = {
   worktree: {
+    menu: { group: "Git" },
     newIsolatedSession: "Nova sessão isolada",
     uncommittedNotIncluded: "Alterações não confirmadas do projeto não são incluídas na sessão isolada.",
     reveal: "Mostrar pasta do worktree",
@@ -277,7 +278,10 @@ export const ptBR = {
     hoverCardSpace: "Espaço de trabalho",
     hoverCardUpdatedAt: "Atualizado {{when}}",
     hoverCardTemporarySpace: "Temporário",
-    hoverCardBranchAria: "Ramificação {{name}}"
+    hoverCardBranchAria: "Ramificação {{name}}",
+    dangerZone: "Zona de risco",
+    batchSelectionHint: "{{count}} sessões selecionadas",
+    viewOptions: "Visualização",
   },
   sessionCollaboration: {
     statusIdle: "Ocioso",

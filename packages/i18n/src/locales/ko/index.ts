@@ -2,6 +2,7 @@ import { en, type EnglishCatalog } from "../en/index.js";
 
 export const ko = {
   worktree: {
+    menu: { group: "Git" },
     newIsolatedSession: "새 격리 세션",
     uncommittedNotIncluded: "프로젝트의 커밋되지 않은 변경 사항은 격리 세션에 포함되지 않습니다.",
     reveal: "worktree 폴더 보기",
@@ -288,6 +289,9 @@ export const ko = {
     hoverCardUpdatedAt: "{{when}} 업데이트됨",
     hoverCardTemporarySpace: "임시",
     hoverCardBranchAria: "브랜치 {{name}}",
+    dangerZone: "위험 구역",
+    batchSelectionHint: "{{count}}개 세션 선택됨",
+    viewOptions: "보기",
   },
   sessionCollaboration: {
     statusIdle: "대기",
