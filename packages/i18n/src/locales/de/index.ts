@@ -667,6 +667,19 @@ export const de = {
     "renameSave": "Speichern",
     "renameSaving": "Speichern…"
   },
+  backgroundTasks: {
+    running: "Läuft",
+    exited: "Beendet",
+    failed: "Fehlgeschlagen",
+    stopped: "Gestoppt",
+    title: "Hintergrundbefehle",
+    loadFailed: "Hintergrundbefehle konnten nicht aktualisiert werden. Erneuter Versuch...",
+    outputFailed: "Die Ausgabe dieses Befehls konnte nicht gelesen werden.",
+    stopFailed: "Dieser Befehl konnte nicht gestoppt werden. Erneut versuchen.",
+    output: "Ausgabe",
+    stop: "Stoppen",
+    stopping: "Stoppe…",
+  },
   planHistory: {
     pending: "Genehmigung ausstehend",
     approved: "Genehmigt",
@@ -1411,6 +1424,8 @@ sklm: {
     "thinkingDisplayModeDesc": "Der Modus Detailliert zeigt den Fortschritt in einem ausklappbaren Prozess mit verschachtelten Tool-Gruppen und dem Denkprozess. Der Modus Kompakt startet mit eingeklapptem Prozess und blendet den Denkprozess aus.",
     "thinkingDisplayDetailed": "Detailliert",
     "thinkingDisplayCompact": "Kompakt",
+    "showThinking": "Denkprozess anzeigen",
+    "showThinkingDesc": "Zeigt den Denkprozess des Modells. Wenn aus, bleibt die Live-Denk-Anzeige sichtbar und abgeschlossene Denkzeilen und Auszüge werden ausgeblendet.",
     "contextUsageDisplay": "Kontextnutzung-Anzeige",
     "contextUsageDisplayRemaining": "Verbleibend",
     "contextUsageDisplayUsed": "Verwendet",

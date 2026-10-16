@@ -667,6 +667,19 @@ export const es = {
     "renameSave": "Guardar",
     "renameSaving": "Guardando…"
   },
+  backgroundTasks: {
+    running: "En ejecución",
+    exited: "Finalizado",
+    failed: "Fallido",
+    stopped: "Detenido",
+    title: "Comandos en segundo plano",
+    loadFailed: "No se pudieron actualizar los comandos en segundo plano. Reintentando...",
+    outputFailed: "No se pudo leer la salida de este comando.",
+    stopFailed: "No se pudo detener este comando. Inténtalo de nuevo.",
+    output: "Salida",
+    stop: "Detener",
+    stopping: "Deteniendo…",
+  },
   planHistory: {
     pending: "Pendiente de aprobación",
     approved: "Aprobado",
@@ -1411,6 +1424,8 @@ sklm: {
     "thinkingDisplayModeDesc": "Detallado muestra el progreso en un proceso expandible con grupos de herramientas anidados y razonamiento. Compacto inicia el proceso contraído y oculta el razonamiento.",
     "thinkingDisplayDetailed": "Detallado",
     "thinkingDisplayCompact": "Compacto",
+    "showThinking": "Mostrar razonamiento",
+    "showThinkingDesc": "Muestra el razonamiento del modelo. Desactivado, el indicador de razonamiento en vivo sigue visible y las filas y extractos de razonamiento completados quedan ocultos.",
     "contextUsageDisplay": "Lectura del uso del contexto",
     "contextUsageDisplayRemaining": "Restante",
     "contextUsageDisplayUsed": "Usado",

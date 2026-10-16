@@ -667,6 +667,19 @@ export const fr = {
     "renameSave": "Enregistrer",
     "renameSaving": "Enregistrer…"
   },
+  backgroundTasks: {
+    running: "En cours",
+    exited: "Terminé",
+    failed: "Échec",
+    stopped: "Arrêté",
+    title: "Commandes en arrière-plan",
+    loadFailed: "Impossible d'actualiser les commandes en arrière-plan. Nouvelle tentative...",
+    outputFailed: "Impossible de lire la sortie de cette commande.",
+    stopFailed: "Impossible d'arrêter cette commande. Réessayez.",
+    output: "Sortie",
+    stop: "Arrêter",
+    stopping: "Arrêt…",
+  },
   planHistory: {
     pending: "En attente d’approbation",
     approved: "Approuvé",
@@ -1411,6 +1424,8 @@ sklm: {
     "thinkingDisplayModeDesc": "Le mode détaillé affiche la progression dans un processus dépliable avec des groupes d'outils imbriqués et le raisonnement. Le mode compact démarre avec le processus replié et masque le raisonnement.",
     "thinkingDisplayDetailed": "Détaillé",
     "thinkingDisplayCompact": "Compact",
+    "showThinking": "Afficher le raisonnement",
+    "showThinkingDesc": "Affiche le raisonnement du modèle. Désactivé, l'indicateur de raisonnement en direct reste visible et les lignes et extraits de raisonnement terminés sont masqués.",
     "contextUsageDisplay": "Affichage de l'usage du contexte",
     "contextUsageDisplayRemaining": "Restant",
     "contextUsageDisplayUsed": "Utilisé",

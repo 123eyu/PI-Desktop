@@ -1640,6 +1640,9 @@ identify the platform validation still needed.
   turns that had no thinking. Non-official DeepSeek-family relays use real
   retained thinking when available, otherwise the documented non-empty
   placeholder from ADR 0256 — never a silent empty string after compaction.
+  The request omits the generic OpenAI `reasoning_effort` field because
+  DeepSeek endpoints do not accept it, while the selected thinking mode still
+  follows the endpoint's own wire format.
   The request does not switch `thinkingFormat` to `"deepseek"` solely because
   the model id contains `"deepseek"`. Official `api.deepseek.com` rows keep
   URL-based DeepSeek `thinkingFormat` from pi-ai.
@@ -3305,30 +3308,32 @@ identify the platform validation still needed.
 #### E2E-040: Nested tool activity survives transcript reload
 - **Preconditions**: Provider configured; project open; a turn can contain
   progress text, multiple search/tool/thinking items, and a failed or denied tool.
-- **Steps**: 1) In Detailed, stream progress paragraph A, a multi-item search
-  segment, progress paragraph B, and a multi-item command segment. 2) Inspect the
-  open whole process and active group; manually close the active group while more
-  output arrives. 3) Complete the turn and inspect untouched versus user-owned
-  groups. 4) Open one completed group and one item, copy its output, close and
-  reopen the group, then open a sibling group independently. 5) Repeat with a
-  singleton item and with the last activity group's literal final item set to a
-  tool/search, thinking, failed tool, and denied tool. 6) Switch to Compact and
-  inspect the active-thinking, failure/recovery and completed states. 7) Remount
-  rows within the retained pane, then reload the renderer and reopen the session.
-- **Expected**: Both modes use one whole-process disclosure and keep the trailing
-  answer outside it. Detailed keeps active and completed processes open; the
-  active multi-item group opens, then closes on completion only if untouched.
-  Compact starts processes/groups and all payloads closed, hides reasoning text,
-  and keeps an untouched active process open after a failed/denied tool through
-  later recovery. A singleton has no group wrapper. No item payload opens itself:
-  a tool/search row stays a header until the user opens it, while a final thinking
-  item keeps its own leaf default and never selects an earlier tool. Parent, child
-  and sibling choices are independent;
+- **Steps**: 1) Stream progress paragraph A, a multi-item search segment,
+  progress paragraph B, and a multi-item command segment with adjacent Bash rows.
+  2) Inspect the open active group; manually close it while more output arrives.
+  3) Complete the turn and inspect untouched versus user-owned groups, and confirm
+  the Bash rows stay visible with every group collapsed. 4) Open one completed
+  group and one item, copy its output, close and reopen the group, then open a
+  sibling group independently. 5) Repeat with a singleton item and with the last
+  activity group's literal final item set to a tool/search, thinking, failed tool,
+  and denied tool. 6) Toggle `Show thinking` off and on and inspect the
+  active-thinking, failure/recovery and completed states. 7) Remount rows within
+  the retained pane, then reload the renderer and reopen the session.
+- **Expected**: Chronological collapsible process segments keep the trailing answer
+  outside them. The active group opens, then closes on completion only if
+  untouched; completed groups otherwise start closed. Bash/run aliases are excluded
+  from every process disclosure and stay visible even when every group is collapsed.
+  A singleton has no group wrapper. No item payload opens itself: a tool/search row
+  stays a header until the user opens it, while a final thinking item keeps its own
+  leaf default and never selects an earlier tool. When `Show thinking` is off, the
+  live thinking indicator stays visible while completed reasoning text and excerpts
+  are hidden and empty thinking-only containers are omitted; turning it back on
+  restores them. Parent, child and sibling choices are independent;
   closing/reopening a parent preserves descendants, and streaming/completion does
   not override user-owned choices. Retained-pane remounts preserve choices;
   renderer restart reapplies defaults while tool names, arguments, results and
-  statuses remain restored. Group/process headers show bounded running and issue
-  summaries without marking the whole turn failed.
+  statuses remain restored. Group headers show bounded running and issue summaries
+  without marking the whole turn failed.
 - **Specs linked**: `04-ux/01-ui-ia.md`,
   `04-ux/07-ui-design-system.md`, `04-ux/08-component-spec.md`,
   `04-ux/09-interaction-patterns.md`
@@ -5593,10 +5598,10 @@ must keep splitting are covered by `markdown-blocks.test.mjs`.
   `close-behavior.json`); the main window is visible; Settings → General is
   reachable. macOS is excluded: it keeps the native Dock lifecycle.
 - **Steps**: 1) With the preference unset, click the close button (or press
-  the close-window shortcut) and answer the prompt: Cancel keeps the window
-  open and the preference unset; Close to tray hides the window, shows the
-  tray icon, and the app keeps running (a turn in flight stays live); Quit
-  exits the app. 2) Re-run each choice and verify it is remembered across a
+  the close-window shortcut) and verify the themed in-app dialog opens with Cancel focused. Escape, a
+  backdrop click, or Cancel keeps the window open and preference unset; Close to
+  tray hides the window, shows the tray icon, and leaves a live turn running;
+  Quit exits the app. Renderer-unavailable behavior uses the native fallback. 2) Re-run each choice and verify it is remembered across a
   full restart and that no second prompt ever appears once a choice exists.
   3) With `tray` set, click the tray icon: the window
   restores, shows, and focuses; the tray context menu offers Open and Quit,
@@ -5612,8 +5617,7 @@ must keep splitting are covered by `markdown-blocks.test.mjs`.
   covered separately by E2E-124. 7) Invoke unknown values and `"ask"` on
   `pi-desktop/window/closeBehavior/set` and verify they fail closed, and
   verify the channel is rejected outright on macOS.
-- **Expected**: The first close prompts exactly once per unset state and
-  Cancel never persists a choice. Tray mode keeps the app alive with a
+- **Expected**: The first close renders the themed dialog exactly once per unset state. Escape, backdrop click, or Cancel never persists a choice; if the renderer is unavailable, a bounded native fallback is used, and failure to show it does not trap close. Tray mode keeps the app alive with a
   localized tooltip/menu and no data loss; switching to Quit app leaves the
   tray icon in place, because close-to-tray and macOS minimize still need a
   restore surface. The preference survives restarts and is honored by both
@@ -5629,38 +5633,50 @@ must keep splitting are covered by `markdown-blocks.test.mjs`.
   ADR 0123
 - **Acceptance**: A (app startup), Quality
 - **Milestone**: M5 on Windows/Linux (release qualification)
-- **Status**: Draft
+- **Status**: Themed renderer path, broker fallback, and Main close/quit choices
+  are covered by `lifecycle-confirmation-dialog-user-path.test.mjs`,
+  `lifecycle-dialog-broker.test.mjs`, and `lifecycle-close-behavior-runtime.test.mjs`;
+  the full persisted close-behavior journey remains Draft.
 
 #### E2E-204: Explicit quit confirms before shutdown (D363)
 
 - **Preconditions**: A normal interactive session is running (not a boot,
   supervision, or capture probe). The main window may be visible or tray-hidden.
 - **Steps**: 1) Choose Quit from the tray menu, or press Cmd+Q / the
-  application-menu Quit item. 2) Cancel the native warning and confirm the
-  window, tray, host-core, and sidecar remain. 3) Repeat and confirm Quit;
-  confirm the ordered shutdown runs. 4) On Windows/Linux with close behavior
-  unset, close the window and choose Quit on the D230 dialog; confirm no
-  second warning. 5) Launch with `PI_DESKTOP_BOOT_PROBE=1` (and the
-  supervision/capture equivalents) and confirm `app.quit()` exits without a
-  dialog. 6) On a packaged Windows NSIS or Linux AppImage install, download an
-  update and choose Restart to update; confirm the quit warning never appears
-  and the installer finishes the upgrade and relaunch.
-- **Expected**: Accidental explicit quit is cancellable. A user who already
-  chose Quit on the close-behavior dialog is not asked again. Probes used by
-  automation never block on the warning. An in-app update restart is never
-  deferred behind the warning either: the platform installer is spawned before
-  `app.quit()` and aborts once the app outlives its wait window, so the
-  update-triggered quit must run the ordered shutdown immediately — the user
-  already committed to the restart by choosing that action.
+  application-menu Quit item. If tray-hidden, confirm the main window is restored.
+  2) Verify the themed in-app confirmation, Cancel as initial focus, and distinct
+  title/body. While it is open, issue a second Quit request and verify the same
+  decision remains pending: no duplicate dialog and no shutdown bypass. Exercise
+  Escape and a backdrop click; confirm the window, tray, host-core, and sidecar
+  remain. 3) Repeat and Confirm; verify ordered shutdown. 4) On Windows/Linux
+  with close behavior unset, close the window. Verify the themed D230 dialog
+  offers Cancel / Close to tray / Quit: cancel leaves the preference unset, and
+  choosing Quit causes no second dialog. 5) Launch with `PI_DESKTOP_BOOT_PROBE=1`
+  (and supervision/capture equivalents) and confirm `app.quit()` exits without a
+  dialog. 6) On packaged Windows NSIS or Linux AppImage, restart to install an
+  update; confirm no quit warning appears and the installer completes upgrade
+  and relaunch.
+- **Expected**: Accidental explicit quit is cancellable. Repeated quit requests
+  cannot duplicate or bypass an outstanding confirmation; Cancel clears the
+  pending decision so a later quit asks again. Tray Quit presents the dialog
+  even when the main window was hidden. A D230 Quit is not re-confirmed. When the
+  renderer is unavailable, crashes, or fails to answer, the bounded native
+  fallback is used; failure to show it does not hold shutdown. Probes never
+  block on the warning. An in-app update restart is never deferred: the installer
+  is spawned before `app.quit()` and aborts if the app stays alive past its wait
+  window, so that quit goes directly into ordered shutdown.
 - **Specs linked**: `04-ux/08-component-spec.md`,
   `04-ux/09-interaction-patterns.md`, `08-meta/decisions-log.md` (D216, D230,
-  D363), ADR 0022
+  D363), ADR 0022, ADR 0090
 - **Acceptance**: A (app startup), Quality
 - **Milestone**: M5
-- **Status**: Unit-covered (`close-behavior-tray.test.mjs` asserts the
-  probe and update-restart exemptions; `auto-update.test.mjs` asserts the
-  install latch is set before `quitAndInstall`); native dialog journey Draft
-  (run only in a capable environment when this surface changes)
+- **Status**: Broker, renderer user path, Main close/quit runtime, and pending
+  shutdown lifecycle covered (`lifecycle-dialog-broker.test.mjs`,
+  `lifecycle-confirmation-dialog-user-path.test.mjs`,
+  `lifecycle-close-behavior-runtime.test.mjs`, `close-behavior-tray.test.mjs`,
+  `shutdown-regenerate-persistence.test.mjs`). Full application shutdown and
+  packaged update journey remains Draft; run in a capable release environment
+  when lifecycle wiring changes.
 
 #### E2E-067A: Prerelease install discovers newer stable release (D120)
 
@@ -6701,7 +6717,7 @@ must keep splitting are covered by `markdown-blocks.test.mjs`.
   Electron; deterministic messages/status transitions, no provider credentials.
 - **Steps**: Send a turn, stream partial text, stop delivering deltas, start and
   finish a tool, clear/set runtime phases, resume text, then complete, stop, or
-  fail. Repeat in detailed and compact modes. Exercise planning, permission,
+  fail. Repeat with `Show thinking` on and off. Exercise planning, permission,
   question and proposal waits, history reading, and switching sessions.
 - **Expected**: Exactly one localized, accessible tail status remains through
   output pauses and completed-tool gaps. Runtime phases take precedence over
@@ -6711,7 +6727,7 @@ must keep splitting are covered by `markdown-blocks.test.mjs`.
   Active and assistant-error turns mount no empty action toolbar. A partial
   answer has 24 CSS px between its fragment box and the status label
   at the default font scale; settled non-error content retains Copy, Fork,
-  and Regenerate. Check detailed and compact modes. History reading and
+  and Regenerate. Check the `Show thinking` preference on and off. History reading and
   permission cards retain normal message padding. Ending a turn keeps pinned
   follow at the bottom while restoring the normal toolbar height. A scrolled-up reader keeps the exact text position
   and scroll offset.
@@ -7779,7 +7795,10 @@ must keep splitting are covered by `markdown-blocks.test.mjs`.
   descendants, output events, audit, and turn state after the shutdown grace.
 - **Expected**: The process group/job tree is terminated, no descendant remains,
   no later output arrives, the turn returns `TURN_ABORTED`, and the workspace is
-  not rolled back automatically.
+  not rolled back automatically. On Windows, the hidden runner first breaks
+  away from any parent Job Object before entering its own kill-on-close job; a
+  denied breakaway fails the tool closed instead of allowing the Desktop tree
+  to become the termination scope.
 - **Specs linked**: `03-runtime/03-tools-and-permissions.md`,
   `03-runtime/07-process-model.md`, `03-runtime/08-error-codes.md`,
   `03-runtime/16-tool-result-limits.md`, `05-security/01-security.md`, ADR 0054
@@ -7788,6 +7807,42 @@ must keep splitting are covered by `markdown-blocks.test.mjs`.
 - **Status**: Automated (passed 2026-08-04): `test:e2e:plan` aborts a real
   descendant process tree and verifies no late marker/output; host-core tests
   verify cancellation registry cleanup
+
+#### E2E-265: Background Bash tasks outlive their turn
+
+- **Preconditions**: A project session whose catalog shell supports background
+  execution, and a port the test server may bind.
+- **Steps**: 1) Ask the agent to start a long-lived process with
+  `runInBackground` (a local web server) and watch the running-tasks bar above
+  the composer. 2) Abort the turn, send a second prompt in the same session,
+  then reload the renderer. 3) Expand the row's `Output`. 4) Press `Stop`.
+  5) Start ten tasks with 100,000 lines of 100 characters on both streams,
+  then inspect their final output. 6) Show Todo and Ask alongside the task list
+  at wide and narrow widths, scroll to the tenth task, and switch output previews
+  while an earlier read is pending. 7) Fail a Stop request and retry it.
+  8) Start two more tasks and quit the app during output capture.
+- **Expected**: The tool result carries `backgroundTaskId` and resolves without
+  waiting for the command; the bar lists the task as running with a growing
+  elapsed time and shows its streamed output; the process stays alive across the
+  abort, across the 60-second Bash timeout, and across a renderer reload.
+  `Stop` settles the row to `Stopped` and kills the process tree; quitting the
+  app leaves no orphan process behind. The ten-task list scrolls within its
+  height cap without displacing Todo, Ask, or input. Only the selected log is
+  fetched and refreshed; old responses cannot erase it. Each stream remains
+  bounded to 256KiB and retains its final marker after exit. A Stop failure is
+  visible without an unhandled rejection and the control remains retryable.
+- **Specs linked**: `03-runtime/03-tools-and-permissions.md` (§5),
+  `03-runtime/06-host-rpc-protocol.md` (§4)
+- **Acceptance criterion**: C, E, F
+- **Milestone**: M6+
+- **Status**: Partially automated (host-core `background_tasks::tests` and the
+  renderer contract test `apps/desktop/test/background-tasks.test.mjs`;
+  `node scripts/e2e-background-tasks-host.mjs` runs the real Host/process/pipe
+  stress path without providers, and `node scripts/e2e-background-tasks.mjs`
+  exercises production React components in isolated Electron at 1280px, 700px,
+  and 390px widths. Host tests cover exit-before-drain and shutdown under output
+  lock contention. The full agent-to-Desktop journey and an 83-minute paced
+  100,000-line soak remain manual; the automated volume test is accelerated.)
 
 #### E2E-117: Agent/Plan/Goal UX and locales contain no Chat controls
 
@@ -8589,7 +8644,7 @@ must keep splitting are covered by `markdown-blocks.test.mjs`.
 - **Status**: Unit-covered (`apps/desktop/test/composer-drag-drop.test.mjs`);
   full desktop gesture journey Draft (run only in a capable environment when this surface changes)
 
-#### E2E-102a: Composer file reference results use compact leaf names
+#### E2E-102a: Composer file reference results show leaf names with full relative paths
 
 - **Preconditions**: The app is running with an Agent session in a workspace
   containing nested files, duplicate leaf names in different directories, and
@@ -8602,8 +8657,11 @@ must keep splitting are covered by `markdown-blocks.test.mjs`.
   and continue to a child file. 4) Send the completed references and inspect
   the persisted user message.
 - **Expected**:
-  - Each result persistently renders only its leaf name; directories retain a
-    trailing `/`, and no parent path consumes horizontal row space.
+  - Each result persistently renders its leaf name followed by the entry's
+    complete workspace-relative path in a de-emphasized span; directories
+    retain a trailing `/` on the leaf name, the span carries the raw
+    `entry.path`, and it ellipsizes before the leaf name can while the row
+    never overflows the menu.
   - The tooltip and accessible name retain the complete relative path so
     duplicate leaf names remain distinguishable.
   - Enter/Tab/click on a file replaces the `@` token with an inline chip that
@@ -8614,12 +8672,13 @@ must keep splitting are covered by `markdown-blocks.test.mjs`.
     the agent can read both selected files normally.
 - **Specs linked**: `04-ux/08-component-spec.md` §11.8,
   `04-ux/09-interaction-patterns.md` §8a, `03-runtime/01-ipc-protocol.md` §13c,
-  `08-meta/decisions-log.md` (D124, D209, D362), ADR 0024, ADR 0070
+  `08-meta/decisions-log.md` (D124, D209, D362, D660), ADR 0024, ADR 0070
 - **Acceptance**: C (conversation & stream), Quality
 - **Milestone**: M5
 - **Status**: Unit-covered
-  (`apps/desktop/test/composer-file-reference-display.test.mjs`); full UI
-  journey Draft (run only in a capable environment when this surface changes)
+  (`apps/desktop/test/composer-file-reference-display.test.mjs`); file-mode row
+  layout covered by `scripts/e2e-composer-autocomplete.mjs`; full UI journey
+  Draft (run only in a capable environment when this surface changes)
 
 #### E2E-102b: Unanswered Stop restores compact file-reference drafts
 
@@ -9973,9 +10032,10 @@ must keep splitting are covered by `markdown-blocks.test.mjs`.
 - **Expected**: Host SQLite is authoritative; each successful full replacement
   advances revision, including clear, and emits one committed `todos.changed`
   snapshot. Invalid or unauthorized writes do not mutate or emit. TodoDock
-  renders plain text, does not take focus, resets expansion on session changes,
-  lists every ordered row with the dock's own list as the scrollport,
-  keeps a collapsed dock to its header height,
+  renders plain text, separates collapsed progress from the current item,
+  uses compact square status marks in a flat expanded list, does not take focus,
+  resets expansion on session changes, lists every ordered row with the dock's
+  own list as the scrollport, and keeps a collapsed dock to its header height,
   rejects stale events, and skips local recovery for `remote:` sessions because
   RACP v1 has no Todo snapshot operation.
 - **Specs**: `03-runtime/03-tools-and-permissions.md`,
@@ -10145,6 +10205,7 @@ must keep splitting are covered by `markdown-blocks.test.mjs`.
 | Quality (loop context ownership) | E2E-RUNTIME-loop-context-ownership |
 | G — Plugin host lifecycle (crash report) | E2E-PLUGIN-crash-report-names-the-exit-code |
 | Quality (crash report) | E2E-PLUGIN-crash-report-names-the-exit-code |
+| C / E / F / Quality — Background Bash tasks outlive their turn | E2E-265 |
 
 The `US-UI-*` visual scenarios (§UI shell visual scenarios) trace to the
 Codex parity decisions in [decisions-log §D](../08-meta/decisions-log.md)
@@ -16929,39 +16990,46 @@ plugin-form fixtures in an isolated temporary directory at runtime.
 
 - **Preconditions:** A turn with progress paragraph A, multiple searches plus
   thinking, progress paragraph B, multiple commands plus thinking, and a final
-  answer; Detailed and Compact display modes; legacy message-level transcript
-  search targets.
-- **Steps:** In Detailed, confirm a live process starts open, let that same turn
-  finish without interacting, and confirm the process collapses. On a second
-  turn, explicitly open the completed process and confirm the choice survives
-  subsequent updates. Review the nested path, including independent group/item
-  toggles, parent close/reopen, a singleton segment, literal-final-item leaf
-  selection, failure/denial/recovery, retained-pane remounts and a legacy search
-  reveal. Repeat in Compact with permission/question/plan/goal cards, a stopped
-  partial answer, an assistant error and delegated child work.
-- **Expected:** Both modes use one whole-process disclosure and leave the final
-  answer, assistant errors, stopped trailing text and pending actions outside it.
-  Detailed starts active processes open; untouched processes collapse at
-  completion, while explicit user choices persist. The active multi-item group
-  is open and an untouched group closes on completion. Compact starts processes
-  and groups closed, hides reasoning, and keeps payloads closed; an untouched
-  active process with a recorded failed/denied tool stays open through recovery
-  and closes on completion. Singletons have no group. No item payload opens
-  itself: a tool/search row stays closed until the user opens it, while a final
-  thinking item keeps its own leaf default. Parent/child/
-  sibling states remain independent, pane-owned user choices survive updates,
-  mode changes and remounts, and renderer restart reapplies defaults. Search
-  reveals the process and activity group that own the named message once per
-  request; item-level targeting is not part of this change, and Compact
-  reasoning requires an explicit switch to Detailed. Saved mode survives
-  restart and a missing/unknown setting resolves to Detailed.
+  answer; the `Show thinking` preference on and off; legacy message-level
+  transcript search targets.
+- **Steps:** Confirm a live active group starts open, let that same turn finish
+  without interacting, and confirm the group collapses. On a second turn, explicitly
+  open a completed group and confirm the choice survives subsequent updates. Turn
+  `Show thinking` off and confirm the live thinking indicator remains while
+  completed reasoning rows and excerpts disappear and no empty thinking-only
+  container is left; turn it back on and confirm the completed rows return. Collapse
+  every group and confirm the Bash/run rows stay visible. Review the nested path,
+  including independent group/item toggles, parent close/reopen, a singleton
+  segment, literal-final-item leaf selection, failure/denial/recovery, retained-pane
+  remounts, Bash rows staying standalone (including adjacent Bash rows) with their
+  details closed until opened, and a legacy search reveal.
+- **Expected:** Chronological collapsible process segments leave the final answer,
+  assistant errors, stopped trailing text and pending actions outside them. The
+  active group starts open; untouched groups collapse at completion, while explicit
+  user choices persist. These group defaults do not depend on the `Show thinking`
+  preference. Bash/run aliases are excluded from every process disclosure and stay
+  standalone rows visible even when every group is collapsed; adjacent Bash rows
+  each remain standalone and a Bash row's detail stays closed until the user opens
+  it. When `Show thinking` is off, the live thinking indicator stays visible,
+  completed reasoning rows and excerpts are hidden, and empty thinking-only
+  containers are omitted; turning it back on restores them. Singletons have no
+  group. No item payload opens itself: a tool/search row stays closed until the user
+  opens it, while a final thinking item keeps its own leaf default.
+  Parent/child/sibling states remain independent, pane-owned user choices survive
+  updates, preference changes and remounts, and renderer restart reapplies defaults.
+  Search reveals the process segment and activity group that own the named message
+  once per request; item-level targeting is not part of this change, and reasoning
+  hidden by the preference stays hidden until the user turns `Show thinking` on.
+  Saved `showThinking` survives restart; an absent value falls back to the legacy
+  `thinkingDisplayMode` (`compact` hides, `detailed`/unknown/absent shows).
 - **Validation scope for the 2026-09-20 change:** Nested disclosure and activity
   group presentation only; precise item-level transcript search targeting is out
   of scope and keeps the existing message-level search behavior.
 - **Automation:** `pnpm test:e2e:transcript` covers default and active-to-completed
   process disclosure behavior; `pnpm test:e2e:transcript-disclosure` verifies
   manual-open retention and viewport anchoring; `apps/desktop/test/turn-process.test.mjs`
-  covers default selection.
+  covers process defaults and `apps/desktop/test/thinking-visibility.test.mjs`
+  covers the `showThinking`/legacy resolver precedence.
 - **Specs:** 04-ux/06-settings-ia, 04-ux/08-component-spec,
   04-ux/09-interaction-patterns; ADR turn-process-and-thinking-display.
 
