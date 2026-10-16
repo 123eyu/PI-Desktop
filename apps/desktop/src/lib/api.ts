@@ -469,6 +469,7 @@ export function validateSettingsWrite(settings: AppSettings): AppSettings {
     sidebarRunningIndicators?: unknown;
     sidebarRunningBadge?: unknown;
     sidebarRunningRail?: unknown;
+    sidebarSessionTime?: unknown;
     updatePreference?: unknown;
     lastNotifiedUpdateVersion?: unknown;
     networkProxy?: unknown;
@@ -535,6 +536,7 @@ export function validateSettingsWrite(settings: AppSettings): AppSettings {
     "sidebarRunningIndicators",
     "sidebarRunningBadge",
     "sidebarRunningRail",
+    "sidebarSessionTime",
   ] as const) {
     if (
       Object.prototype.hasOwnProperty.call(value, key) &&
