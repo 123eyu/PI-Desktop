@@ -20,6 +20,8 @@ import i18n from "i18next";
 import { initReactI18next } from "react-i18next";
 import { catalogs, flattenCatalog } from "@pi-desktop/i18n";
 import { IPC } from "@pi-desktop/shared";
+import { SidebarMenuPanel } from "../../apps/desktop/src/components/SidebarMenuPanel";
+import { sidebarMenuAction, sidebarMenuSubmenu } from "../../apps/desktop/src/lib/sidebar-menu";
 import { WorktreeBadge, useWorktreeProjectMenuItems, useWorktreeSessionMenuItems } from "../../apps/desktop/src/features/worktree/WorktreeSidebarParts";
 import { WorktreeBehindWatcher } from "../../apps/desktop/src/features/worktree/WorktreeBehind";
 import { WorktreeMergeDialog } from "../../apps/desktop/src/features/worktree/WorktreeMergeDialog";
@@ -197,12 +199,74 @@ window.menuProbe = async () => {
   check(behindAllCalls >= 2, "a sync must re-read the counts");
   check(!marker("stale"), "the marker must clear after the sync");
   flushSync(() => menuRoot.unmount());
+  const submenuHost = document.createElement("div");
+  document.body.appendChild(submenuHost);
+  const submenuRoot = createRoot(submenuHost);
+  const selectedSubmenuActions = [];
+  const submenuContent = {
+    label: "Session actions",
+    items: [sidebarMenuSubmenu({
+      id: "git",
+      label: "Git",
+      items: [
+        sidebarMenuAction({
+          id: "fork",
+          label: "Branch from here",
+          onSelect: () => selectedSubmenuActions.push("fork"),
+        }),
+        sidebarMenuAction({
+          id: "reveal",
+          label: "Show worktree folder",
+          onSelect: () => selectedSubmenuActions.push("reveal"),
+        }),
+      ],
+    })],
+  };
+  flushSync(() => submenuRoot.render(React.createElement(SidebarMenuPanel, {
+    content: submenuContent,
+    position: { top: 90, left: Math.max(8, window.innerWidth - 230) },
+    onKeyDown() {},
+  })));
+  const submenuTrigger = submenuHost.querySelector('[data-submenu-trigger="git"]');
+  check(submenuTrigger?.getAttribute("aria-expanded") === "false", "submenu starts closed");
+  submenuTrigger.dispatchEvent(new PointerEvent("pointerover", {
+    bubbles: true,
+    pointerType: "mouse",
+  }));
+  await settle();
+  check(submenuTrigger.getAttribute("aria-expanded") === "true", "hover opens the submenu");
+  check(submenuHost.querySelector('#sidebar-submenu-git [data-action="fork"]'), "hover shows child actions");
+
+  submenuTrigger.focus();
+  submenuTrigger.dispatchEvent(new KeyboardEvent("keydown", {
+    key: "ArrowRight",
+    bubbles: true,
+    cancelable: true,
+  }));
+  await settle();
+  check(document.activeElement?.getAttribute("data-action") === "fork", "ArrowRight enters the submenu");
+  document.activeElement.dispatchEvent(new KeyboardEvent("keydown", {
+    key: "Escape",
+    bubbles: true,
+    cancelable: true,
+  }));
+  await settle();
+  check(!submenuHost.querySelector("#sidebar-submenu-git"), "Escape closes the child menu");
+  check(document.activeElement === submenuTrigger, "closing restores focus to its trigger");
+
+  submenuTrigger.dispatchEvent(new MouseEvent("click", { bubbles: true, detail: 1 }));
+  await settle();
+  check(submenuTrigger.getAttribute("aria-expanded") === "true", "click opens the submenu without hover");
+  submenuHost.querySelector('[data-action="reveal"]').click();
+  check(JSON.stringify(selectedSubmenuActions) === JSON.stringify(["reveal"]), "child action executes");
+  flushSync(() => submenuRoot.unmount());
+  submenuHost.remove();
   flushSync(() => rows.unmount());
   return { passed: true };
 };
 `;
 
-test("isolated-session sidebar: unavailable reason, merge preview, behind marker, and sync from project", {
+test("sidebar submenu opens on hover, click, and keyboard; worktree actions still work", {
   skip: process.platform === "linux" && !process.env.DISPLAY ? "Electron requires a display" : false,
 }, async () => {
   const temp = await mkdtemp(join(root, "apps/desktop/.worktree-menu-ui-"));

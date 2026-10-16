@@ -197,12 +197,11 @@ test("sidebar floating menus stay anchored to triggers and pointer positions", (
 });
 
 /*
-  The row menus were outgrowing a flat list: rename/pin/archive/branch/git/
-  copy/dev/delete all sat in one column, and delete sat next to what it
-  destroys. Each menu is now a small set of labelled groups, with the
-  destructive row alone under its own caption.
+  The row menus had grown into long flat lists; these assertions keep related
+  actions behind hover-opened second-level menus while leaving common actions
+  one click away and destructive actions isolated.
 */
-test("sidebar row menus group their rows and isolate the destructive one", () => {
+test("sidebar row menus expose hover submenus for related actions", () => {
   const sessionMenu = sidebarSource.match(
     /const sessionMenuContent = useCallback\([\s\S]*?\n    \[\n[\s\S]*?\n    \],\n  \);/,
   )?.[0] ?? "";
@@ -217,24 +216,18 @@ test("sidebar row menus group their rows and isolate the destructive one", () =>
   assert.ok(projectMenu, "project menu content must exist");
   assert.ok(sortMenu, "sort menu content must exist");
 
-  /* One destructive row per menu, alone in its own group. */
-  for (const [menu, dangerId, deleteId] of [
-    [sessionMenu, /dangerSection\(\s*"session-danger"/, /id: "delete-session"/],
-    [projectMenu, /dangerSection\("project-danger"/, /id: "delete-project"/],
-  ]) {
-    const dangerIndex = menu.search(dangerId);
-    const deleteIndex = menu.search(deleteId);
-    assert.ok(dangerIndex >= 0, "menu must caption its destructive group");
-    assert.ok(deleteIndex > dangerIndex, "delete must sit under its caption");
-  }
-  assert.match(sessionMenu, /id: "batch-archive"|sidebarMenuAction/);
-  assert.doesNotMatch(projectMenu, /danger: true[\s\S]*?id: "toggle-project-archive"/);
+  /* Destructive actions are nested instead of sharing the root menu. */
+  assert.match(sessionMenu, /sidebarMenuSubmenu\(\{[\s\S]*?id: "session-danger"[\s\S]*?id: "delete-session"/);
+  assert.match(projectMenu, /sidebarMenuSubmenu\(\{[\s\S]*?id: "project-danger"[\s\S]*?id: "delete-project"/);
+  assert.match(sidebarSource, /sidebarMenuSubmenu\(\{[\s\S]*?id: "batch-danger"[\s\S]*?id: "batch-delete"/);
+  assert.match(sessionMenu, /id: "batch-archive"|id: "copy-session-link"/);
 
-  /* The Git rows are one captioned group of each row menu, not loose items. */
-  assert.match(sessionMenu, /id: "session-git"/);
-  assert.match(sessionMenu, /\.\.\.sessionWorktreeItems/);
-  assert.match(projectMenu, /id: "project-git"/);
-  assert.match(projectMenu, /\.\.\.projectIsolationItems/);
+  /* Related actions open as real second-level menus. */
+  assert.match(sessionMenu, /sidebarMenuSubmenu\(\{[\s\S]*?id: "session-git"[\s\S]*?items: gitItems/);
+  assert.match(sessionMenu, /id: "copy-session-link"/);
+  assert.doesNotMatch(sessionMenu, /id: "session-copy"/);
+  assert.match(sessionMenu, /id: "session-developer"[\s\S]*?id: "open-session-path"/);
+  assert.match(projectMenu, /sidebarMenuSubmenu\(\{[\s\S]*?id: "project-git"[\s\S]*?items: projectIsolationItems/);
 
   /* The sort popover is two labelled groups instead of a title plus loose rows. */
   assert.match(sortMenu, /id: "sort"/);

@@ -14,7 +14,7 @@ import { api } from "../../lib/api";
 import { useAppStore } from "../../stores/app-store";
 import {
   sidebarMenuAction,
-  type SidebarMenuItem,
+  type SidebarMenuActionItem,
 } from "../../lib/sidebar-menu";
 import { WorktreeMergeDialog } from "./WorktreeMergeDialog";
 import { WorktreeSetupCommandDialog, WorktreeSetupLogDialog } from "./WorktreeSetupDialogs";
@@ -77,7 +77,7 @@ export function useWorktreeProjectMenuItems({
   projectPath: string;
   projectName: string;
   onDone: () => void;
-}): SidebarMenuItem[] {
+}): SidebarMenuActionItem[] {
   const { t } = useTranslation();
   const open = useWorktreeUi((s) => s.open);
   const reasonId = useId();
@@ -147,7 +147,7 @@ export function useWorktreeSessionMenuItems({
   worktree?: SessionWorktreeSummary;
   running: boolean;
   onDone: () => void;
-}): SidebarMenuItem[] {
+}): SidebarMenuActionItem[] {
   const { t } = useTranslation();
   const open = useWorktreeUi((s) => s.open);
   // A conflicted session resolves first; syncing again would only report
