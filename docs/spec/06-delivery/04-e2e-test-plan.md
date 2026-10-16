@@ -4331,19 +4331,22 @@ window; opening a normal panel afterward must still work.
 - **Preconditions**: One retained project contains more than ten durable
   sessions with distinct updated timestamps; the sidebar uses the default
   Recently updated sort; another retained project has ten or fewer sessions.
-- **Steps**: 1) Inspect the large project's session rows and count them. 2)
-  Select the **Load N more…** control. 3) Switch the sort to Name and inspect
-  the same group before expanding. 4) Restart the app and inspect the group
-  again.
+- **Steps**: 1) Inspect the large project's session rows and count them. Check
+  rows with recent and older replies. Hover a row, then focus one with the
+  keyboard. 2) Select the **Load N more…** control. 3) Switch the sort to Name
+  and inspect the same group before expanding. 4) Restart the app and inspect
+  the group again.
 - **Expected**: The group shows exactly ten session rows by default plus a
-  **Load N more…** control (N = remaining session count) styled like the
-  time-grouped overflow; the ten rows are the first rows in the active sort
-  order, so pinned rows are never pushed behind unpinned rows and a Name sort
-  folds everything after the first ten alphabetically; selecting Load more
-  expands the full time-grouped list (Yesterday/Previous 7 days/Previous 14
-  days/Older headers appear as applicable) and the control disappears;
-  expansion is per group and resets on restart (not persisted); the project
-  with ten or fewer sessions shows no fold control.
+  **Load N more…** control (N = remaining session count); there are no time-group
+  headers. Every row places the title before a divider and the localized last
+  reply date. Replies within seven calendar days show an exact relative day
+  (including 0–7 days); older replies show a concrete localized date. Hovering
+  or focusing a row hides its date and reveals the session action. The ten rows
+  are the first rows in the active sort order, so pinned rows are never pushed
+  behind unpinned rows and a Name sort folds everything after the first ten
+  alphabetically; selecting Load more expands the flat list and the control
+  disappears. Expansion is per group and resets on restart (not persisted); the
+  project with ten or fewer sessions shows no fold control.
 - **Specs linked**: `04-ux/01-ui-ia.md`, `04-ux/09-interaction-patterns.md`
 - **Acceptance**: C (session organization)
 - **Milestone**: M5
@@ -5598,10 +5601,10 @@ must keep splitting are covered by `markdown-blocks.test.mjs`.
   `close-behavior.json`); the main window is visible; Settings → General is
   reachable. macOS is excluded: it keeps the native Dock lifecycle.
 - **Steps**: 1) With the preference unset, click the close button (or press
-  the close-window shortcut) and answer the prompt: Cancel keeps the window
-  open and the preference unset; Close to tray hides the window, shows the
-  tray icon, and the app keeps running (a turn in flight stays live); Quit
-  exits the app. 2) Re-run each choice and verify it is remembered across a
+  the close-window shortcut) and verify the themed in-app dialog opens with Cancel focused. Escape, a
+  backdrop click, or Cancel keeps the window open and preference unset; Close to
+  tray hides the window, shows the tray icon, and leaves a live turn running;
+  Quit exits the app. Renderer-unavailable behavior uses the native fallback. 2) Re-run each choice and verify it is remembered across a
   full restart and that no second prompt ever appears once a choice exists.
   3) With `tray` set, click the tray icon: the window
   restores, shows, and focuses; the tray context menu offers Open and Quit,
@@ -5617,8 +5620,7 @@ must keep splitting are covered by `markdown-blocks.test.mjs`.
   covered separately by E2E-124. 7) Invoke unknown values and `"ask"` on
   `pi-desktop/window/closeBehavior/set` and verify they fail closed, and
   verify the channel is rejected outright on macOS.
-- **Expected**: The first close prompts exactly once per unset state and
-  Cancel never persists a choice. Tray mode keeps the app alive with a
+- **Expected**: The first close renders the themed dialog exactly once per unset state. Escape, backdrop click, or Cancel never persists a choice; if the renderer is unavailable, a bounded native fallback is used, and failure to show it does not trap close. Tray mode keeps the app alive with a
   localized tooltip/menu and no data loss; switching to Quit app leaves the
   tray icon in place, because close-to-tray and macOS minimize still need a
   restore surface. The preference survives restarts and is honored by both
@@ -5634,38 +5636,50 @@ must keep splitting are covered by `markdown-blocks.test.mjs`.
   ADR 0123
 - **Acceptance**: A (app startup), Quality
 - **Milestone**: M5 on Windows/Linux (release qualification)
-- **Status**: Draft
+- **Status**: Themed renderer path, broker fallback, and Main close/quit choices
+  are covered by `lifecycle-confirmation-dialog-user-path.test.mjs`,
+  `lifecycle-dialog-broker.test.mjs`, and `lifecycle-close-behavior-runtime.test.mjs`;
+  the full persisted close-behavior journey remains Draft.
 
 #### E2E-204: Explicit quit confirms before shutdown (D363)
 
 - **Preconditions**: A normal interactive session is running (not a boot,
   supervision, or capture probe). The main window may be visible or tray-hidden.
 - **Steps**: 1) Choose Quit from the tray menu, or press Cmd+Q / the
-  application-menu Quit item. 2) Cancel the native warning and confirm the
-  window, tray, host-core, and sidecar remain. 3) Repeat and confirm Quit;
-  confirm the ordered shutdown runs. 4) On Windows/Linux with close behavior
-  unset, close the window and choose Quit on the D230 dialog; confirm no
-  second warning. 5) Launch with `PI_DESKTOP_BOOT_PROBE=1` (and the
-  supervision/capture equivalents) and confirm `app.quit()` exits without a
-  dialog. 6) On a packaged Windows NSIS or Linux AppImage install, download an
-  update and choose Restart to update; confirm the quit warning never appears
-  and the installer finishes the upgrade and relaunch.
-- **Expected**: Accidental explicit quit is cancellable. A user who already
-  chose Quit on the close-behavior dialog is not asked again. Probes used by
-  automation never block on the warning. An in-app update restart is never
-  deferred behind the warning either: the platform installer is spawned before
-  `app.quit()` and aborts once the app outlives its wait window, so the
-  update-triggered quit must run the ordered shutdown immediately — the user
-  already committed to the restart by choosing that action.
+  application-menu Quit item. If tray-hidden, confirm the main window is restored.
+  2) Verify the themed in-app confirmation, Cancel as initial focus, and distinct
+  title/body. While it is open, issue a second Quit request and verify the same
+  decision remains pending: no duplicate dialog and no shutdown bypass. Exercise
+  Escape and a backdrop click; confirm the window, tray, host-core, and sidecar
+  remain. 3) Repeat and Confirm; verify ordered shutdown. 4) On Windows/Linux
+  with close behavior unset, close the window. Verify the themed D230 dialog
+  offers Cancel / Close to tray / Quit: cancel leaves the preference unset, and
+  choosing Quit causes no second dialog. 5) Launch with `PI_DESKTOP_BOOT_PROBE=1`
+  (and supervision/capture equivalents) and confirm `app.quit()` exits without a
+  dialog. 6) On packaged Windows NSIS or Linux AppImage, restart to install an
+  update; confirm no quit warning appears and the installer completes upgrade
+  and relaunch.
+- **Expected**: Accidental explicit quit is cancellable. Repeated quit requests
+  cannot duplicate or bypass an outstanding confirmation; Cancel clears the
+  pending decision so a later quit asks again. Tray Quit presents the dialog
+  even when the main window was hidden. A D230 Quit is not re-confirmed. When the
+  renderer is unavailable, crashes, or fails to answer, the bounded native
+  fallback is used; failure to show it does not hold shutdown. Probes never
+  block on the warning. An in-app update restart is never deferred: the installer
+  is spawned before `app.quit()` and aborts if the app stays alive past its wait
+  window, so that quit goes directly into ordered shutdown.
 - **Specs linked**: `04-ux/08-component-spec.md`,
   `04-ux/09-interaction-patterns.md`, `08-meta/decisions-log.md` (D216, D230,
-  D363), ADR 0022
+  D363), ADR 0022, ADR 0090
 - **Acceptance**: A (app startup), Quality
 - **Milestone**: M5
-- **Status**: Unit-covered (`close-behavior-tray.test.mjs` asserts the
-  probe and update-restart exemptions; `auto-update.test.mjs` asserts the
-  install latch is set before `quitAndInstall`); native dialog journey Draft
-  (run only in a capable environment when this surface changes)
+- **Status**: Broker, renderer user path, Main close/quit runtime, and pending
+  shutdown lifecycle covered (`lifecycle-dialog-broker.test.mjs`,
+  `lifecycle-confirmation-dialog-user-path.test.mjs`,
+  `lifecycle-close-behavior-runtime.test.mjs`, `close-behavior-tray.test.mjs`,
+  `shutdown-regenerate-persistence.test.mjs`). Full application shutdown and
+  packaged update journey remains Draft; run in a capable release environment
+  when lifecycle wiring changes.
 
 #### E2E-067A: Prerelease install discovers newer stable release (D120)
 
@@ -9496,9 +9510,14 @@ must keep splitting are covered by `markdown-blocks.test.mjs`.
      the view's top-left folder control to the project's second folder and
      confirm the tree follows it while the app's visible workspace does not,
      then switch back to the project's primary folder.
-  4. Right-click a file and confirm **Open with default app** and **Show in
-     folder** are offered and work; right-click a directory and confirm they are
-     not offered, because the host refuses the action for directories.
+  4. Right-click an HTML file and confirm **Open in built-in Browser** appears
+     under Open With. Select it and verify a new Browser resource tab opens the
+     file in the active local session while the File Manager tab remains open.
+     Right-click a non-HTML file and confirm that item is absent. Confirm
+     **Open with default app** and **Show in folder** remain available for files
+     and work. For directories, confirm the built-in Browser and Show in folder
+     actions are absent, the default-app action is disabled, and editor choices
+     remain available.
   5. Open a text file, edit it, and save. Confirm the file on disk changed and
      the editor keeps the saved content. Change the same file outside the app,
      edit and save again, and confirm the conflict is reported instead of the
@@ -9529,13 +9548,15 @@ must keep splitting are covered by `markdown-blocks.test.mjs`.
 - **Specs linked**: `07-plugins/03-plugin-api.md` §3,
   `07-plugins/13-plugin-permissions-matrix.md` §2,
   `04-ux/08-component-spec.md` §5, ADR 0104, ADR 0109, ADR 0111,
-  ADR 0169, ADR 0241, ADR 0249, ADR 0263
+  ADR 0169, ADR 0241, ADR 0249, ADR 0263, ADR 0330
 - **Acceptance**: G (plugins), D (workspace), Security, Quality
 - **Milestone**: M6+
 - **Status**: Unit coverage in `apps/desktop/test/bundled-plugins.test.mjs`
   (manifest contract, public-bridge-only page, vendored checksums),
-  `apps/desktop/test/plugin-fs-scope.test.mjs` (`fs.openDefault` and `fs.reveal`
-  guards), `apps/desktop/test/plugin-work-panel-views.test.mjs` (docked-view
+  `apps/desktop/test/plugin-fs-scope.test.mjs` (`fs.openDefault`,
+  `fs.openInBrowser`, and `fs.reveal` guards),
+  `apps/desktop/test/browser-preview-tool.test.mjs` (Browser resource-tab event
+  routing), `apps/desktop/test/plugin-work-panel-views.test.mjs` (docked-view
   event broadcast), and host-core
   `bundled_plugins_refresh_from_disk_but_keep_user_state`; the packaged journey
   is Draft (run only in a capable environment when this surface changes)
@@ -13294,7 +13315,8 @@ are withdrawn with ADR 0165.
     canonical path. Quoted and scratch-absolute paths are included.
   - A chip plus a short prompt keeps the user plate content-sized; it does
     not stretch to the `min(82%, 600px)` ceiling.
-  - Clicking the HTML chip opens the work-panel browser on that file.
+  - Clicking an unpositioned project or scratch HTML chip opens the work-panel
+    browser on that file.
   - Clicking the workspace source chip opens it in the File Manager work-panel
     view on that file; the host `file:` tab and the OS default application are
     no longer what a chip click opens.
@@ -13393,8 +13415,9 @@ are withdrawn with ADR 0165.
 #### E2E-CHAT-file-ref-opens-the-surface-that-owns-it
 
 - **Preconditions**: The bundled File Manager plugin is loaded and enabled and
-  the work panel is closed. The open session's scratch store holds one file and
-  the attachment store one blob. The project is a group whose primary folder
+  the work panel is closed. The open session's scratch store holds one HTML
+  file and one other file, and the attachment store holds one blob. The project
+  is a group whose primary folder
   contains an `.html` page and a text file, and whose second folder holds a text
   file of its own. The same session's transcript carries a `Read` row whose
   summary names a project file, a `Glob` result listing project paths, and a
@@ -13403,7 +13426,8 @@ are withdrawn with ADR 0165.
   unsaved edit into that view and click the same reference again. 3) Click a
   reference that resolves into the session scratch store, then the
   `attachments/<sha256>` reference. 4) Click a workspace `.html` reference in an
-  assistant reply and the same reference as a sent user chip. 5) Click the file
+  assistant reply and the same reference as a sent user chip; click the scratch
+  HTML reference too. 5) Click the file
   path in the tool row's summary, then a path in the `Glob` result's file list
   and a path heading of the `Grep` result. 6) Disable the File Manager plugin,
   then click a project file reference and the tool row summary. 7) Click a
@@ -13411,16 +13435,18 @@ are withdrawn with ADR 0165.
   in its primary folder. 8) Right-click the sent `@path` chip, the inline-code
   reference, the markdown link, the local image, a tool row's file path, a tool
   result's file list, and an attachment image chip; then right-click a reference
-  that matches nothing. 9) On that chip, use Copy full path and Copy relative
-  path, then do the same on a reference that resolves in the session scratch
-  store.
+  that matches nothing. On an HTML reference, open the Open with submenu and
+  choose File Manager, built-in browser, and default browser; repeat for the
+  scratch HTML file. 9) Use Copy full path and Copy relative path, then do the
+  same on a reference that resolves in the session scratch store.
 - **Expected**:
-  - Right-clicking a file reference opens the renderer's own menu with the
-    file's own folder (Show in folder) and both of its addresses (Copy full
-    path, Copy relative path). The inline-code reference, the file link, the
-    local image, a tool row's path, a tool result's file or match list, and an
-    attachment image chip offer the same items, and a reference that matches
-    nothing reports itself instead of revealing a same-named file elsewhere.
+  - Right-clicking a file reference offers Copy full path and Copy relative
+    path on each transcript surface that names it. The transcript menu has no
+    Show in folder item. An unpositioned HTML reference also has a second-level
+    Open with submenu for File Manager, built-in browser, and default browser;
+    non-HTML references keep only the copy actions. Each open choice resolves
+    the reference first, and a missing reference reports itself without opening
+    a same-named file elsewhere.
   - A copy writes exactly what it names: the absolute address for the full copy
     and the project-relative spelling for the relative one; a scratch or
     attachment file reports that it has no relative path instead of copying an
@@ -13432,11 +13458,12 @@ are withdrawn with ADR 0165.
     is still in the editor and no second tab appears.
   - A scratch or attachment file opens in the host `file:` tab under Open
     resources, addressed by its absolute path, never in the File Manager view.
-  - A `.html` / `.htm` page of the project's primary folder opens in the
-    work-panel side browser, from the assistant reply and the user chip alike; a
-    page in a sibling folder is a project file like any other and opens in the
-    File Manager view, because the side browser is rooted at the primary folder
-    (ADR 0263).
+  - A plain click on an unpositioned `.html` / `.htm` reference from any
+    project folder or session scratch opens it in the work-panel side browser.
+    In the Open with submenu, File Manager opens the resolved file in that
+    plugin view, built-in browser opens the same absolute path in the side
+    browser, and default browser uses the host's validated OS file-open path.
+    A positioned HTML reference keeps its line-aware host file tab behavior.
   - A tool surface reaches the destination of the file it names, not one of its
     own: the tool row's summary path and the paths of the `Glob` file list and
     the `Grep` path headings open the same project file in the File Manager view.
@@ -13458,12 +13485,15 @@ are withdrawn with ADR 0165.
 - **Acceptance**: C (conversation & stream), G (plugins), Quality
 - **Milestone**: M5
 - **Status**: Unit-covered
-  (`apps/desktop/test/transcript-file-chips.test.mjs` for the wiring and
-  `apps/desktop/test/tool-row-file-refs.test.mjs` for the work-panel entry each
-  shape of resolution produces). The isolated Electron renderer journey in
+  (`apps/desktop/test/chat-file-open-with-menu.test.mjs` for menu destinations
+  and resolved-path routing, `apps/desktop/test/transcript-file-chips.test.mjs`
+  for the wiring, and `apps/desktop/test/tool-row-file-refs.test.mjs` for the
+  work-panel entry each shape of resolution produces). The isolated Electron renderer journey in
   `scripts/e2e-file-ref-line-scroll.mjs` verifies a Markdown link enables the
   File Manager on demand and a positioned reference still opens in the host
-  viewer; the full packaged UI journey remains Draft.
+  viewer. `pnpm test:e2e:transcript` also exercises the rendered second-level
+  menu, destination selection, and keyboard focus return; the full
+  file-reference journey through all three destinations remains Draft.
 
 #### E2E-CHAT-mp4-attachment-opens-in-system-player
 
@@ -16092,14 +16122,14 @@ plugin-form fixtures in an isolated temporary directory at runtime.
 #### E2E-LAYOUT-sidebar-project-group-fold
 
 - **Preconditions**: Five retained sidebar project groups, seeded through the
-  host: one holding five sessions across four date buckets, one holding a single
-  session, one holding none, and one holding ten pinned sessions.
+  host: one holding five sessions with recent and old reply dates, one holding
+  a single session, one holding none, and one holding ten pinned sessions.
   A fifth group has twelve unpinned sessions for the project history pager.
   `prefers-reduced-motion` is unset.
 - **Steps**:
-  1. Inspect the groups: body layering, row and date-label counts, the empty
-     state, the tail each expanded group contributes to the next one, and the
-     non-project lists' budgets.
+  1. Inspect the groups: body layering, row and per-row date counts, no time
+     headings, the empty state, the tail each expanded group contributes to
+     the next one, and the non-project lists' budgets.
   2. Collapse the multi-row group with a real pointer click on its directory row —
      scrolled into view and confirmed to hit that button — and read the group
      body's height, opacity, resolved `grid-template-rows`, and the distance to
@@ -16127,7 +16157,9 @@ plugin-form fixtures in an isolated temporary directory at runtime.
   reduced motion both endpoints are kept and the travel is dropped. The pinned
   list holds eight rows inside `min(233px, 30vh)` and scrolls to its remaining
   rows, and the standalone list keeps its flex column and 146px budget. The group
-  indent, ordering, and workspace state are unchanged.
+  indent, ordering, and workspace state are unchanged. The five seeded project
+  sessions remain in one flat list with no time headings and each has its own
+  date label.
 - **Specs linked**: `04-ux/01-ui-ia.md`, `04-ux/07-ui-design-system.md` §6.1 and
   §13, `04-ux/08-component-spec.md` §6.2, `08-meta/decisions-log.md`
   (2026-09-16, sidebar list rhythm and project-group fold)
@@ -16148,8 +16180,10 @@ plugin-form fixtures in an isolated temporary directory at runtime.
   a current workspace; built desktop with isolated data and profile directories.
 - **Steps**: In dark and light themes, select a project conversation, hover its
   project title and an unselected conversation, then hover the selected row.
-  Exercise the window-blur handler, drop-target styling, project action hover
-  and keyboard Tab/Shift+Tab focus. Fold and reopen its group. Select pinned and
+  Check that a project session date is visible at rest and replaced by its
+  action on hover and focus. Exercise the window-blur handler, drop-target
+  styling, project action hover and keyboard Tab/Shift+Tab focus. Fold and
+  reopen its group. Select pinned and
   standalone conversations. Open Settings and return. Enable reduced motion and
   inspect both row transition durations. In a separate twelve-session project,
   load the remaining two sessions, fold and reopen the group, and verify only
@@ -16162,10 +16196,11 @@ plugin-form fixtures in an isolated temporary directory at runtime.
   retains an outline, action buttons retain local feedback, drop-target paint
   wins over hover, and blur releases hover without clearing selection. Settings
   replaces sidebar navigation, and returning restores conversation and workspace
-  context without a second selected row. Loading more sessions reveals all
-  twelve; folding and reopening restores the initial ten and the two-session
-  remainder control. Rendered component tests additionally cover no selected
-  session, a pending destination and non-chat page state.
+  context without a second selected row. Project session rows show dates at rest
+  and reveal actions in their place on hover and focus. Loading more sessions
+  reveals all twelve; folding and reopening restores the initial ten and the
+  two-session remainder control. Rendered component tests additionally cover no
+  selected session, a pending destination and non-chat page state.
 - **Specs linked**: `04-ux/01-ui-ia.md`, `04-ux/08-component-spec.md`,
   `04-ux/09-interaction-patterns.md` §9.1c
 - **Acceptance**: C, D, Quality
