@@ -1693,6 +1693,13 @@ export const api = {
       }),
     );
   },
+  onBrowserOpenFile: (listener: (event: { path: string }) => void) => {
+    if (!window.piDesktop?.on) return () => undefined;
+    return window.piDesktop.on(IPC.event.browserOpenFile, (payload) => {
+      const event = payload as { path?: unknown };
+      if (typeof event?.path === "string") listener({ path: event.path });
+    });
+  },
   onAgentEvent: (listener: (event: AgentEventEnvelope) => void) => {
     if (!window.piDesktop?.on) return () => undefined;
     return window.piDesktop.on(IPC.event.agentMessage, (payload) =>
