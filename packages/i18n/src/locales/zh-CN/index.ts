@@ -272,6 +272,7 @@ export const zhCN = {
     batchDeleteConfirm: "确认删除 {{count}} 个会话？",
     copyConversationId: "复制对话 ID",
     copySessionLink: "复制会话链接",
+    copySessionPath: "复制会话路径",
     openSessionPath: "打开会话路径",
     timeGroupYesterday: "昨天",
     timeGroupThisWeek: "近 7 天",
@@ -1754,6 +1755,8 @@ sklm: {
   project: {
     open: "打开项目",
     openFolder: "打开文件夹",
+    copyName: "复制项目名称",
+    copyPath: "复制项目路径",
     none: "无项目",
     clear: "关闭项目",
     title: "项目",

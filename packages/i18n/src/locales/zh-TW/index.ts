@@ -272,6 +272,7 @@ export const zhTW = {
     batchDeleteConfirm: "確認刪除 {{count}} 個對話？",
     copyConversationId: "複製對話 ID",
     copySessionLink: "複製對話連結",
+    copySessionPath: "複製會話路徑",
     openSessionPath: "開啟會話路徑",
     timeGroupYesterday: "昨天",
     timeGroupThisWeek: "近 7 天",
@@ -1754,6 +1755,8 @@ sklm: {
   project: {
     open: "開啟專案",
     openFolder: "開啟資料夾",
+    copyName: "複製專案名稱",
+    copyPath: "複製專案路徑",
     none: "無專案",
     clear: "關閉專案",
     title: "專案",

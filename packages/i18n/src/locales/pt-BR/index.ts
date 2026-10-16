@@ -269,6 +269,7 @@ export const ptBR = {
     batchDeleteConfirm: "Excluir {{count}} sessões?",
     copyConversationId: "Copiar ID da conversa",
     copySessionLink: "Copiar link da conversa",
+    copySessionPath: "Copiar caminho da sessão",
     openSessionPath: "Abrir caminho da sessão",
     timeGroupYesterday: "Ontem",
     timeGroupThisWeek: "Últimos 7 dias",
@@ -1729,6 +1730,8 @@ export const ptBR = {
   project: {
     open: "Abrir projeto",
     openFolder: "Abrir pasta",
+    copyName: "Copiar nome do projeto",
+    copyPath: "Copiar caminho do projeto",
     none: "Sem projeto",
     clear: "Limpar projeto",
     title: "Projetos",

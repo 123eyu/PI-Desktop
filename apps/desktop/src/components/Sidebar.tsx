@@ -1487,6 +1487,27 @@ export function Sidebar({
     closeMenus();
   };
 
+  const copyTextToClipboard = async (value: string) => {
+    try {
+      await navigator.clipboard.writeText(value);
+      showToast(t("chat.copied"));
+    } catch (error) {
+      reportError(error);
+    }
+    closeMenus();
+  };
+
+  const copySessionPath = async (session: SessionSummary) => {
+    if (isRemoteSession(session)) return;
+    try {
+      const { path } = await api.getSessionScratchPath(session.id);
+      await copyTextToClipboard(path);
+    } catch (error) {
+      reportError(error);
+      closeMenus();
+    }
+  };
+
   const openSessionPath = async (session: SessionSummary) => {
     if (isRemoteSession(session)) return;
     closeMenus(false);
@@ -1706,32 +1727,42 @@ export function Sidebar({
                 }),
               ]
             : []),
-          sidebarMenuAction({
-            id: "copy-session-link",
-            label: t("nav.copySessionLink"),
+          sidebarMenuSubmenu({
+            id: "session-copy",
+            label: t("chat.copy", { defaultValue: "Copy" }),
             icon: <IconCopy size={14} />,
-            onSelect: () => void copySessionLink(session),
+            items: [
+              sidebarMenuAction({
+                id: "copy-conversation-id",
+                label: t("nav.copyConversationId"),
+                icon: <IconCopy size={14} />,
+                onSelect: () => void copyConversationId(session),
+              }),
+              ...(!isRemoteSession(session)
+                ? [
+                    sidebarMenuAction({
+                      id: "copy-session-path",
+                      label: t("nav.copySessionPath"),
+                      icon: <IconFolder size={14} />,
+                      onSelect: () => void copySessionPath(session),
+                    }),
+                  ]
+                : []),
+              sidebarMenuAction({
+                id: "copy-session-link",
+                label: t("nav.copySessionLink"),
+                icon: <IconCopy size={14} />,
+                onSelect: () => void copySessionLink(session),
+              }),
+            ],
           }),
           ...(settings?.developerMode === true && !isRemoteSession(session)
             ? [
-                sidebarMenuSubmenu({
-                  id: "session-developer",
-                  label: t("nav.developerMode", { defaultValue: "Developer tools" }),
-                  icon: <IconSettings size={14} />,
-                  items: [
-                    sidebarMenuAction({
-                      id: "copy-conversation-id",
-                      label: t("nav.copyConversationId"),
-                      icon: <IconCopy size={14} />,
-                      onSelect: () => void copyConversationId(session),
-                    }),
-                    sidebarMenuAction({
-                      id: "open-session-path",
-                      label: t("nav.openSessionPath"),
-                      icon: <IconFolder size={14} />,
-                      onSelect: () => void openSessionPath(session),
-                    }),
-                  ],
+                sidebarMenuAction({
+                  id: "open-session-path",
+                  label: t("nav.openSessionPath"),
+                  icon: <IconFolder size={14} />,
+                  onSelect: () => void openSessionPath(session),
                 }),
               ]
             : []),
@@ -1766,6 +1797,7 @@ export function Sidebar({
       armedDelete,
       archiveSession,
       copyConversationId,
+      copySessionPath,
       copySessionLink,
       forkSession,
       openSessionPath,
@@ -1816,8 +1848,28 @@ export function Sidebar({
             onSelect: () => void archiveProject(entry),
           }),
           sidebarMenuSubmenu({
+            id: "project-copy",
+            label: t("chat.copy", { defaultValue: "Copy" }),
+            icon: <IconCopy size={14} />,
+            items: [
+              sidebarMenuAction({
+                id: "copy-project-name",
+                label: t("project.copyName"),
+                icon: <IconCopy size={14} />,
+                onSelect: () => void copyTextToClipboard(entry.name),
+              }),
+              sidebarMenuAction({
+                id: "copy-project-path",
+                label: t("project.copyPath"),
+                icon: <IconFolder size={14} />,
+                onSelect: () => void copyTextToClipboard(entry.displayPath ?? entry.path),
+              }),
+            ],
+          }),
+          sidebarMenuSubmenu({
             id: "project-git",
             label: t("worktree.menu.group", { defaultValue: "Git" }),
+            icon: <IconBranch size={14} />,
             items: projectIsolationItems,
           }),
           sidebarMenuSubmenu({
@@ -1841,6 +1893,7 @@ export function Sidebar({
       archiveProject,
       openProjectFolder,
       projectIsolationItems,
+      copyTextToClipboard,
       requestDeleteProject,
       t,
       toggleProjectPin,

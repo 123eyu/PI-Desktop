@@ -279,6 +279,7 @@ export const tr = {
     batchDeleteConfirm: "{{count}} oturum silinsin mi?",
     copyConversationId: "Konuşma kimliğini kopyala",
     copySessionLink: "Konuşma bağlantısını kopyala",
+    copySessionPath: "Oturum yolunu kopyala",
     openSessionPath: "Oturum yolunu aç",
     timeGroupYesterday: "Dün",
     timeGroupThisWeek: "Önceki 7 gün",
@@ -1769,6 +1770,8 @@ sklm: {
   project: {
     open: "Proje aç",
     openFolder: "Klasörü aç",
+    copyName: "Proje adını kopyala",
+    copyPath: "Proje yolunu kopyala",
     none: "Proje yok",
     clear: "Projeyi temizle",
     title: "Projeler",

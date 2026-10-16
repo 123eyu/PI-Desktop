@@ -3133,22 +3133,21 @@ identify the platform validation still needed.
   has not been created yet. The session can create a branch; worktree actions
   are available when it belongs to a Git project.
 - **Steps**: 1) Open the session overflow menu or right-click its row. Hover Git
-  and verify its second-level actions appear; click/tap Git to open the same
-  submenu without hover. Use ArrowRight to enter it, ArrowLeft to return, and
-  Escape to close only the child menu. Choose Copy conversation link from the
-  root menu. 2) Enable developer mode and reopen the menu. Hover or click
-  Developer mode, then choose Copy conversation ID and paste the clipboard.
-  Reopen the submenu and choose Open session path. 3) Disable developer mode
-  and verify the Developer submenu is absent.
-- **Expected**: Git and Developer mode are menuitem/haspopup triggers; hover and
-  click reveal their child menus without dismissing the root. ArrowRight enters
-  a child, ArrowLeft and the first Escape return to its trigger, and a second
+  and verify its second-level actions appear; click/tap Git to open it without
+  hover. Use ArrowRight to enter, ArrowLeft to return, and Escape to close only
+  the child menu. 2) Open Copy and choose Copy conversation ID, Copy session
+  path, and Copy conversation link in turn; paste each clipboard value. 3) Enable
+  developer mode, reopen the menu, and choose Open session path. 4) Disable
+  developer mode and verify Open session path is absent while Copy remains.
+- **Expected**: Git and Copy are menuitem/haspopup triggers; hover and click
+  reveal their child menus without dismissing the root. ArrowRight enters a
+  child, ArrowLeft and the first Escape return to its trigger, and a second
   Escape closes the root. Child actions remain keyboard reachable and execute
-  once. Copy conversation link remains available at the root. The clipboard
-  contains the exact session id. The system file manager opens
-  `<data_dir>/scratch/<sessionId>/`, creating it if missing. The renderer does
-  not send a filesystem path; Main opens only a resolved scratch directory for
-  that session id. Developer-only actions are absent with developer mode off.
+  once. The ID equals the session id, the path equals the Host-resolved scratch
+  path for local sessions, and the link is the canonical conversation link.
+  Remote sessions omit Copy session path. The system file manager opens
+  `<data_dir>/scratch/<sessionId>/` when the developer-only Open session path
+  action is chosen. The renderer never sends a filesystem path to Main.
 - **Specs linked**: `03-runtime/01-ipc-protocol.md`,
   `04-ux/08-component-spec.md`, `04-ux/06-settings-ia.md`,
   `04-ux/09-interaction-patterns.md`
@@ -3161,8 +3160,14 @@ identify the platform validation still needed.
 #### E2E-021c: Bottom-edge project menus stay beside their anchor
 
 - **Preconditions**: The expanded Sidebar shows a retained project in its lowest visible row, with insufficient room below it for the project menu.
-- **Steps**: 1) Right-click the project row and inspect the menu. 2) Close it, open the row's overflow button, and inspect the menu again. 3) Verify every action remains inside the viewport.
-- **Expected**: Both entry points place the menu immediately above the row when it cannot fit below, using the rendered menu height. When there is enough room, the menu opens below its anchor. No menu is displaced to a distant viewport edge or clipped.
+- **Steps**: 1) Open the project's Copy submenu; copy the project name and path
+  and verify each pasted value. 2) Right-click the bottom project row and
+  inspect the root menu. 3) Close it, open the row's overflow button, and hover
+  Copy and Git. Verify both child menus and all actions stay inside the viewport.
+- **Expected**: Both root-menu entry points place the menu immediately above
+  the row when it cannot fit below; otherwise they open below. Copy yields the
+  displayed project name and path. Child submenus remain attached to their
+  trigger, flip sides as needed, and are neither clipped nor displaced.
 - **Specs linked**: `04-ux/08-component-spec.md`, `04-ux/09-interaction-patterns.md`
 - **Acceptance**: Quality (sidebar interaction)
 - **Milestone**: M2

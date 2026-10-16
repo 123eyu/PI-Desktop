@@ -77,7 +77,10 @@ test("every locale ships the sidebar menu keys", async () => {
     const nav = catalog.nav ?? {};
     assert.equal(typeof nav.dangerZone, "string", `${locale}: nav.dangerZone`);
     assert.equal(typeof nav.viewOptions, "string", `${locale}: nav.viewOptions`);
+    assert.equal(typeof nav.copySessionPath, "string", `${locale}: nav.copySessionPath`);
     assert.equal(typeof nav.batchSelectionHint, "string", `${locale}: nav.batchSelectionHint`);
+    assert.equal(typeof catalog.project?.copyName, "string", `${locale}: project.copyName`);
+    assert.equal(typeof catalog.project?.copyPath, "string", `${locale}: project.copyPath`);
     assert.equal(
       typeof catalog.worktree?.menu?.group,
       "string",

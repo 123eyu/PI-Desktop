@@ -224,10 +224,14 @@ test("sidebar row menus expose hover submenus for related actions", () => {
 
   /* Related actions open as real second-level menus. */
   assert.match(sessionMenu, /sidebarMenuSubmenu\(\{[\s\S]*?id: "session-git"[\s\S]*?items: gitItems/);
-  assert.match(sessionMenu, /id: "copy-session-link"/);
-  assert.doesNotMatch(sessionMenu, /id: "session-copy"/);
-  assert.match(sessionMenu, /id: "session-developer"[\s\S]*?id: "open-session-path"/);
+  assert.match(sessionMenu, /id: "session-copy"[\s\S]*?id: "copy-conversation-id"[\s\S]*?id: "copy-session-path"[\s\S]*?id: "copy-session-link"/);
+  assert.match(sidebarSource, /api\.getSessionScratchPath\(session\.id\)/);
+  assert.match(sessionMenu, /id: "open-session-path"/);
   assert.match(projectMenu, /sidebarMenuSubmenu\(\{[\s\S]*?id: "project-git"[\s\S]*?items: projectIsolationItems/);
+  assert.match(projectMenu, /id: "project-copy"[\s\S]*?id: "copy-project-name"[\s\S]*?id: "copy-project-path"/);
+  assert.match(projectMenu, /sidebarMenuAction\(\{\s*id: "copy-project-name",\s*label: t\("project\.copyName"\),\s*icon: <IconCopy size=\{14\} \/>,/);
+  assert.match(projectMenu, /id: "project-git"[\s\S]*?icon: <IconBranch size=\{14\} \/>/);
+  assert.match(projectMenu, /copyTextToClipboard\(entry\.displayPath \?\? entry\.path\)/);
 
   /* The sort popover is two labelled groups instead of a title plus loose rows. */
   assert.match(sortMenu, /id: "sort"/);
