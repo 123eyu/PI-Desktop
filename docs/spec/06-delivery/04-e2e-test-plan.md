@@ -7784,10 +7784,12 @@ must keep splitting are covered by `markdown-blocks.test.mjs`.
   descendants, output events, audit, and turn state after the shutdown grace.
 - **Expected**: The process group/job tree is terminated, no descendant remains,
   no later output arrives, the turn returns `TURN_ABORTED`, and the workspace is
-  not rolled back automatically. On Windows, the hidden runner first breaks
-  away from any parent Job Object before entering its own kill-on-close job; a
-  denied breakaway fails the tool closed instead of allowing the Desktop tree
-  to become the termination scope.
+  not rolled back automatically. On Windows, the hidden runner requests
+  `CREATE_BREAKAWAY_FROM_JOB` only when the job that contains the host grants
+  `JOB_OBJECT_LIMIT_BREAKAWAY_OK`, then enters its own kill-on-close job. A host
+  job that withholds breakaway leaves the runner in a nested job instead of
+  failing the tool closed; termination is still scoped to that job, so the
+  Desktop tree never becomes the termination scope.
 - **Specs linked**: `03-runtime/03-tools-and-permissions.md`,
   `03-runtime/07-process-model.md`, `03-runtime/08-error-codes.md`,
   `03-runtime/16-tool-result-limits.md`, `05-security/01-security.md`, ADR 0054
