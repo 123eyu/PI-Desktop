@@ -10032,8 +10032,11 @@ must keep splitting are covered by `markdown-blocks.test.mjs`.
 - **Preconditions**: An isolated local Electron profile with a deterministic
   Agent/host fixture, two Desktop sessions, and no real provider or paid API.
 - **Steps**: Start a multi-step Agent turn that calls `TodoWrite` with ordered
-  pending and `in_progress` items. Observe the TodoDock above the Composer,
-  expand it, switch sessions, and confirm the checklist stays session-scoped.
+  pending and `in_progress` items. Observe the TodoDock above the Composer;
+  confirm its progress text is left-aligned, its separate arrow button is at
+  the right edge, and clicking the text does not expand it. Click the upward
+  arrow to expand, then confirm the arrow points down. Switch sessions and
+  confirm the checklist stays session-scoped.
   Expand a checklist longer than the dock's height cap: every row must render
   and the list must scroll inside the dock without growing the Composer stack.
   Complete and cancel items, confirm the all-cancelled label, then clear the
@@ -10046,7 +10049,8 @@ must keep splitting are covered by `markdown-blocks.test.mjs`.
   snapshot. Invalid or unauthorized writes do not mutate or emit. TodoDock
   renders plain text, separates collapsed progress from the current item,
   uses compact square status marks in a flat expanded list, does not take focus,
-  resets expansion on session changes, lists every ordered row with the dock's
+  strikes through completed task text, resets expansion on session changes,
+  lists every ordered row with the dock's
   own list as the scrollport, and keeps a collapsed dock to its header height,
   rejects stale events, and skips local recovery for `remote:` sessions because
   RACP v1 has no Todo snapshot operation.

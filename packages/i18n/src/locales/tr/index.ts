@@ -388,6 +388,8 @@ export const tr = {
       completed: "{{completed}}/{{total}} tamamlandı",
       updated: "Kontrol listesi güncellendi",
       updating: "Kontrol listesi güncelleniyor",
+      expand: "Kontrol listesini genişlet",
+      collapse: "Kontrol listesini daralt",
       status: { pending: "Bekliyor", in_progress: "Devam ediyor", completed: "Tamamlandı", cancelled: "İptal edildi" },
     },
     queuedPrompts: "Kuyruktaki iletiler",

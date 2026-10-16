@@ -379,6 +379,8 @@ export const es = {
       "completed": "{{completed}}/{{total}} completadas",
       "updated": "Lista actualizada",
       "updating": "Actualizando lista",
+      "expand": "Expandir lista de tareas",
+      "collapse": "Contraer lista de tareas",
       "status": { "pending": "Pendiente", "in_progress": "En curso", "completed": "Completada", "cancelled": "Cancelada" }
     },
     "queuedPrompts": "Mensajes en cola",

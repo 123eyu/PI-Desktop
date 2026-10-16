@@ -386,6 +386,8 @@ export const en = {
       completed: "{{completed}}/{{total}} completed",
       updated: "Checklist updated",
       updating: "Updating checklist",
+      expand: "Expand checklist",
+      collapse: "Collapse checklist",
       status: {
         pending: "Pending",
         in_progress: "In progress",
