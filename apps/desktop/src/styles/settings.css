@@ -3585,6 +3585,10 @@
   color: var(--ds-warning);
 }
 
+.mcpm-status.is-snapshot {
+  color: var(--ds-text-secondary);
+}
+
 .mcpm-badge.is-remote {
   background: color-mix(in oklab, var(--ds-accent) 10%, transparent);
   color: var(--ds-text-muted);
@@ -4096,6 +4100,10 @@
 
 .sklm-status.is-error {
   color: var(--ds-warning);
+}
+
+.sklm-status.is-snapshot {
+  color: var(--ds-text-secondary);
 }
 
 .sklm-badge.is-remote {
