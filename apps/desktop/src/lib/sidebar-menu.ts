@@ -58,6 +58,16 @@ export type SidebarMenuGroupItem = {
   label?: string;
   options: SidebarMenuRadioOption[];
 };
+/** A hover/click-opened second-level menu of commands. */
+export type SidebarMenuSubmenuItem = {
+  kind: "submenu";
+  id: string;
+  label: string;
+  icon?: React.ReactNode;
+  items: SidebarMenuActionItem[];
+  notes?: SidebarMenuNote[];
+};
+
 
 /** A titled separator, e.g. "Danger zone". */
 export type SidebarMenuSectionItem = {
@@ -70,7 +80,8 @@ export type SidebarMenuItem =
   | SidebarMenuActionItem
   | SidebarMenuCheckItem
   | SidebarMenuSectionItem
-  | SidebarMenuGroupItem;
+  | SidebarMenuGroupItem
+  | SidebarMenuSubmenuItem;
 
 /** A rule carrying a caption: pending work that would be lost by deleting. */
 export type SidebarMenuNote = {
@@ -106,8 +117,36 @@ export function sidebarMenuGroup(
   return { kind: "group", ...item };
 }
 
+export function sidebarMenuSubmenu(
+  item: Omit<SidebarMenuSubmenuItem, "kind">,
+): SidebarMenuSubmenuItem {
+  return { kind: "submenu", ...item };
+}
+
 export function sidebarMenuSection(
   item: Omit<SidebarMenuSectionItem, "kind">,
 ): SidebarMenuSectionItem {
   return { kind: "section", ...item };
+}
+
+export type SidebarMenuSubmenuPlacement = { top: number; left: number };
+
+/** Place a submenu beside its trigger, flipping left and clamping vertically. */
+export function placeSidebarSubmenu(
+  trigger: { top: number; left: number; right: number },
+  surface: { width: number; height: number },
+  viewport: { width: number; height: number },
+  margin = 8,
+  gap = 0,
+): SidebarMenuSubmenuPlacement {
+  const maxLeft = viewport.width - surface.width - margin;
+  const preferredRight = trigger.right + gap;
+  const preferredLeft = preferredRight + surface.width <= viewport.width - margin
+    ? preferredRight
+    : trigger.left - surface.width - gap;
+  const maxTop = viewport.height - surface.height - margin;
+  return {
+    left: Math.round(Math.max(margin, Math.min(preferredLeft, maxLeft))),
+    top: Math.round(Math.max(margin, Math.min(trigger.top, maxTop))),
+  };
 }

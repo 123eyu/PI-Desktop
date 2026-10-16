@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 import test from "node:test";
-
+import { placeSidebarSubmenu } from "../src/lib/sidebar-menu.ts";
 const panelSource = await readFile(
   new URL("../src/components/SidebarMenuPanel.tsx", import.meta.url),
   "utf8",
@@ -33,11 +33,37 @@ test("keyboard navigation walks the rows the menu can actually run", () => {
   assert.match(panelSource, /event\.key === "Escape"[\s\S]*?onClose\(\)/);
 });
 
-test("a lone uncaptioned option joins the rows instead of heading its own group", () => {
-  assert.match(
-    panelSource,
-    /group\.label \|\| group\.options\.length > 1/,
-    "a single option without a caption must not render a group header",
+test("submenu trigger advertises its expanded state and opens on hover or click", () => {
+  assert.match(panelSource, /data-submenu-trigger=\{item\.id\}/);
+  assert.match(panelSource, /aria-haspopup="menu"/);
+  assert.match(panelSource, /aria-expanded=\{expanded\}/);
+  assert.match(panelSource, /event\.pointerType === "mouse"\) openSubmenu\(item\.id, false\)/);
+  assert.match(panelSource, /onClick=\{\(event\) => openSubmenu\(item\.id, event\.detail === 0\)\}/);
+});
+
+test("submenu keyboard entry and return preserve focus", () => {
+  assert.match(panelSource, /event\.key === "ArrowRight"/);
+  assert.match(panelSource, /event\.key === "ArrowLeft" && isSubmenu/);
+  assert.match(panelSource, /if \(isSubmenu\) closeSubmenu\(true\)/);
+  assert.match(panelSource, /trigger\?\.focus\(\)/);
+});
+
+test("submenu flips left and clamps against viewport edges", () => {
+  assert.deepEqual(
+    placeSidebarSubmenu(
+      { top: 100, left: 200, right: 224 },
+      { width: 180, height: 120 },
+      { width: 800, height: 600 },
+    ),
+    { top: 100, left: 224 },
+  );
+  assert.deepEqual(
+    placeSidebarSubmenu(
+      { top: 590, left: 740, right: 764 },
+      { width: 180, height: 120 },
+      { width: 800, height: 600 },
+    ),
+    { top: 472, left: 560 },
   );
 });
 

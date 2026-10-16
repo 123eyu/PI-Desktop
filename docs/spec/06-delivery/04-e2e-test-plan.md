@@ -3127,26 +3127,36 @@ identify the platform validation still needed.
 - **Milestone**: M2
 - **Status**: Draft (run only in a capable environment when this surface changes)
 
-#### E2E-021b: Developer mode copies a conversation id and opens session scratch
+#### E2E-021b: Session context menus expose hover submenus
 
-- **Preconditions**: Developer mode is enabled. A session exists, including one
-  whose scratch directory has not been created yet.
-- **Steps**: 1) Open a conversation overflow menu. 2) Confirm Copy conversation
-  ID and Open session path appear after Create branch and before Delete, and
-  that Copy session path is absent. 3) Choose Copy conversation ID and paste
-  the clipboard. 4) Choose Open session path. 5) Disable developer mode and
-  reopen the menu.
-- **Expected**: The clipboard contains the exact session id. The system file
-  manager opens `<data_dir>/scratch/<sessionId>/`, creating that directory if
-  it was missing. The renderer does not send a filesystem path; Main opens
-  only a resolved scratch directory for that session id. With developer mode
-  off, both actions are absent.
+- **Preconditions**: A session exists, including one whose scratch directory
+  has not been created yet. The session can create a branch; worktree actions
+  are available when it belongs to a Git project.
+- **Steps**: 1) Open the session overflow menu or right-click its row. Hover Git
+  and verify its second-level actions appear; click/tap Git to open the same
+  submenu without hover. Use ArrowRight to enter it, ArrowLeft to return, and
+  Escape to close only the child menu. Choose Copy conversation link from the
+  root menu. 2) Enable developer mode and reopen the menu. Hover or click
+  Developer mode, then choose Copy conversation ID and paste the clipboard.
+  Reopen the submenu and choose Open session path. 3) Disable developer mode
+  and verify the Developer submenu is absent.
+- **Expected**: Git and Developer mode are menuitem/haspopup triggers; hover and
+  click reveal their child menus without dismissing the root. ArrowRight enters
+  a child, ArrowLeft and the first Escape return to its trigger, and a second
+  Escape closes the root. Child actions remain keyboard reachable and execute
+  once. Copy conversation link remains available at the root. The clipboard
+  contains the exact session id. The system file manager opens
+  `<data_dir>/scratch/<sessionId>/`, creating it if missing. The renderer does
+  not send a filesystem path; Main opens only a resolved scratch directory for
+  that session id. Developer-only actions are absent with developer mode off.
 - **Specs linked**: `03-runtime/01-ipc-protocol.md`,
-  `04-ux/08-component-spec.md`, `04-ux/06-settings-ia.md`
-- **Acceptance**: C (sessions), Quality (developer tools)
+  `04-ux/08-component-spec.md`, `04-ux/06-settings-ia.md`,
+  `04-ux/09-interaction-patterns.md`
+- **Acceptance**: C (sessions), Quality (nested menu interaction)
 - **Milestone**: M2
-- **Status**: Unit-covered (`session-scratch-path.test.mjs`); desktop journey
-  Draft (run only in a capable environment when this surface changes)
+- **Status**: Component interaction automated (`worktree-menu-user-path.test.mjs`,
+  `sidebar-menu-panel.test.mjs`, `sidebar-navigation.test.mjs`); full Sidebar
+  desktop journey remains Draft
 
 #### E2E-021c: Bottom-edge project menus stay beside their anchor
 

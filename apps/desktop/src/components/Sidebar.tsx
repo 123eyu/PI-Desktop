@@ -87,6 +87,7 @@ import {
   sidebarMenuCheck,
   sidebarMenuGroup,
   sidebarMenuSection,
+  sidebarMenuSubmenu,
   type SidebarMenuPanelContent,
 } from "../lib/sidebar-menu";
 import { useArmedDelete } from "../hooks/use-armed-delete";
@@ -1641,11 +1642,6 @@ export function Sidebar({
           : t("nav.sortCreated", { defaultValue: "Created date" });
 
 
-  /** Delete is the only row that destroys durable history, so it gets its own group. */
-  const dangerSection = (
-    id: "session-danger" | "project-danger",
-    label: string,
-  ) => sidebarMenuSection({ id, label });
 
   const sessionMenuContent = useCallback(
     (session: SessionSummary): SidebarMenuPanelContent => {
@@ -1653,6 +1649,21 @@ export function Sidebar({
       const archived = sessionArchived(session, meta);
       const pinned = sessionPinned(session, meta);
       const native = session.source === "pi-native";
+      const gitItems = [
+        ...(native || !sessionAllows(session, "canEditMessages")
+          ? []
+          : [
+              sidebarMenuAction({
+                id: "fork-session",
+                label: t("nav.createBranch"),
+                icon: <IconBranch size={14} />,
+                title: t("nav.createBranch"),
+                disabled: Boolean(runningSessions[session.id]),
+                onSelect: () => void forkSession(session),
+              }),
+            ]),
+        ...sessionWorktreeItems,
+      ];
       return {
         label: t("nav.sessionActions", { defaultValue: "Session actions" }),
         items: [
@@ -1685,78 +1696,70 @@ export function Sidebar({
             icon: archived ? <IconArchiveRestore size={14} /> : <IconArchive size={14} />,
             onSelect: () => void archiveSession(session),
           }),
-          ...(native || !sessionAllows(session, "canEditMessages")
-            ? []
-            : [
-                sidebarMenuAction({
-                  id: "fork-session",
-                  label: t("nav.createBranch"),
-                  icon: <IconBranch size={14} />,
-                  title: t("nav.createBranch"),
-                  disabled: Boolean(runningSessions[session.id]),
-                  onSelect: () => void forkSession(session),
-                }),
-              ]),
-          ...(sessionWorktreeItems.length
+          ...(gitItems.length
             ? [
-                sidebarMenuSection({
+                sidebarMenuSubmenu({
                   id: "session-git",
                   label: t("worktree.menu.group", { defaultValue: "Git" }),
+                  icon: <IconBranch size={14} />,
+                  items: gitItems,
                 }),
-                ...sessionWorktreeItems,
               ]
             : []),
           sidebarMenuAction({
             id: "copy-session-link",
             label: t("nav.copySessionLink"),
-            title: t("nav.copySessionLink"),
+            icon: <IconCopy size={14} />,
             onSelect: () => void copySessionLink(session),
           }),
           ...(settings?.developerMode === true && !isRemoteSession(session)
             ? [
-                sidebarMenuAction({
-                  id: "copy-conversation-id",
-                  label: t("nav.copyConversationId"),
-                  icon: <IconCopy size={14} />,
-                  title: t("nav.copyConversationId"),
-                  onSelect: () => void copyConversationId(session),
-                }),
-                sidebarMenuAction({
-                  id: "open-session-path",
-                  label: t("nav.openSessionPath"),
-                  icon: <IconFolder size={14} />,
-                  title: t("nav.openSessionPath"),
-                  onSelect: () => void openSessionPath(session),
+                sidebarMenuSubmenu({
+                  id: "session-developer",
+                  label: t("nav.developerMode", { defaultValue: "Developer tools" }),
+                  icon: <IconSettings size={14} />,
+                  items: [
+                    sidebarMenuAction({
+                      id: "copy-conversation-id",
+                      label: t("nav.copyConversationId"),
+                      icon: <IconCopy size={14} />,
+                      onSelect: () => void copyConversationId(session),
+                    }),
+                    sidebarMenuAction({
+                      id: "open-session-path",
+                      label: t("nav.openSessionPath"),
+                      icon: <IconFolder size={14} />,
+                      onSelect: () => void openSessionPath(session),
+                    }),
+                  ],
                 }),
               ]
             : []),
           ...(native
             ? []
             : [
-                dangerSection(
-                  "session-danger",
-                  t("nav.dangerZone", { defaultValue: "Danger zone" }),
-                ),
-                sidebarMenuAction({
-                  id: "delete-session",
-                  label:
-                    armedDelete === session.id
-                      ? t("nav.deleteTaskConfirm", { defaultValue: "Delete?" })
-                      : t("nav.deleteTask", { defaultValue: "Delete" }),
-                  icon: <IconX size={14} />,
-                  danger: true,
-                  armed: armedDelete === session.id,
-                  onSelect: () => requestDeleteSession(session),
+                sidebarMenuSubmenu({
+                  id: "session-danger",
+                  label: t("nav.dangerZone", { defaultValue: "Danger zone" }),
+                  icon: <IconTrash size={14} />,
+                  items: [
+                    sidebarMenuAction({
+                      id: "delete-session",
+                      label: armedDelete === session.id
+                        ? t("nav.deleteTaskConfirm", { defaultValue: "Delete?" })
+                        : t("nav.deleteTask", { defaultValue: "Delete" }),
+                      icon: <IconX size={14} />,
+                      danger: true,
+                      armed: armedDelete === session.id,
+                      onSelect: () => requestDeleteSession(session),
+                    }),
+                  ],
+                  notes: sessionDeleteLoss
+                    ? [{ id: "session-delete-loss", text: sessionDeleteLoss }]
+                    : undefined,
                 }),
               ]),
-        ].map((item) =>
-          item.kind === "action" && item.id === "delete-session" && armedDelete === session.id
-            ? item
-            : item,
-        ),
-        notes: sessionDeleteLoss
-          ? [{ id: "session-delete-loss", text: sessionDeleteLoss }]
-          : undefined,
+        ],
       };
     },
     [
@@ -1812,18 +1815,24 @@ export function Sidebar({
             icon: archived ? <IconArchiveRestore size={14} /> : <IconArchive size={14} />,
             onSelect: () => void archiveProject(entry),
           }),
-          sidebarMenuSection({
+          sidebarMenuSubmenu({
             id: "project-git",
             label: t("worktree.menu.group", { defaultValue: "Git" }),
+            items: projectIsolationItems,
           }),
-          ...projectIsolationItems,
-          dangerSection("project-danger", t("nav.dangerZone", { defaultValue: "Danger zone" })),
-          sidebarMenuAction({
-            id: "delete-project",
-            label: t("project.delete", { defaultValue: "Delete project" }),
+          sidebarMenuSubmenu({
+            id: "project-danger",
+            label: t("nav.dangerZone", { defaultValue: "Danger zone" }),
             icon: <IconTrash size={14} />,
-            danger: true,
-            onSelect: () => requestDeleteProject(entry),
+            items: [
+              sidebarMenuAction({
+                id: "delete-project",
+                label: t("project.delete", { defaultValue: "Delete project" }),
+                icon: <IconTrash size={14} />,
+                danger: true,
+                onSelect: () => requestDeleteProject(entry),
+              }),
+            ],
           }),
         ],
       };
@@ -1832,6 +1841,7 @@ export function Sidebar({
       archiveProject,
       openProjectFolder,
       projectIsolationItems,
+      requestDeleteProject,
       t,
       toggleProjectPin,
     ],
@@ -1851,24 +1861,29 @@ export function Sidebar({
           icon: <IconArchive size={14} />,
           onSelect: () => void batchArchiveSessions(),
         }),
-        dangerSection("session-danger", t("nav.dangerZone", { defaultValue: "Danger zone" })),
-        sidebarMenuAction({
-          id: "batch-delete",
-          label:
-            armedDelete === "batch"
-              ? t("nav.batchDeleteConfirm", { defaultValue: "Delete {{count}} sessions?", count })
-              : t("nav.batchDelete", { defaultValue: "Delete {{count}} sessions", count }),
+        sidebarMenuSubmenu({
+          id: "batch-danger",
+          label: t("nav.dangerZone", { defaultValue: "Danger zone" }),
           icon: <IconTrash size={14} />,
-          danger: true,
-          armed: armedDelete === "batch",
-          onSelect: () => {
-            if (armedDelete !== "batch") {
-              setArmedDelete("batch");
-              return;
-            }
-            setArmedDelete(null);
-            void batchDeleteSessions();
-          },
+          items: [
+            sidebarMenuAction({
+              id: "batch-delete",
+              label: armedDelete === "batch"
+                ? t("nav.batchDeleteConfirm", { defaultValue: "Delete {{count}} sessions?", count })
+                : t("nav.batchDelete", { defaultValue: "Delete {{count}} sessions", count }),
+              icon: <IconTrash size={14} />,
+              danger: true,
+              armed: armedDelete === "batch",
+              onSelect: () => {
+                if (armedDelete !== "batch") {
+                  setArmedDelete("batch");
+                  return;
+                }
+                setArmedDelete(null);
+                void batchDeleteSessions();
+              },
+            }),
+          ],
         }),
       ],
     }),
