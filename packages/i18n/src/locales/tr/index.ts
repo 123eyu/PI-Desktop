@@ -2,6 +2,7 @@ import { en, type EnglishCatalog } from "../en/index.js";
 
 export const tr = {
   worktree: {
+    menu: { group: "Git" },
     newIsolatedSession: "Yeni yalıtılmış oturum",
     uncommittedNotIncluded: "Projedeki commit edilmemiş değişiklikler yalıtılmış oturuma dahil edilmez.",
     reveal: "Worktree klasörünü göster",
@@ -278,6 +279,7 @@ export const tr = {
     batchDeleteConfirm: "{{count}} oturum silinsin mi?",
     copyConversationId: "Konuşma kimliğini kopyala",
     copySessionLink: "Konuşma bağlantısını kopyala",
+    copySessionPath: "Oturum yolunu kopyala",
     openSessionPath: "Oturum yolunu aç",
     timeGroupYesterday: "Dün",
     timeGroupThisWeek: "Önceki 7 gün",
@@ -288,6 +290,9 @@ export const tr = {
     hoverCardUpdatedAt: "Güncellendi {{when}}",
     hoverCardTemporarySpace: "Geçici",
     hoverCardBranchAria: "Dal {{name}}",
+    dangerZone: "Tehlikeli bölge",
+    batchSelectionHint: "{{count}} oturum seçildi",
+    viewOptions: "Görünüm",
   },
   sessionCollaboration: {
     statusIdle: "Boşta",
@@ -1765,6 +1770,8 @@ sklm: {
   project: {
     open: "Proje aç",
     openFolder: "Klasörü aç",
+    copyName: "Proje adını kopyala",
+    copyPath: "Proje yolunu kopyala",
     none: "Proje yok",
     clear: "Projeyi temizle",
     title: "Projeler",

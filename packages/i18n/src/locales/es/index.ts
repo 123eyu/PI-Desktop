@@ -2,6 +2,7 @@ import { en, type EnglishCatalog } from "../en/index.js";
 
 export const es = {
   "worktree": {
+    "menu": { "group": "Git" },
     "newIsolatedSession": "Nueva sesión aislada",
     "uncommittedNotIncluded": "Los cambios sin confirmar del proyecto no se incluyen en la sesión aislada.",
     "reveal": "Mostrar carpeta del worktree",
@@ -269,6 +270,7 @@ export const es = {
     batchDeleteConfirm: "¿Eliminar {{count}} sesiones?",
     "copyConversationId": "Copiar ID de conversación",
     "copySessionLink": "Copiar enlace de la conversación",
+    "copySessionPath": "Copiar ruta de la sesión",
     "openSessionPath": "Abrir ruta de sesión",
     "timeGroupYesterday": "Ayer",
     "timeGroupThisWeek": "Anterior 7 días",
@@ -278,7 +280,10 @@ export const es = {
     "hoverCardSpace": "Espacio de trabajo",
     "hoverCardUpdatedAt": "Actualizado {{when}}",
     "hoverCardTemporarySpace": "Temporal",
-    "hoverCardBranchAria": "Rama {{name}}"
+    "hoverCardBranchAria": "Rama {{name}}",
+    "dangerZone": "Zona de riesgo",
+    "batchSelectionHint": "{{count}} sesiones seleccionadas",
+    "viewOptions": "Vista",
   },
   "sessionCollaboration": {
     "statusIdle": "Inactivo",
@@ -1755,6 +1760,8 @@ sklm: {
   "project": {
     "open": "Abrir proyecto",
     "openFolder": "Abrir carpeta",
+    "copyName": "Copiar nombre del proyecto",
+    "copyPath": "Copiar ruta del proyecto",
     "none": "Sin proyecto",
     "clear": "Borrar proyecto",
     "title": "Proyectos",

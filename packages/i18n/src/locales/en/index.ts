@@ -1,5 +1,6 @@
 export const en = {
   worktree: {
+    menu: { group: "Git" },
     newIsolatedSession: "New isolated session",
     uncommittedNotIncluded: "Uncommitted changes in the project are not included in the isolated session.",
     reveal: "Show worktree folder",
@@ -276,6 +277,7 @@ export const en = {
     batchDeleteConfirm: "Delete {{count}} sessions?",
     copyConversationId: "Copy conversation ID",
     copySessionLink: "Copy conversation link",
+    copySessionPath: "Copy session path",
     openSessionPath: "Open session path",
     timeGroupYesterday: "Yesterday",
     timeGroupThisWeek: "Previous 7 days",
@@ -286,6 +288,9 @@ export const en = {
     hoverCardUpdatedAt: "Updated {{when}}",
     hoverCardTemporarySpace: "Temporary",
     hoverCardBranchAria: "Branch {{name}}",
+    dangerZone: "Danger zone",
+    batchSelectionHint: "{{count}} sessions selected",
+    viewOptions: "View",
   },
   sessionCollaboration: {
     statusIdle: "Idle",
@@ -1775,6 +1780,8 @@ sklm: {
   project: {
     open: "Open project",
     openFolder: "Open folder",
+    copyName: "Copy project name",
+    copyPath: "Copy project path",
     none: "No project",
     clear: "Clear project",
     title: "Projects",

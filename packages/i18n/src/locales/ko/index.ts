@@ -2,6 +2,7 @@ import { en, type EnglishCatalog } from "../en/index.js";
 
 export const ko = {
   worktree: {
+    menu: { group: "Git" },
     newIsolatedSession: "새 격리 세션",
     uncommittedNotIncluded: "프로젝트의 커밋되지 않은 변경 사항은 격리 세션에 포함되지 않습니다.",
     reveal: "worktree 폴더 보기",
@@ -278,6 +279,7 @@ export const ko = {
     batchDeleteConfirm: "{{count}}개 세션을 삭제하시겠습니까?",
     copyConversationId: "대화 ID 복사",
     copySessionLink: "대화 링크 복사",
+    copySessionPath: "세션 경로 복사",
     openSessionPath: "세션 경로 열기",
     timeGroupYesterday: "어제",
     timeGroupThisWeek: "최근 7일",
@@ -288,6 +290,9 @@ export const ko = {
     hoverCardUpdatedAt: "{{when}} 업데이트됨",
     hoverCardTemporarySpace: "임시",
     hoverCardBranchAria: "브랜치 {{name}}",
+    dangerZone: "위험 구역",
+    batchSelectionHint: "{{count}}개 세션 선택됨",
+    viewOptions: "보기",
   },
   sessionCollaboration: {
     statusIdle: "대기",
@@ -1771,6 +1776,8 @@ sklm: {
   project: {
     open: "프로젝트 열기",
     openFolder: "폴더 열기",
+    copyName: "프로젝트 이름 복사",
+    copyPath: "프로젝트 경로 복사",
     none: "프로젝트 없음",
     clear: "프로젝트 지우기",
     title: "프로젝트",
