@@ -378,6 +378,8 @@ export const ptBR = {
       completed: "{{completed}}/{{total}} concluídos",
       updated: "Checklist atualizado",
       updating: "Atualizando checklist",
+      expand: "Expandir checklist",
+      collapse: "Recolher checklist",
       status: { pending: "Pendente", in_progress: "Em andamento", completed: "Concluído", cancelled: "Cancelado" },
     },
     queuedPrompts: "Mensagens na fila",

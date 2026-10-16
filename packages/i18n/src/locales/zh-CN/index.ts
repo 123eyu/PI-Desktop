@@ -381,6 +381,8 @@ export const zhCN = {
       completed: "已完成 {{completed}} 个任务（共 {{total}} 个）",
       updated: "清单已更新",
       updating: "正在更新清单",
+      expand: "展开任务清单",
+      collapse: "收起任务清单",
       status: { pending: "待办", in_progress: "进行中", completed: "已完成", cancelled: "已取消" },
     },
     queuedPrompts: "待发送消息",

@@ -388,6 +388,8 @@ export const ko = {
       completed: "{{completed}}/{{total}} 완료",
       updated: "체크리스트 업데이트됨",
       updating: "체크리스트 업데이트 중",
+      expand: "체크리스트 펼치기",
+      collapse: "체크리스트 접기",
       status: { pending: "대기", in_progress: "진행 중", completed: "완료", cancelled: "취소됨" },
     },
     queuedPrompts: "대기 중인 메시지",
