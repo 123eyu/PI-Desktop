@@ -79,6 +79,15 @@
   survive migration/restart. Cache cleanup preserves durable state; backup cleanup
   retains active data and the stable bootstrap pointer. Filesystem regression tests
   reject unsafe targets, redirecting links, wrong ownership and active-root overlap.
+- **Missing default root recovery:** Run `node scripts/e2e-storage-bootstrap.mjs`
+  with the managed default data root absent. Stub the native choice and folder
+  dialogs at the Electron API boundary, then exercise both decisions in isolated
+  launches: creating a fresh default profile, and selecting an existing storage
+  root containing `data/pi.sqlite`. Confirm the pointer is normalized only after
+  the selected action succeeds, the selected database remains byte-for-byte
+  intact, and dismissing the choice leaves the pointer unchanged. Also compare
+  Windows path variants with slash and case differences in the offline regression
+  test so they still enter this recovery path.
 - **Windows junction spelling:** The filesystem suite includes a Node-created
   junction whose target ends with a separator. Copying it in Electron must
   preserve the target without a false symbolic-link verification failure.
@@ -96,8 +105,10 @@
   production renderer/API with only preload mocked; the latter suites run real
   host/Electron processes and production maintenance. The bootstrap harness
   intercepts relaunch to inspect its result, then explicitly starts another isolated
-  child; it does not launch the user's desktop. `storage-maintenance.test.mjs`
-  and Rust `data_relocation` tests cover rollback and path/filesystem boundaries.
+  child; it does not launch the user's desktop. The same bootstrap harness
+  exercises missing-default recovery without showing native dialogs.
+  `storage-maintenance.test.mjs` and Rust `data_relocation` tests cover rollback
+  and path/filesystem boundaries.
 
 
 ### E2E-LEGACY-DICTATION-idle-model-release
@@ -10016,6 +10027,7 @@ must keep splitting are covered by `markdown-blocks.test.mjs`.
 | E — Tools & permissions (Skill residency) | E2E-254 |
 | Quality (Skill residency and IME slash alias) | E2E-254, E2E-255 |
 | C / E / F / Quality — Built-in skill activation | E2E-SKILL-builtin-activation |
+| Quality — Market catalog retry recovery | E2E-MARKET-CATALOG-RETRY |
 | C — Conversation & stream (plugin session import visibility) | E2E-257 |
 | F — Persistence (plugin session import visibility) | E2E-257 |
 | G — Plugins (session import visibility) | E2E-257 |
@@ -11149,11 +11161,12 @@ This test plan spec is accepted when:
 
 - **Preconditions**: Built desktop app on macOS, Windows, and Linux; English
   and zh-CN locales are available; a normal main window is open.
-- **Steps**: 1) On Windows, leave the focused main window visible and click its
+- **Steps**: 1) On Windows, maximize the focused main window and click its
   taskbar button; confirm it minimizes while the PI-Desktop taskbar entry
-  remains. Click the same taskbar button again and confirm the window restores
-  and focuses. Cover the window with another app, click the PI-Desktop taskbar
-  entry, and confirm it comes to the front without entering the tray. 2) On
+  remains. Click the same taskbar button again; after the restore settles,
+  confirm the window remains maximized within the display work area and the
+  taskbar stays visible. Cover the window with another app, click the PI-Desktop
+  taskbar entry, and confirm it comes to the front without entering the tray. 2) On
 -  macOS, click the traffic-light minimize control and confirm it hides the
   window to the tray. On Windows/Linux, use the renderer minimize control and
   confirm the native taskbar entry remains available; click it again and
@@ -11164,7 +11177,9 @@ This test plan spec is accepted when:
   zh-CN and invoke macOS app activation while the window is tray-hidden.
 - **Expected**: Windows native taskbar toggling and the Windows/Linux renderer
   minimize controls keep the taskbar entry and round-trip through native
-  minimize/restore; a taskbar click on a covered window brings it to the front.
+  minimize/restore. Restoring a maximized frameless Windows window keeps it
+  within the display work area and leaves the taskbar visible. A taskbar click
+  on a covered window brings it to the front.
   Close to tray is the only Windows/Linux close path that hides the window,
   while Quit exits. On macOS the menu bar icon is a readable transparent
   monochrome PI mark without the rounded application tile, and native minimize
@@ -16285,6 +16300,7 @@ plugin-form fixtures in an isolated temporary directory at runtime.
 | E2E-MCP-MARKET-INSTALL | Builtin catalog entry resolves through `resolveCatalogEntry` and installs via the host `mcp.upsert` RPC; record lands in `~/.agents/servers/` | real host binary, isolated temp HOME |
 | E2E-MCP-MARKET-HEADER-SCOPE | Registry header-local `{token}` resolves only in its header; same-named URL path/query tokens remain literal through mapping, resolution, host upsert/list and persistence. URL templates retain only legacy `${NAME}` substitution. When `headerBindings` exists (even empty or partial), unbound tokens in every header stay literal and never consume another header's input or default | shared regressions plus real host binary with isolated temporary storage; remote entry disabled, no network call |
 | E2E-MCP-MARKET-partial-header-bindings-stay-literal | Resolve a catalog with only Authorization bound and another header using the same `{token}` / `${token}`; an undeclared `${UNBOUND}` in a third header also remains literal through host upsert/list and disk persistence | real host binary, disabled remote entry, synthetic input and isolated temporary storage; no network call |
+| E2E-MARKET-CATALOG-RETRY | In Skill Market and MCP Market, a failed query and then a partial source failure expose Retry; clicking it announces loading, refreshes the same query, and clears the failure when the source recovers | real React components in Electron with deterministic mocked market API responses; no live network |
 
 
 #### E2E-SKILL-MARKET-NET-BOUNDARY: A user-supplied source reaches the LAN, third-party content does not
@@ -16333,6 +16349,25 @@ plugin-form fixtures in an isolated temporary directory at runtime.
   `apps/desktop/test/skill-market-failure.test.mjs`,
   `apps/desktop/test/skill-market-policy-refusal.test.mjs`,
   `packages/shared/src/public-network.test.ts`)
+
+#### E2E-MARKET-CATALOG-RETRY: Retry a failed or partially available market query
+
+- **Preconditions**: Rendered Skill Market and MCP Market panels with the
+  market APIs stubbed at the IPC boundary. Each API returns a total failure,
+  then a result with one failed source, then a complete result.
+- **Steps**: Open each market; click Retry after the total failure; confirm the
+  loading announcement and recovered entry; click Retry again after the
+  partial failure.
+- **Expected**: Both markets repeat the current search, show loading while the
+  request runs, retain a Retry action for partial failures, and clear the failed
+  source after recovery. The test makes no live network request and does not
+  change the main-process network policy.
+- **Specs linked**: `04-ux/06-settings-ia.md`, ADR 0177, ADR 0272
+- **Acceptance**: Quality
+- **Milestone**: M6+
+- **Status**: Automated (`pnpm test:e2e:market-retry`,
+  `apps/desktop/test/skill-market-panel.test.mjs`,
+  `apps/desktop/test/mcp-market-panel.test.mjs`)
 
 #### E2E-SKILL-MARKET-EXPANSION: Adjacent markdown resources inline before install
 

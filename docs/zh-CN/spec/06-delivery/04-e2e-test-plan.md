@@ -5729,6 +5729,7 @@ eleven-tool-round desktop paths are verified by
 | E——工具和权限（Skill 常驻） | E2E-254 |
 | 品质（Skill 常驻与输入法斜杠别名） | E2E-254、E2E-255 |
 | C / E / F / 品质——内置技能启用状态 | E2E-SKILL-builtin-activation |
+| 品质——市场目录查询重试恢复 | E2E-MARKET-CATALOG-RETRY |
 | C — 对话和直播（插件会话导入可见性） | E2E-257 |
 | F——持久化（插件会话导入可见性） | E2E-257 |
 | C — 对话和直播（聊天文件引用） | E2E-CHAT-shorthand-file-ref-opens-the-matching-file、E2E-CHAT-file-ref-opens-the-surface-that-owns-it |
@@ -6628,25 +6629,29 @@ eleven-tool-round desktop paths are verified by
   在同一会话排队两个请求，提交第一个后为第二个选择不同答案，确认两次提交分别包含
   自己的请求 ID 和所选答案。
 
-#### E2E-124：最小化隐藏跨平台托盘中的窗口
+#### E2E-124：窗口控件最小化到任务栏并关闭到所选界面
 
 - **先决条件**：在 macOS、Windows 和 Linux 上构建桌面应用程序；英语
   和 zh-CN 语言环境可用；正常的主窗口打开。
-- **步骤**：1）从平台的窗口控制最小化（macOS流量
-  光或 Windows/Linux 渲染器控制）。 2) 确认主窗口是
-  当应用程序进程保持驻留时隐藏。 3) 单击或双击
-  托盘图标并确认同一窗口已恢复并聚焦。 4) 打开
-  托盘菜单并选择“显示”，然后重复“退出”。 5) 在 zh-CN 中重复并
-  在窗口隐藏时调用 macOS 应用程序激活。
-- **预期**：所有最小化路径都隐藏到一个托盘图标，而不是退出或
-  留下任务栏最小化的窗口。 Show/click/double-click/app 激活
-恢复现有窗口；本地化菜单包含 Show PI-Desktop
-  并退出 PI-Desktop。 Quit 运行正常的关闭顺序，并且不留下任何内容
-  孤立主机、sidecar 或托盘进程。关闭窗口仍然是明确的
-  放弃行动。
-- **链接规格**：`03-runtime/07-process-model.md`，
-  `04-ux/09-interaction-patterns.md`、`08-meta/decisions-log.md` (D216)、
-  ADR 0078
+- **步骤**：1）在 Windows 上最大化主窗口，然后单击其任务栏按钮；确认窗口最小化，
+  PI-Desktop 的任务栏项仍然存在。再次单击同一任务栏按钮；还原过渡结束后，确认
+  窗口仍在最大化状态、边界符合显示器工作区，且任务栏仍可见。用其他应用覆盖窗口，
+  再单击 PI-Desktop 的任务栏项，确认窗口回到前台且没有隐藏到托盘。2）在 macOS 上
+  单击交通灯最小化控件，确认窗口隐藏到托盘。3）在 Windows/Linux 上使用渲染器最小化控件，
+  确认原生任务栏项仍然存在；再次单击后确认同一窗口还原并聚焦。选择“关闭到托盘”并关闭
+  Windows/Linux 窗口，确认任务栏项消失且可从托盘恢复；选择“退出”并重复，确认进程退出。
+  4）打开托盘菜单并选择“显示”，再重复“退出”。5）在 zh-CN 中重复，并在窗口隐藏时
+  调用 macOS 应用程序激活。
+- **预期**：Windows 原生任务栏切换和 Windows/Linux 渲染器最小化控件保留任务栏项，
+  并通过原生最小化/还原完成往返。还原最大化的无边框 Windows 窗口后，窗口仍符合显示器
+  工作区，任务栏保持可见。单击被覆盖窗口的任务栏项会将窗口带到前台。Windows/Linux 上
+  只有“关闭到托盘”会隐藏窗口；“退出”会结束进程。macOS 菜单栏图标是清晰的透明单色 PI
+  标记，不带圆角应用磁贴，原生最小化仍隐藏到托盘。“显示”、托盘图标点击/双击及应用激活
+  会恢复现有窗口；本地化菜单包含“显示 PI-Desktop”和“退出 PI-Desktop”。退出按正常顺序关闭，
+  不留下孤立的主机、sidecar 或托盘进程。
+- **链接规格**：`03-runtime/01-ipc-protocol.md`、`03-runtime/07-process-model.md`、
+  `04-ux/08-component-spec.md`、`04-ux/09-interaction-patterns.md`、
+  `08-meta/decisions-log.md` (D216、D230、D252、D256)、ADR 0078、ADR 0090、ADR 0117、ADR 0123
 - **验收**：A（应用程序生命周期），质量
 - **里程碑**：M6+
 - **状态**：Unit/source-contract 已覆盖；原生跨平台托盘之旅
@@ -8586,6 +8591,7 @@ runner 会在运行时的隔离临时目录中生成六个插件形态 fixture�
 | E2E-MCP-MARKET-INSTALL | 内置目录条目经 `resolveCatalogEntry` 解析并通过宿主 `mcp.upsert` RPC 安装；记录落盘 `~/.agents/servers/` | 真实宿主二进制，隔离临时 HOME |
 | E2E-MCP-MARKET-HEADER-SCOPE | Registry header-local `{token}` resolves only in its header; same-named URL path/query tokens remain literal through mapping, resolution, host upsert/list and persistence. URL templates retain only legacy `${NAME}` substitution. When `headerBindings` exists (even empty or partial), unbound tokens in every header stay literal and never consume another header's input or default | shared regressions plus real host binary with isolated temporary storage; remote entry disabled, no network call |
 | E2E-MCP-MARKET-partial-header-bindings-stay-literal | Resolve a catalog with only Authorization bound and another header using the same `{token}` / `${token}`; an undeclared `${UNBOUND}` in a third header also remains literal through host upsert/list and disk persistence | real host binary, disabled remote entry, synthetic input and isolated temporary storage; no network call |
+| E2E-MARKET-CATALOG-RETRY | 技能市场和 MCP 市场查询全部失败后、以及部分来源失败时都显示重试；点击后播报加载、重跑当前查询，并在来源恢复后清除失败状态 | Electron 中的真实 React 组件使用确定性的模拟市场 API 响应；不访问公网 |
 
 
 #### E2E-SKILL-MARKET-NET-BOUNDARY：用户自填源可达局域网，第三方内容不行
@@ -8597,6 +8603,16 @@ runner 会在运行时的隔离临时目录中生成六个插件形态 fixture�
 - **验收**：Security、Quality
 - **里程碑**：M6+
 - **状态**：已自动化（`pnpm test:e2e:skill-market`、`apps/desktop/test/public-https-fetch.test.mjs`、`apps/desktop/test/public-https-fetch-route.test.mjs`、`apps/desktop/test/skill-market-scan.test.mjs`、`apps/desktop/test/skill-market-failure.test.mjs`、`apps/desktop/test/skill-market-policy-refusal.test.mjs`、`packages/shared/src/public-network.test.ts`）
+
+#### E2E-MARKET-CATALOG-RETRY：重试失败或部分可用的市场查询
+
+- **前提条件**：渲染技能市场和 MCP 市场面板，并在 IPC 边界模拟市场 API。每个 API 依次返回全部失败、一个来源失败的结果、完整成功结果。
+- **步骤**：打开两个市场；全部失败后点击重试；确认加载播报和恢复的目录条目；部分失败后再次点击重试。
+- **预期**：两个市场都按当前查询重新请求，期间显示加载状态；部分来源失败时仍有重试入口；来源恢复后失败项清除。测试不访问公网，也不改变主进程网络策略。
+- **链接规格**：`04-ux/06-settings-ia.md`、ADR 0177、ADR 0272
+- **验收**：Quality
+- **里程碑**：M6+
+- **状态**：已自动化（`pnpm test:e2e:market-retry`、`apps/desktop/test/skill-market-panel.test.mjs`、`apps/desktop/test/mcp-market-panel.test.mjs`）
 
 #### E2E-SKILL-MARKET-EXPANSION：相邻 markdown 资源在安装前内联
 
