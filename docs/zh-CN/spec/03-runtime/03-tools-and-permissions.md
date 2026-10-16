@@ -365,7 +365,7 @@ tool/protocol 名称，请求中单独携带固定的 shell ID。
 2. Unix：众所周知的位置（`/bin/bash`、`/usr/bin/bash`、`/usr/local/bin/bash`、Homebrew），然后是 PATH
 3. Windows：来自 Git 的 Windows 的 `bash.exe` — 派生自 PATH 上的 `git`，然后是标准安装目录，然后是排除 `System32` 中的 WSL 启动器的 PATH
 
-- Unix 调用 `bash -lc`（登录 shell 为 Finder/Dock 启动保留配置文件路径）； Windows 使用 `CREATE_NO_WINDOW` 调用 `bash -c`
+- Unix 调用 `bash -lc`（登录 shell 为 Finder/Dock 启动保留配置文件路径）；Windows 使用 `CREATE_NO_WINDOW` 调用 `bash -c`。负责拥有命令树的隐藏 host-core runner 还会使用 `CREATE_BREAKAWAY_FROM_JOB` 创建，然后被分配到自己的 kill-on-close Job Object 中。这样，启动器或策略 Job 不会成为 Desktop 进程的终止范围。如果 Windows 拒绝 breakaway，runner 会安全失败而不启动命令；shell 本身仍留在 host 拥有的 job 中，因此超时和中止仍会终止完整的命令树。
 - 在 Unix 上，Bash 工具另外探测用户的登录 shell 以获取其信息
   路径 — `$SHELL`（回退 `/bin/zsh` → `/bin/bash` → `/bin/sh`）
   `-lic 'printf %s "$PATH"'`，5 秒范围内，每个进程缓存 — 并注入它

@@ -440,7 +440,7 @@ or executable path hash is accepted as shell identity.
 2. Unix: well-known locations (`/bin/bash`, `/usr/bin/bash`, `/usr/local/bin/bash`, Homebrew), then PATH
 3. Windows: `bash.exe` from Git for Windows — derived from the `git` on PATH, then standard install dirs, then PATH excluding the WSL launcher in `System32`
 
-- Unix invokes `bash -lc` (login shell keeps profile PATH for Finder/Dock launches); Windows invokes `bash -c` with `CREATE_NO_WINDOW`
+- Unix invokes `bash -lc` (login shell keeps profile PATH for Finder/Dock launches); Windows invokes `bash -c` with `CREATE_NO_WINDOW`. The hidden host-core runner that owns the command tree is created with both `CREATE_NO_WINDOW` and `CREATE_BREAKAWAY_FROM_JOB`, then assigned to its own kill-on-close Job Object. This keeps a launcher or policy Job around the Desktop process from becoming the runner's termination scope. If Windows refuses the breakaway, runner creation fails closed; the shell itself stays inside the host-owned job so timeout and abort still terminate the complete command tree.
 - On Unix, the Bash tool additionally probes the user's login shell for its
   PATH — `$SHELL` (fallback `/bin/zsh` → `/bin/bash` → `/bin/sh`) with
   `-lic 'printf %s "$PATH"'`, 5s-bounded, cached per process — and injects it

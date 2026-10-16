@@ -40,6 +40,20 @@ pub const MIN_BASH_TIMEOUT_MS: u64 = 1_000;
 pub const MAX_BASH_TIMEOUT_MS: u64 = 21_600_000;
 pub const DEFAULT_BASH_TIMEOUT_MS: u64 = 60_000;
 pub const INTERNAL_TOOL_RUNNER_FLAG: &str = "--internal-tool-runner";
+// Windows inherits the parent process' Job Object unless the child is created
+// with CREATE_BREAKAWAY_FROM_JOB. The hidden runner is immediately assigned to
+// its own kill-on-close job, so it must first leave any outer launcher job;
+// otherwise terminating the runner job can terminate the whole Desktop tree.
+#[cfg(any(windows, test))]
+const WINDOWS_CREATE_NO_WINDOW: u32 = 0x0800_0000;
+#[cfg(any(windows, test))]
+const WINDOWS_CREATE_BREAKAWAY_FROM_JOB: u32 = 0x0100_0000;
+
+#[cfg(any(windows, test))]
+const fn windows_tool_runner_creation_flags() -> u32 {
+    WINDOWS_CREATE_NO_WINDOW | WINDOWS_CREATE_BREAKAWAY_FROM_JOB
+}
+
 const PIPE_DRAIN_TIMEOUT: Duration = Duration::from_millis(750);
 const PROCESS_TERMINATION_TIMEOUT: Duration = Duration::from_millis(2_000);
 const OUTPUT_CHANNEL_CAPACITY: usize = 64;
@@ -2609,7 +2623,7 @@ async fn spawn_tool_runner(
     #[cfg(unix)]
     command.process_group(0);
     #[cfg(windows)]
-    command.creation_flags(0x0800_0000);
+    command.creation_flags(windows_tool_runner_creation_flags());
 
     let mut child = spawn_with_retries(&mut command).await?;
     let pid = child.id().unwrap_or_default();
@@ -3281,6 +3295,19 @@ mod tests {
             extra_env: Vec::new(),
         };
         assert!(encode_runner_config(&nul_config).is_err());
+    }
+
+    #[test]
+    fn windows_tool_runner_leaves_outer_job_before_owning_the_process_tree() {
+        assert_eq!(windows_tool_runner_creation_flags(), 0x0900_0000);
+        assert_ne!(
+            windows_tool_runner_creation_flags() & WINDOWS_CREATE_BREAKAWAY_FROM_JOB,
+            0,
+        );
+        assert_ne!(
+            windows_tool_runner_creation_flags() & WINDOWS_CREATE_NO_WINDOW,
+            0,
+        );
     }
 
     #[tokio::test]
