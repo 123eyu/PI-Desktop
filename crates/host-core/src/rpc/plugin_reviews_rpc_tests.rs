@@ -138,6 +138,18 @@ impl Center {
     fn requests(&self) -> Vec<String> {
         self.state.lock().unwrap().requests.clone()
     }
+
+    /// Request targets the fixture saw for one API route.
+    ///
+    /// A concurrent test that opens an `AppState` while the shared market
+    /// override points at this fixture makes a `/catalog.json` fetch, so
+    /// counters that promise "no review traffic" count review traffic only.
+    fn route_requests(&self, needle: &str) -> Vec<String> {
+        self.requests()
+            .into_iter()
+            .filter(|target| target.contains(needle))
+            .collect()
+    }
 }
 
 async fn serve(mut stream: TcpStream, state: Arc<StdMutex<CenterState>>) {
@@ -571,7 +583,7 @@ async fn reviews_rpc_returns_the_page_with_a_trusted_review_url() {
     assert!(!text.contains("hiddenReason"), "{text}");
     assert!(!text.contains("internal moderation note"), "{text}");
     assert_eq!(
-        center.requests(),
+        center.route_requests("/reviews"),
         vec![
             "/api/v1/plugins/demo.hello/reviews?limit=10&sentiment=positive&sort=helpful&cursor=a%20b%2Fc%2Bd%3De"
         ]
@@ -673,7 +685,11 @@ async fn reviews_rpc_rejects_invalid_input_before_any_network() {
         .await
         .unwrap_err();
     assert_eq!(error_code(&error), "INVALID_PARAMS");
-    assert!(center.requests().is_empty(), "{:?}", center.requests());
+    assert!(
+        center.route_requests("/api/v1/").is_empty(),
+        "{:?}",
+        center.requests()
+    );
 }
 
 /// One valid public row; cases mutate a copy.
@@ -783,7 +799,7 @@ async fn reviews_rpc_never_follows_redirects() {
     assert_eq!(error_code(&error), "PLUGIN_NETWORK");
     assert!(error.message.contains("redirect"), "{}", error.message);
     assert_eq!(
-        center.requests().len(),
+        center.route_requests("/reviews").len(),
         1,
         "the redirect was followed: {:?}",
         center.requests()
