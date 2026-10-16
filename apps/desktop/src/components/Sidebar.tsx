@@ -54,6 +54,16 @@ import {
   sidebarSessionStatus,
   type SidebarSessionStatus,
 } from "../lib/sidebar-session-status";
+import {
+  projectRunSummaryIsLive,
+  resolveSidebarRunningAffordances,
+  summarizeProjectRuns,
+} from "../lib/sidebar-project-runs";
+import {
+  ProjectRunBadge,
+  ProjectRunCount,
+  ProjectRunRail,
+} from "./ProjectRunIndicator";
 import { ErrorCodes, formatSessionLink } from "@pi-desktop/shared";
 import type { SessionSummary } from "@pi-desktop/shared";
 import type {
@@ -261,6 +271,10 @@ export function Sidebar({
   const canNavBack = useAppStore((s) => s.canNavBack);
   const page = useAppStore((s) => s.page);
   const settings = useAppStore((s) => s.settings);
+  // Project headers must answer "is anything running under here?" while the
+  // group is collapsed, so both affordances are resolved once per render
+  // rather than re-derived per row.
+  const runningAffordances = resolveSidebarRunningAffordances(settings);
   const prefetchSession = useAppStore((s) => s.prefetchSession);
   const selectSession = useAppStore((s) => s.selectSession);
   const newSession = useAppStore((s) => s.newSession);
@@ -1879,6 +1893,17 @@ export function Sidebar({
       sessionsExpanded,
     );
 
+    // The live counts cover every session in the group, including pinned and
+    // folded ones, because the header answers for the whole project.
+    const runSummary = summarizeProjectRuns(
+      entry.sessions,
+      runningSessions,
+      pendingPermissions,
+    );
+    const runIsLive = projectRunSummaryIsLive(runSummary);
+    const showRunBadge = runningAffordances.badge && runIsLive;
+    const showRunRail = runningAffordances.rail && runIsLive;
+
     const renderTimeGroupedSessions = (sessions: SessionSummary[]) => {
       const result: React.ReactNode[] = [];
       for (const { group, sessions: groupSessions } of groupSidebarSessionsByTime(sessions)) {
@@ -1916,7 +1941,7 @@ export function Sidebar({
     return (
       <section
         key={entry.key}
-        className={`sidebar-session-group project-group ${entry.meta.archived ? "archived" : ""} ${dropProjectKey === entry.key ? "is-drop-target" : ""} ${draggingProjectKey === entry.key ? "is-dragging" : ""} ${dropIndicator?.key === entry.key ? (dropIndicator.insertAfter ? "is-drop-after" : "is-drop-before") : ""}`}
+        className={`sidebar-session-group project-group ${entry.meta.archived ? "archived" : ""} ${runIsLive ? "has-running-sessions" : ""} ${showRunRail ? "has-run-rail" : ""} ${collapsedProject ? "is-collapsed" : ""} ${dropProjectKey === entry.key ? "is-drop-target" : ""} ${draggingProjectKey === entry.key ? "is-dragging" : ""} ${dropIndicator?.key === entry.key ? (dropIndicator.insertAfter ? "is-drop-after" : "is-drop-before") : ""}`}
         aria-labelledby={projectId}
         data-sidebar-project-group={entry.key}
         data-current-workspace={entry.active ? "true" : undefined}
@@ -1934,6 +1959,7 @@ export function Sidebar({
           onProjectDropTargetDrop(event, entry);
         }}
       >
+        {showRunRail ? <ProjectRunRail summary={runSummary} /> : null}
         <div
           className="sidebar-session-group-header"
           onClick={(event) => {
@@ -2007,6 +2033,8 @@ export function Sidebar({
               <IconFolder size={13} aria-hidden />
             )}
             <span>{entry.name}</span>
+            {showRunBadge ? <ProjectRunBadge summary={runSummary} /> : null}
+            {showRunRail ? <ProjectRunCount summary={runSummary} /> : null}
             {entry.active ? <span className="sidebar-project-active-dot" aria-label={t("project.active", { defaultValue: "Active" })} /> : null}
           </TooltipButton>
           <span id={`${projectId}-path-description`} className="sr-only">
