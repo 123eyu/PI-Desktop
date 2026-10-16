@@ -369,9 +369,9 @@ export const zhCN = {
     acHint: "↑↓ 选择 · Enter 确认 · Esc 关闭",
     send: "发送",
     todo: {
-      progress: "已完成 {{completed}}/{{total}}",
+      progress: "已完成 {{completed}} 个任务（共 {{total}} 个）",
       current: "{{completed}}/{{total}} · 当前：{{content}}",
-      completed: "已完成 {{completed}}/{{total}}",
+      completed: "已完成 {{completed}} 个任务（共 {{total}} 个）",
       updated: "清单已更新",
       updating: "正在更新清单",
       status: { pending: "待办", in_progress: "进行中", completed: "已完成", cancelled: "已取消" },
