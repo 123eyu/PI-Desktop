@@ -4517,7 +4517,9 @@ eleven-tool-round desktop paths are verified by
   后代、输出事件、审核以及关闭宽限后的状态。
 - **预期**：进程 group/job 树终止，没有后代保留，
   没有后续输出到达，本轮返回 `TURN_ABORTED`，工作空间为
-  不会自动回滚。
+  不会自动回滚。在 Windows 上，隐藏 runner 会先脱离任何父 Job Object，
+  再进入自己的 kill-on-close job；如果系统拒绝 breakaway，工具会安全失败，
+  不会让 Desktop 进程树成为终止范围。
 - **链接规格**：`03-runtime/03-tools-and-permissions.md`，
   `03-runtime/07-process-model.md`、`03-runtime/08-error-codes.md`、
   `03-runtime/16-tool-result-limits.md`、`05-security/01-security.md`、ADR 0054
