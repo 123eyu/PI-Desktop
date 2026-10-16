@@ -270,6 +270,7 @@ export const de = {
     batchDeleteConfirm: "{{count}} Sitzungen löschen?",
     "copyConversationId": "Gesprächs-ID kopieren",
     "copySessionLink": "Link zur Unterhaltung kopieren",
+    "copySessionPath": "Sitzungspfad kopieren",
     "openSessionPath": "Sitzungspfad öffnen",
     "timeGroupYesterday": "Gestern",
     "timeGroupThisWeek": "Vorherige 7 Tage",
@@ -1744,6 +1745,8 @@ sklm: {
   "project": {
     "open": "Projekt öffnen",
     "openFolder": "Ordner öffnen",
+    "copyName": "Projektnamen kopieren",
+    "copyPath": "Projektpfad kopieren",
     "none": "Kein Projekt",
     "clear": "Projekt löschen",
     "title": "Projekte",

@@ -277,6 +277,7 @@ export const en = {
     batchDeleteConfirm: "Delete {{count}} sessions?",
     copyConversationId: "Copy conversation ID",
     copySessionLink: "Copy conversation link",
+    copySessionPath: "Copy session path",
     openSessionPath: "Open session path",
     timeGroupYesterday: "Yesterday",
     timeGroupThisWeek: "Previous 7 days",
@@ -1764,6 +1765,8 @@ sklm: {
   project: {
     open: "Open project",
     openFolder: "Open folder",
+    copyName: "Copy project name",
+    copyPath: "Copy project path",
     none: "No project",
     clear: "Clear project",
     title: "Projects",

@@ -279,6 +279,7 @@ export const ko = {
     batchDeleteConfirm: "{{count}}개 세션을 삭제하시겠습니까?",
     copyConversationId: "대화 ID 복사",
     copySessionLink: "대화 링크 복사",
+    copySessionPath: "세션 경로 복사",
     openSessionPath: "세션 경로 열기",
     timeGroupYesterday: "어제",
     timeGroupThisWeek: "최근 7일",
@@ -1760,6 +1761,8 @@ sklm: {
   project: {
     open: "프로젝트 열기",
     openFolder: "폴더 열기",
+    copyName: "프로젝트 이름 복사",
+    copyPath: "프로젝트 경로 복사",
     none: "프로젝트 없음",
     clear: "프로젝트 지우기",
     title: "프로젝트",
