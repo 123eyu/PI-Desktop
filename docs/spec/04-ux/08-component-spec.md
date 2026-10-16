@@ -1049,9 +1049,15 @@ entirely inside the plugin's isolated page:
   without walking the whole workspace up front. Search (`fs.glob`-equivalent
   filename matching) lists hits without expanding the tree, and refresh
   disables itself while it reloads the root and the expanded folders.
-- A context menu on a row offers create, rename/move, **Open with default app**,
-  and **Show in folder**. The last two are offered for files only: the host
-  refuses them for directories.
+- A row context menu is grouped and ordered as Open With, Create, Rename / Move /
+  Delete, Copy Paths, file actions, and Refresh. Open With includes **Open in
+  built-in Browser** for `.html`, `.htm`, and `.xhtml` files plus **Open with
+  default app**; create actions remain available for files and directories,
+  while rename, move, delete, copy, and file actions follow their applicable
+  selection. The default-app action is disabled for directories, while editor
+  choices remain available. The Browser action opens a new Browser resource tab
+  and requires the bundled Browser plugin to be enabled. **Show in folder**
+  remains a file action. The host refuses directory paths for file actions.
 - Selecting a file replaces the tree with a focused viewer: syntax-highlighted
   editing with save, a Markdown preview toggle, image and audio/video viewing,
   CSV/TSV tables with paging and sorting, a JSON tree, and read-only SQLite
@@ -1077,7 +1083,7 @@ entirely inside the plugin's isolated page:
 - The page follows `app.getAppearance` and `appearance:changed` for base theme
   and English/Simplified Chinese copy, and `workspace:changed` for the open
   project and its folder list. `workspace.get`, `app.getAppearance`,
-  `fs.openDefault`, and `fs.reveal` are the only host channels it calls; its own
+  `fs.openDefault`, `fs.openInBrowser`, and `fs.reveal` are the only host channels it calls; its own
   reads and writes go through its host process, which keeps the jail of the one
   folder the view is browsing — never the whole group — refuses credential
   paths, and records writes to its own audit log (ADR 0241, ADR 0263).

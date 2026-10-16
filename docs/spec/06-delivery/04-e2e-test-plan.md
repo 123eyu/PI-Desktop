@@ -9508,9 +9508,14 @@ must keep splitting are covered by `markdown-blocks.test.mjs`.
      the view's top-left folder control to the project's second folder and
      confirm the tree follows it while the app's visible workspace does not,
      then switch back to the project's primary folder.
-  4. Right-click a file and confirm **Open with default app** and **Show in
-     folder** are offered and work; right-click a directory and confirm they are
-     not offered, because the host refuses the action for directories.
+  4. Right-click an HTML file and confirm **Open in built-in Browser** appears
+     under Open With. Select it and verify a new Browser resource tab opens the
+     file in the active local session while the File Manager tab remains open.
+     Right-click a non-HTML file and confirm that item is absent. Confirm
+     **Open with default app** and **Show in folder** remain available for files
+     and work. For directories, confirm the built-in Browser and Show in folder
+     actions are absent, the default-app action is disabled, and editor choices
+     remain available.
   5. Open a text file, edit it, and save. Confirm the file on disk changed and
      the editor keeps the saved content. Change the same file outside the app,
      edit and save again, and confirm the conflict is reported instead of the
@@ -9541,13 +9546,15 @@ must keep splitting are covered by `markdown-blocks.test.mjs`.
 - **Specs linked**: `07-plugins/03-plugin-api.md` §3,
   `07-plugins/13-plugin-permissions-matrix.md` §2,
   `04-ux/08-component-spec.md` §5, ADR 0104, ADR 0109, ADR 0111,
-  ADR 0169, ADR 0241, ADR 0249, ADR 0263
+  ADR 0169, ADR 0241, ADR 0249, ADR 0263, ADR 0330
 - **Acceptance**: G (plugins), D (workspace), Security, Quality
 - **Milestone**: M6+
 - **Status**: Unit coverage in `apps/desktop/test/bundled-plugins.test.mjs`
   (manifest contract, public-bridge-only page, vendored checksums),
-  `apps/desktop/test/plugin-fs-scope.test.mjs` (`fs.openDefault` and `fs.reveal`
-  guards), `apps/desktop/test/plugin-work-panel-views.test.mjs` (docked-view
+  `apps/desktop/test/plugin-fs-scope.test.mjs` (`fs.openDefault`,
+  `fs.openInBrowser`, and `fs.reveal` guards),
+  `apps/desktop/test/browser-preview-tool.test.mjs` (Browser resource-tab event
+  routing), `apps/desktop/test/plugin-work-panel-views.test.mjs` (docked-view
   event broadcast), and host-core
   `bundled_plugins_refresh_from_disk_but_keep_user_state`; the packaged journey
   is Draft (run only in a capable environment when this surface changes)
