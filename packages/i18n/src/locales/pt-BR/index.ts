@@ -661,6 +661,19 @@ export const ptBR = {
     renameSave: "Salvar",
     renameSaving: "Salvando…"
   },
+  backgroundTasks: {
+    running: "Em execução",
+    exited: "Finalizado",
+    failed: "Falhou",
+    stopped: "Parado",
+    title: "Comandos em segundo plano",
+    loadFailed: "Não foi possível atualizar os comandos em segundo plano. Tentando novamente...",
+    outputFailed: "Não foi possível ler a saída deste comando.",
+    stopFailed: "Não foi possível parar este comando. Tente novamente.",
+    output: "Saída",
+    stop: "Parar",
+    stopping: "Parando…",
+  },
   planHistory: {
     pending: "Aguardando aprovação",
     approved: "Aprovado",

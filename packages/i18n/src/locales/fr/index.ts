@@ -662,6 +662,19 @@ export const fr = {
     "renameSave": "Enregistrer",
     "renameSaving": "Enregistrer…"
   },
+  backgroundTasks: {
+    running: "En cours",
+    exited: "Terminé",
+    failed: "Échec",
+    stopped: "Arrêté",
+    title: "Commandes en arrière-plan",
+    loadFailed: "Impossible d'actualiser les commandes en arrière-plan. Nouvelle tentative...",
+    outputFailed: "Impossible de lire la sortie de cette commande.",
+    stopFailed: "Impossible d'arrêter cette commande. Réessayez.",
+    output: "Sortie",
+    stop: "Arrêter",
+    stopping: "Arrêt…",
+  },
   planHistory: {
     pending: "En attente d’approbation",
     approved: "Approuvé",

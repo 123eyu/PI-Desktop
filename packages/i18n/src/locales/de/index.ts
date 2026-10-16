@@ -662,6 +662,19 @@ export const de = {
     "renameSave": "Speichern",
     "renameSaving": "Speichern…"
   },
+  backgroundTasks: {
+    running: "Läuft",
+    exited: "Beendet",
+    failed: "Fehlgeschlagen",
+    stopped: "Gestoppt",
+    title: "Hintergrundbefehle",
+    loadFailed: "Hintergrundbefehle konnten nicht aktualisiert werden. Erneuter Versuch...",
+    outputFailed: "Die Ausgabe dieses Befehls konnte nicht gelesen werden.",
+    stopFailed: "Dieser Befehl konnte nicht gestoppt werden. Erneut versuchen.",
+    output: "Ausgabe",
+    stop: "Stoppen",
+    stopping: "Stoppe…",
+  },
   planHistory: {
     pending: "Genehmigung ausstehend",
     approved: "Genehmigt",

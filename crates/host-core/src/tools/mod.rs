@@ -8,7 +8,10 @@ use std::future::pending;
 use std::io::{self, BufRead, BufReader, ErrorKind, Read};
 use std::path::{Path, PathBuf};
 use std::process::{ExitStatus, Stdio};
-use std::sync::atomic::{AtomicU64, Ordering};
+use std::sync::{
+    atomic::{AtomicU64, Ordering},
+    Arc,
+};
 use std::time::{Duration, Instant, SystemTime, UNIX_EPOCH};
 #[cfg(not(test))]
 use tokio::io::AsyncWriteExt;
@@ -75,12 +78,12 @@ use windows_sys::Win32::System::JobObjects::{
 
 #[cfg(windows)]
 #[derive(Debug, Default)]
-struct ProcessOwnership {
+pub(crate) struct ProcessOwnership {
     job: Option<HANDLE>,
 }
 #[cfg(not(windows))]
 #[derive(Debug, Default)]
-struct ProcessOwnership;
+pub(crate) struct ProcessOwnership;
 
 impl ProcessOwnership {
     #[cfg(windows)]
@@ -190,7 +193,7 @@ impl ProcessOwnership {
     #[cfg(not(windows))]
     fn close_now(&mut self) {}
 
-    fn terminate_fail_closed(&mut self, pid: u32) -> Result<(), String> {
+    pub(crate) fn terminate_fail_closed(&mut self, pid: u32) -> Result<(), String> {
         match self.terminate(pid) {
             Ok(()) => Ok(()),
             Err(error) => {
@@ -220,18 +223,18 @@ impl Drop for ProcessOwnership {
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
-struct ToolRunnerStartConfig {
-    program: PathBuf,
-    args: Vec<String>,
-    workspace: PathBuf,
+pub(crate) struct ToolRunnerStartConfig {
+    pub(crate) program: PathBuf,
+    pub(crate) args: Vec<String>,
+    pub(crate) workspace: PathBuf,
     #[serde(default)]
-    scratch_dir: Option<PathBuf>,
+    pub(crate) scratch_dir: Option<PathBuf>,
     #[serde(default)]
-    env_path: Option<String>,
+    pub(crate) env_path: Option<String>,
     /// Session-scoped variables such as `PI_PORT` for an isolated worktree
     /// (ADR 0329). Empty for every other call.
     #[serde(default)]
-    extra_env: Vec<(String, String)>,
+    pub(crate) extra_env: Vec<(String, String)>,
 }
 
 fn path_has_nul(path: &Path) -> bool {
@@ -593,6 +596,8 @@ pub struct ToolsExecuteParams {
     pub expected_command_shell_id: Option<String>,
     #[serde(default)]
     pub expected_command_shell_dialect: Option<String>,
+    #[serde(default)]
+    pub run_in_background: bool,
     pub timeout_ms: Option<u64>,
     /// Action names that may run in Plan or Goal mode (ADR 0211). When
     /// set and non-empty, host-core admits this `plugin_*` tool in
@@ -778,7 +783,6 @@ fn spill_output(scratch: Option<&Path>, label: &str, text: &str) -> Option<PathB
     }
 }
 
-#[derive(Debug)]
 pub struct BashExecutionOptions {
     pub session_id: String,
     pub tool_call_id: String,
@@ -788,6 +792,12 @@ pub struct BashExecutionOptions {
     pub output_tx: Option<mpsc::UnboundedSender<String>>,
     /// Extra environment for the command, e.g. `PI_PORT` (ADR 0329).
     pub extra_env: Vec<(String, String)>,
+    /// Start as a background task detached from the turn: no timeout, no
+    /// abort wiring. The caller owns the registry; see `background_tasks`.
+    pub run_in_background: bool,
+    /// Host state the background spawn registers into. Present for RPC-driven
+    /// calls; `None` for test/`local` constructions that never go background.
+    pub app_state: Option<Arc<tokio::sync::Mutex<crate::state::AppState>>>,
 }
 
 impl BashExecutionOptions {
@@ -800,6 +810,8 @@ impl BashExecutionOptions {
             cancellation: None,
             output_tx: None,
             extra_env: Vec::new(),
+            run_in_background: false,
+            app_state: None,
         }
     }
 }
@@ -2254,12 +2266,12 @@ struct OutputChunk {
 }
 
 #[derive(Debug, Default)]
-struct Utf8Decoder {
+pub(crate) struct Utf8Decoder {
     pending: Vec<u8>,
 }
 
 impl Utf8Decoder {
-    fn push(&mut self, bytes: &[u8]) -> String {
+    pub(crate) fn push(&mut self, bytes: &[u8]) -> String {
         self.pending.extend_from_slice(bytes);
         let mut output = String::new();
         loop {
@@ -2293,7 +2305,7 @@ impl Utf8Decoder {
         output
     }
 
-    fn finish(&mut self) -> String {
+    pub(crate) fn finish(&mut self) -> String {
         if self.pending.is_empty() {
             return String::new();
         }
@@ -2563,16 +2575,16 @@ async fn wait_for_cancellation(receiver: &mut Option<watch::Receiver<bool>>) -> 
     }
 }
 
-struct SpawnedToolRunner {
-    pid: u32,
-    ownership: ProcessOwnership,
+pub(crate) struct SpawnedToolRunner {
+    pub(crate) pid: u32,
+    pub(crate) ownership: ProcessOwnership,
     control: Option<ChildStdin>,
-    stdout: Option<ChildStdout>,
-    stderr: Option<ChildStderr>,
-    wait_task: tokio::task::JoinHandle<std::io::Result<ExitStatus>>,
+    pub(crate) stdout: Option<ChildStdout>,
+    pub(crate) stderr: Option<ChildStderr>,
+    pub(crate) wait_task: tokio::task::JoinHandle<std::io::Result<ExitStatus>>,
 }
 
-async fn spawn_tool_runner(
+pub(crate) async fn spawn_tool_runner(
     config: &ToolRunnerStartConfig,
 ) -> Result<SpawnedToolRunner, (String, String)> {
     #[cfg(not(test))]
@@ -2772,13 +2784,41 @@ async fn tool_bash(
     args: &Value,
     options: BashExecutionOptions,
 ) -> Result<Value, (String, String)> {
-    let timeout_ms = options.timeout_ms.unwrap_or(DEFAULT_BASH_TIMEOUT_MS);
-    validate_bash_timeout_ms(timeout_ms)?;
     let root = require_workspace(workspace)?;
     let command = args
         .get("command")
         .and_then(|v| v.as_str())
         .ok_or_else(|| ("INVALID_ARGUMENT".into(), "command required".into()))?;
+
+    // Background path: register the process with the detached registry and
+    // return immediately. No timeout budget, no cancellation wiring — the
+    // task outlives the turn by design and is reported via
+    // `backgroundTasks.changed` / `backgroundTasks.*` RPC.
+    if options.run_in_background {
+        let Some(app_state) = options.app_state.as_ref() else {
+            return Err((
+                "INVALID_ARGUMENT".into(),
+                "background execution requires host state (not available for local calls)".into(),
+            ));
+        };
+        let started = crate::background_tasks::spawn_background_task_detached(
+            app_state,
+            &options.session_id,
+            command,
+            &options.command_shell_id,
+            root,
+            scratch,
+        )
+        .await?;
+        return Ok(serde_json::json!({
+            "backgroundTaskId": started,
+            "command": command,
+            "commandShellId": options.command_shell_id,
+        }));
+    }
+
+    let timeout_ms = options.timeout_ms.unwrap_or(DEFAULT_BASH_TIMEOUT_MS);
+    validate_bash_timeout_ms(timeout_ms)?;
 
     let resolved = shell::resolve_shell(&options.command_shell_id)
         .map_err(|message| ("SHELL_NOT_FOUND".to_string(), message))?;
@@ -4774,6 +4814,8 @@ mod tests {
                 cancellation: None,
                 output_tx: None,
                 extra_env: Vec::new(),
+                run_in_background: false,
+                app_state: None,
             }),
         )
         .await;
@@ -4816,6 +4858,8 @@ mod tests {
                 cancellation: None,
                 output_tx: None,
                 extra_env: Vec::new(),
+                run_in_background: false,
+                app_state: None,
             }),
         )
         .await;
@@ -4853,6 +4897,8 @@ mod tests {
                 cancellation: None,
                 output_tx: None,
                 extra_env: Vec::new(),
+                run_in_background: false,
+                app_state: None,
             }),
         )
         .await;
@@ -4923,6 +4969,8 @@ mod tests {
             cancellation: None,
             output_tx: Some(tx),
             extra_env: Vec::new(),
+            run_in_background: false,
+            app_state: None,
         };
         let mut notifier = OutputNotifier::new(&options);
         for _ in 0..(MAX_OUTPUT_NOTIFICATIONS + 100) {
@@ -4949,6 +4997,8 @@ mod tests {
             cancellation: None,
             output_tx: None,
             extra_env: Vec::new(),
+            run_in_background: false,
+            app_state: None,
         };
 
         let output = execute_tool_with_options(

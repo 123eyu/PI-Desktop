@@ -424,6 +424,24 @@ Host execution baseline:
 - A command that exits non-zero returns `ok: false`, `isError: true`, and
   `errorCode: TOOL_FAILED` while preserving its `exitCode`, stdout, and stderr
   in `content` so the agent can diagnose the command without blindly retrying.
+- `runInBackground: true` detaches the command from the turn: the call returns
+  `backgroundTaskId` as soon as the shell starts, no timeout applies, and the
+  process survives `tools.abort` and `agent.abort`. The host owns the process
+  tree, reports it through the composer's running-tasks bar, and stops it on
+  request or on app shutdown. At most 32 tasks run concurrently and each stream
+  keeps its last 256KB.
+- Background output is drained before a terminal state is published, including
+  output queued when the process exits or is stopped. UTF-8 characters split
+  across pipe reads remain intact. Shutdown signals do not acquire output locks.
+- The task list keeps the existing Composer order: Todo, background commands,
+  Plan/Ask decisions, then the input. There is no configurable display priority.
+  The list scrolls within `min(200px, 24vh)` so additional tasks do not displace
+  the decision surfaces. Existing approval and Ask input gating is unchanged.
+- Only one output preview is open at a time. While its task runs, the Renderer
+  refreshes that preview at one-second intervals after the previous read settles;
+  collapsed outputs are not fetched. The preview shows at most 8,000 stdout
+  characters and 4,000 stderr characters. Late reads from a previous selection
+  are ignored. Read/stop failures are visible and stopping can be retried.
 
 Shell catalog (D190) exposes the stable IDs `windows-powershell`, `windows-pwsh`,
 `cmd`, `git-bash`, and `bash` where supported by the platform. The host persists

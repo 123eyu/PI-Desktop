@@ -7780,6 +7780,42 @@ must keep splitting are covered by `markdown-blocks.test.mjs`.
   descendant process tree and verifies no late marker/output; host-core tests
   verify cancellation registry cleanup
 
+#### E2E-265: Background Bash tasks outlive their turn
+
+- **Preconditions**: A project session whose catalog shell supports background
+  execution, and a port the test server may bind.
+- **Steps**: 1) Ask the agent to start a long-lived process with
+  `runInBackground` (a local web server) and watch the running-tasks bar above
+  the composer. 2) Abort the turn, send a second prompt in the same session,
+  then reload the renderer. 3) Expand the row's `Output`. 4) Press `Stop`.
+  5) Start ten tasks with 100,000 lines of 100 characters on both streams,
+  then inspect their final output. 6) Show Todo and Ask alongside the task list
+  at wide and narrow widths, scroll to the tenth task, and switch output previews
+  while an earlier read is pending. 7) Fail a Stop request and retry it.
+  8) Start two more tasks and quit the app during output capture.
+- **Expected**: The tool result carries `backgroundTaskId` and resolves without
+  waiting for the command; the bar lists the task as running with a growing
+  elapsed time and shows its streamed output; the process stays alive across the
+  abort, across the 60-second Bash timeout, and across a renderer reload.
+  `Stop` settles the row to `Stopped` and kills the process tree; quitting the
+  app leaves no orphan process behind. The ten-task list scrolls within its
+  height cap without displacing Todo, Ask, or input. Only the selected log is
+  fetched and refreshed; old responses cannot erase it. Each stream remains
+  bounded to 256KiB and retains its final marker after exit. A Stop failure is
+  visible without an unhandled rejection and the control remains retryable.
+- **Specs linked**: `03-runtime/03-tools-and-permissions.md` (§5),
+  `03-runtime/06-host-rpc-protocol.md` (§4)
+- **Acceptance criterion**: C, E, F
+- **Milestone**: M6+
+- **Status**: Partially automated (host-core `background_tasks::tests` and the
+  renderer contract test `apps/desktop/test/background-tasks.test.mjs`;
+  `node scripts/e2e-background-tasks-host.mjs` runs the real Host/process/pipe
+  stress path without providers, and `node scripts/e2e-background-tasks.mjs`
+  exercises production React components in isolated Electron at 1280px, 700px,
+  and 390px widths. Host tests cover exit-before-drain and shutdown under output
+  lock contention. The full agent-to-Desktop journey and an 83-minute paced
+  100,000-line soak remain manual; the automated volume test is accelerated.)
+
 #### E2E-117: Agent/Plan/Goal UX and locales contain no Chat controls
 
 - **Preconditions**: App can run in English and zh-CN with an idle session,
@@ -10137,6 +10173,7 @@ must keep splitting are covered by `markdown-blocks.test.mjs`.
 | Quality (loop context ownership) | E2E-RUNTIME-loop-context-ownership |
 | G — Plugin host lifecycle (crash report) | E2E-PLUGIN-crash-report-names-the-exit-code |
 | Quality (crash report) | E2E-PLUGIN-crash-report-names-the-exit-code |
+| C / E / F / Quality — Background Bash tasks outlive their turn | E2E-265 |
 
 The `US-UI-*` visual scenarios (§UI shell visual scenarios) trace to the
 Codex parity decisions in [decisions-log §D](../08-meta/decisions-log.md)

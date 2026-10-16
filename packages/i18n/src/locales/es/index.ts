@@ -662,6 +662,19 @@ export const es = {
     "renameSave": "Guardar",
     "renameSaving": "Guardando…"
   },
+  backgroundTasks: {
+    running: "En ejecución",
+    exited: "Finalizado",
+    failed: "Fallido",
+    stopped: "Detenido",
+    title: "Comandos en segundo plano",
+    loadFailed: "No se pudieron actualizar los comandos en segundo plano. Reintentando...",
+    outputFailed: "No se pudo leer la salida de este comando.",
+    stopFailed: "No se pudo detener este comando. Inténtalo de nuevo.",
+    output: "Salida",
+    stop: "Detener",
+    stopping: "Deteniendo…",
+  },
   planHistory: {
     pending: "Pendiente de aprobación",
     approved: "Aprobado",
