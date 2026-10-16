@@ -1,5 +1,6 @@
 export const en = {
   worktree: {
+    menu: { group: "Git" },
     newIsolatedSession: "New isolated session",
     uncommittedNotIncluded: "Uncommitted changes in the project are not included in the isolated session.",
     reveal: "Show worktree folder",
@@ -286,6 +287,9 @@ export const en = {
     hoverCardUpdatedAt: "Updated {{when}}",
     hoverCardTemporarySpace: "Temporary",
     hoverCardBranchAria: "Branch {{name}}",
+    dangerZone: "Danger zone",
+    batchSelectionHint: "{{count}} sessions selected",
+    viewOptions: "View",
   },
   sessionCollaboration: {
     statusIdle: "Idle",

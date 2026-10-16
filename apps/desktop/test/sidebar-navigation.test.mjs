@@ -166,11 +166,8 @@ test("sidebar section toolbars open create actions from context menus", () => {
   assert.match(sidebarSource, /data-sidebar-section=\"projects\"/);
   assert.match(sidebarSource, /openSectionMenu\(\"sessions\"/);
   assert.match(sidebarSource, /openSectionMenu\(\"projects\"/);
-  assert.match(sidebarSource, /data-sidebar-section-menu=\{sectionMenu\}/);
-  assert.match(
-    sidebarSource,
-    /className=\"sidebar-row-menu sidebar-floating-menu sidebar-section-menu\"/,
-  );
+  assert.match(sidebarSource, /className="sidebar-section-menu"/);
+  assert.doesNotMatch(sidebarSource, /data-sidebar-section-menu=\{sectionMenu\}/);
   assert.match(sidebarSource, /e\.button === 2/);
   assert.match(sidebarSource, /addEventListener\("pointerdown"/);
 });
@@ -182,8 +179,8 @@ test("sidebar floating menus stay anchored to triggers and pointer positions", (
   const pointPlacement = sidebarSource.match(
     /const placeMenuAtPoint = useCallback\([\s\S]*?\n  }, \[\]\);/,
   )?.[0] ?? "";
-
-  assert.match(triggerPlacement, /const anchor = \{ top: rect\.top, bottom: rect\.bottom \}/);
+  assert.match(sidebarSource, /return portalToBody\(/);
+  assert.match(sidebarSource, /<SidebarMenuPanel/);
   assert.match(triggerPlacement, /placeSidebarFloatingMenuTop\(/);
   assert.match(triggerPlacement, /left:\s*Math\.max\(/);
   assert.match(triggerPlacement, /rect\.right \+ 4/);
@@ -191,13 +188,60 @@ test("sidebar floating menus stay anchored to triggers and pointer positions", (
   assert.match(pointPlacement, /placeSidebarFloatingMenuTop\(/);
   assert.match(pointPlacement, /x \+ 4/);
   assert.match(sidebarSource, /placeMenuAtPoint\(event\.clientX, event\.clientY\)/);
-  assert.match(sidebarSource, /menu\.getBoundingClientRect\(\)\.height/);
+  /* One panel owns every menu, so exactly one surface is ref'd per open. */
+  assert.equal((sidebarSource.match(/ref=\{floatingMenuRef\}/g) ?? []).length, 0);
+  assert.equal((sidebarSource.match(/menuRef=\{floatingMenuRef\}/g) ?? []).length, 4);
   assert.match(sidebarSource, /new ResizeObserver\(reposition\)/);
-  assert.equal((sidebarSource.match(/ref=\{floatingMenuRef\}/g) ?? []).length, 3);
-  assert.match(sidebarSource, /left: menuPosition\.left/);
-  assert.doesNotMatch(sidebarSource, /right: menuPosition\.right/);
+  assert.match(sidebarSource, /const position = \{ top: menuPosition\.top, left: menuPosition\.left \}/);
+  assert.equal((sidebarSource.match(/position=\{position\}/g) ?? []).length, 4);
 });
 
+/*
+  The row menus were outgrowing a flat list: rename/pin/archive/branch/git/
+  copy/dev/delete all sat in one column, and delete sat next to what it
+  destroys. Each menu is now a small set of labelled groups, with the
+  destructive row alone under its own caption.
+*/
+test("sidebar row menus group their rows and isolate the destructive one", () => {
+  const sessionMenu = sidebarSource.match(
+    /const sessionMenuContent = useCallback\([\s\S]*?\n    \[\n[\s\S]*?\n    \],\n  \);/,
+  )?.[0] ?? "";
+  const projectMenu = sidebarSource.match(
+    /const projectMenuContent = useCallback\([\s\S]*?\n    \[\n[\s\S]*?\n    \],\n  \);/,
+  )?.[0] ?? "";
+  const sortMenu = sidebarSource.match(
+    /const sortMenuContent = useMemo\([\s\S]*?\n    \[displaySessionSort[\s\S]*?\n  \);/,
+  )?.[0] ?? "";
+
+  assert.ok(sessionMenu, "session menu content must exist");
+  assert.ok(projectMenu, "project menu content must exist");
+  assert.ok(sortMenu, "sort menu content must exist");
+
+  /* One destructive row per menu, alone in its own group. */
+  for (const [menu, dangerId, deleteId] of [
+    [sessionMenu, /dangerSection\(\s*"session-danger"/, /id: "delete-session"/],
+    [projectMenu, /dangerSection\("project-danger"/, /id: "delete-project"/],
+  ]) {
+    const dangerIndex = menu.search(dangerId);
+    const deleteIndex = menu.search(deleteId);
+    assert.ok(dangerIndex >= 0, "menu must caption its destructive group");
+    assert.ok(deleteIndex > dangerIndex, "delete must sit under its caption");
+  }
+  assert.match(sessionMenu, /id: "batch-archive"|sidebarMenuAction/);
+  assert.doesNotMatch(projectMenu, /danger: true[\s\S]*?id: "toggle-project-archive"/);
+
+  /* The Git rows are one captioned group of each row menu, not loose items. */
+  assert.match(sessionMenu, /id: "session-git"/);
+  assert.match(sessionMenu, /\.\.\.sessionWorktreeItems/);
+  assert.match(projectMenu, /id: "project-git"/);
+  assert.match(projectMenu, /\.\.\.projectIsolationItems/);
+
+  /* The sort popover is two labelled groups instead of a title plus loose rows. */
+  assert.match(sortMenu, /id: "sort"/);
+  assert.match(sortMenu, /id: "view"/);
+  assert.doesNotMatch(sidebarSource, /className="sidebar-popover-title"/);
+  assert.doesNotMatch(sidebarSource, /className="sidebar-popover-divider"/);
+});
 test("portaled sort menu does not stretch to the viewport edge", () => {
   const basePopoverRule = globalStyles.match(
     /\.sidebar-row-menu,\n\.sidebar-popover\s*\{[^}]*\}/s,
@@ -245,7 +289,7 @@ test("sidebar action icons stay quiet until their toolbar or row is hovered", ()
 });
 
 test("project rows expose folder actions and full-path hover", () => {
-  assert.match(sidebarSource, /data-action="open-project-folder"/);
+  assert.match(sidebarSource, /id: "open-project-folder"/);
   assert.match(sidebarSource, /api\.openProjectFolder\(entry\.path\)/);
   assert.doesNotMatch(sidebarSource, /data-action="edit-project-instructions"/);
   assert.doesNotMatch(sidebarSource, /<ProjectInstructionsDialog/);

@@ -2,6 +2,7 @@ import { en, type EnglishCatalog } from "../en/index.js";
 
 export const tr = {
   worktree: {
+    menu: { group: "Git" },
     newIsolatedSession: "Yeni yalıtılmış oturum",
     uncommittedNotIncluded: "Projedeki commit edilmemiş değişiklikler yalıtılmış oturuma dahil edilmez.",
     reveal: "Worktree klasörünü göster",
@@ -288,6 +289,9 @@ export const tr = {
     hoverCardUpdatedAt: "Güncellendi {{when}}",
     hoverCardTemporarySpace: "Geçici",
     hoverCardBranchAria: "Dal {{name}}",
+    dangerZone: "Tehlikeli bölge",
+    batchSelectionHint: "{{count}} oturum seçildi",
+    viewOptions: "Görünüm",
   },
   sessionCollaboration: {
     statusIdle: "Boşta",

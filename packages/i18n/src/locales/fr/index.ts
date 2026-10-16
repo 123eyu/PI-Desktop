@@ -2,6 +2,7 @@ import { en, type EnglishCatalog } from "../en/index.js";
 
 export const fr = {
   "worktree": {
+    "menu": { "group": "Git" },
     "newIsolatedSession": "Nouvelle session isolée",
     "uncommittedNotIncluded": "Les modifications non validées du projet ne sont pas incluses dans la session isolée.",
     "reveal": "Afficher le dossier du worktree",
@@ -278,7 +279,10 @@ export const fr = {
     "hoverCardSpace": "Espace de travail",
     "hoverCardUpdatedAt": "{{when}} mis à jour",
     "hoverCardTemporarySpace": "Temporaire",
-    "hoverCardBranchAria": "Branche {{name}}"
+    "hoverCardBranchAria": "Branche {{name}}",
+    "dangerZone": "Zone sensible",
+    "batchSelectionHint": "{{count}} sessions sélectionnées",
+    "viewOptions": "Affichage",
   },
   "sessionCollaboration": {
     "statusIdle": "Inactif",

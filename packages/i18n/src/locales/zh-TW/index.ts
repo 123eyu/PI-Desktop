@@ -2,6 +2,7 @@ import { en, type EnglishCatalog } from "../en/index.js";
 
 export const zhTW = {
   worktree: {
+    menu: { group: "Git" },
     newIsolatedSession: "新增隔離工作階段",
     uncommittedNotIncluded: "專案中未提交的變更不會帶入隔離工作階段。",
     reveal: "顯示 worktree 資料夾",
@@ -281,6 +282,9 @@ export const zhTW = {
     hoverCardUpdatedAt: "更新於 {{when}}",
     hoverCardTemporarySpace: "臨時對話",
     hoverCardBranchAria: "分支 {{name}}",
+    dangerZone: "危險操作",
+    batchSelectionHint: "已選取 {{count}} 個工作階段",
+    viewOptions: "顯示",
   },
   sessionCollaboration: {
     statusIdle: "閒置",

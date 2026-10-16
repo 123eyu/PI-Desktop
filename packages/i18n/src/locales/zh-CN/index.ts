@@ -2,6 +2,7 @@ import { en, type EnglishCatalog } from "../en/index.js";
 
 export const zhCN = {
   worktree: {
+    menu: { group: "Git" },
     newIsolatedSession: "新建隔离会话",
     uncommittedNotIncluded: "项目中未提交的改动不会带入隔离会话。",
     reveal: "显示 worktree 文件夹",
@@ -281,6 +282,9 @@ export const zhCN = {
     hoverCardUpdatedAt: "更新于 {{when}}",
     hoverCardTemporarySpace: "临时对话",
     hoverCardBranchAria: "分支 {{name}}",
+    dangerZone: "危险操作",
+    batchSelectionHint: "已选择 {{count}} 个会话",
+    viewOptions: "显示",
   },
   sessionCollaboration: {
     statusIdle: "空闲",
