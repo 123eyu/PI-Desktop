@@ -2927,9 +2927,10 @@ reasoning-level control.
 - The Composer stack places TodoDock above Plan/Goal approval surfaces when the
   active session has a non-empty host-owned checklist. An empty checklist does
   not reserve layout space.
-- The collapsed header shows completed/active progress and the current
-  `in_progress` content. A checklist whose items are all cancelled has a clear
-  cancelled label instead of a misleading `0/0 completed` count.
+- The collapsed header separates the completed-task count from the current
+  `in_progress` content, truncating only the task title when space is limited.
+  A checklist whose items are all cancelled has a clear cancelled label
+  instead of a misleading `0/0 completed` count.
 - The disclosure is keyboard accessible, does not take focus on updates, and
   resets closed when the active session changes. The expanded dock lists every
   ordered row and scrolls inside its own box (`max-height: min(280px, 30dvh)`,
@@ -2941,9 +2942,10 @@ reasoning-level control.
   collapsed content is `aria-hidden` and reduced-motion users receive an
   immediate state change. A collapsed dock reserves only its header row: the
   list's inset is clipped, never laid out below the header.
-  Completed rows use a success-tinted tile with a check icon, in-progress rows
-  use the accent tint, and cancelled rows are muted. Each status symbol has a
-  localized accessible name, and each row renders plain text.
+  Expanded rows use a compact, flat checklist layout with square status marks.
+  Completed text and cancelled rows are muted; the in-progress row remains
+  primary and medium-weight. Each status symbol has a localized accessible
+  name, and each row renders plain text.
 - Renderer snapshots are keyed by session id. A `todos.changed` event with an
   older or equal revision is ignored. Session activation and host recovery
   re-read the authoritative snapshot, including already cached checklists; a
