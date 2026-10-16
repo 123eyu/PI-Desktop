@@ -2,6 +2,7 @@ import { en, type EnglishCatalog } from "../en/index.js";
 
 export const ptBR = {
   worktree: {
+    menu: { group: "Git" },
     newIsolatedSession: "Nova sessão isolada",
     uncommittedNotIncluded: "Alterações não confirmadas do projeto não são incluídas na sessão isolada.",
     reveal: "Mostrar pasta do worktree",
@@ -270,6 +271,7 @@ export const ptBR = {
     batchDeleteConfirm: "Excluir {{count}} sessões?",
     copyConversationId: "Copiar ID da conversa",
     copySessionLink: "Copiar link da conversa",
+    copySessionPath: "Copiar caminho da sessão",
     openSessionPath: "Abrir caminho da sessão",
     timeGroupYesterday: "Ontem",
     timeGroupThisWeek: "Últimos 7 dias",
@@ -279,7 +281,10 @@ export const ptBR = {
     hoverCardSpace: "Espaço de trabalho",
     hoverCardUpdatedAt: "Atualizado {{when}}",
     hoverCardTemporarySpace: "Temporário",
-    hoverCardBranchAria: "Ramificação {{name}}"
+    hoverCardBranchAria: "Ramificação {{name}}",
+    dangerZone: "Zona de risco",
+    batchSelectionHint: "{{count}} sessões selecionadas",
+    viewOptions: "Visualização",
   },
   sessionCollaboration: {
     statusIdle: "Ocioso",
@@ -1732,6 +1737,8 @@ export const ptBR = {
   project: {
     open: "Abrir projeto",
     openFolder: "Abrir pasta",
+    copyName: "Copiar nome do projeto",
+    copyPath: "Copiar caminho do projeto",
     none: "Sem projeto",
     clear: "Limpar projeto",
     title: "Projetos",

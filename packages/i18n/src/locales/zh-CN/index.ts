@@ -2,6 +2,7 @@ import { en, type EnglishCatalog } from "../en/index.js";
 
 export const zhCN = {
   worktree: {
+    menu: { group: "Git" },
     newIsolatedSession: "新建隔离会话",
     uncommittedNotIncluded: "项目中未提交的改动不会带入隔离会话。",
     reveal: "显示 worktree 文件夹",
@@ -273,6 +274,7 @@ export const zhCN = {
     batchDeleteConfirm: "确认删除 {{count}} 个会话？",
     copyConversationId: "复制对话 ID",
     copySessionLink: "复制会话链接",
+    copySessionPath: "复制会话路径",
     openSessionPath: "打开会话路径",
     timeGroupYesterday: "昨天",
     timeGroupThisWeek: "近 7 天",
@@ -283,6 +285,9 @@ export const zhCN = {
     hoverCardUpdatedAt: "更新于 {{when}}",
     hoverCardTemporarySpace: "临时对话",
     hoverCardBranchAria: "分支 {{name}}",
+    dangerZone: "危险操作",
+    batchSelectionHint: "已选择 {{count}} 个会话",
+    viewOptions: "显示",
   },
   sessionCollaboration: {
     statusIdle: "空闲",
@@ -1757,6 +1762,8 @@ sklm: {
   project: {
     open: "打开项目",
     openFolder: "打开文件夹",
+    copyName: "复制项目名称",
+    copyPath: "复制项目路径",
     none: "无项目",
     clear: "关闭项目",
     title: "项目",

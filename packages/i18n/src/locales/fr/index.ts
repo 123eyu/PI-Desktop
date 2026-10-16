@@ -2,6 +2,7 @@ import { en, type EnglishCatalog } from "../en/index.js";
 
 export const fr = {
   "worktree": {
+    "menu": { "group": "Git" },
     "newIsolatedSession": "Nouvelle session isolée",
     "uncommittedNotIncluded": "Les modifications non validées du projet ne sont pas incluses dans la session isolée.",
     "reveal": "Afficher le dossier du worktree",
@@ -271,6 +272,7 @@ export const fr = {
     batchDeleteConfirm: "Supprimer {{count}} sessions ?",
     "copyConversationId": "Copier l'ID de conversation",
     "copySessionLink": "Copier le lien de la conversation",
+    "copySessionPath": "Copier le chemin de la session",
     "openSessionPath": "Ouvrir le chemin de la session",
     "timeGroupYesterday": "Hier",
     "timeGroupThisWeek": "7 jours précédents",
@@ -280,7 +282,10 @@ export const fr = {
     "hoverCardSpace": "Espace de travail",
     "hoverCardUpdatedAt": "{{when}} mis à jour",
     "hoverCardTemporarySpace": "Temporaire",
-    "hoverCardBranchAria": "Branche {{name}}"
+    "hoverCardBranchAria": "Branche {{name}}",
+    "dangerZone": "Zone sensible",
+    "batchSelectionHint": "{{count}} sessions sélectionnées",
+    "viewOptions": "Affichage",
   },
   "sessionCollaboration": {
     "statusIdle": "Inactif",
@@ -1762,6 +1767,8 @@ sklm: {
   "project": {
     "open": "Ouvrir le projet",
     "openFolder": "Ouvrir le dossier",
+    "copyName": "Copier le nom du projet",
+    "copyPath": "Copier le chemin du projet",
     "none": "Aucun projet",
     "clear": "Effacer le projet",
     "title": "Projets",
