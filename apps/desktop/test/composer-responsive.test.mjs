@@ -39,6 +39,11 @@ test("narrow composer containers progressively simplify the model controls", () 
     styles,
     /\.composer-model-thinking-model,\s*\.composer-model-thinking-chevron\s*\{[\s\S]*?display:\s*none;/,
   );
+  // The collapsed chip keeps a glyph: the labels it drops are what name it.
+  assert.match(
+    styles,
+    /@container composer-stack \(max-width: 450px\)[\s\S]*?\.composer-model-thinking-icon\s*\{[\s\S]*?display:\s*inline-flex;/,
+  );
 });
 
 

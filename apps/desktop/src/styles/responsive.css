@@ -65,6 +65,11 @@
     padding: 0 !important;
   }
 
+  /* Collapsed to a glyph: the labels are gone, so the icon carries the trigger. */
+  .composer-model-thinking-icon {
+    display: inline-flex;
+  }
+
   .composer-model-thinking-model,
   .composer-model-thinking-chevron {
     display: none;
