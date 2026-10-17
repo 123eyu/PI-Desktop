@@ -15,7 +15,7 @@ import { loadStyles } from "./helpers/styles.mjs";
 const composerSource = await readComposerSource();
 const composerToolbarSource = await readComposerModule("ComposerToolbar.tsx");
 const composerModelPickerSource = await readComposerModule("ComposerModelPicker.tsx");
-const composerPermissionPickerSource = await readComposerModule("ComposerPermissionPicker.tsx");
+const composerSwitchesSource = await readComposerModule("ComposerSwitches.tsx");
 const scheduledModelPickerSource = await readFile(
   new URL("../src/features/scheduled/ScheduledModelPicker.tsx", import.meta.url),
   "utf8",
@@ -96,22 +96,22 @@ test("thinking levels use their canonical English values without i18n", () => {
   assert.doesNotMatch(transcriptSource, /thinkingLevel\./);
   assert.doesNotMatch(settingsSource, /thinkingLevel\./);
 });
-
 test("Composer owns the mode and model controls", () => {
   const leftToolbar = composerToolbarSource.slice(
     composerToolbarSource.indexOf('<div className="composer-left">'),
     composerToolbarSource.indexOf('<div className="composer-right">'),
   );
-  const modeControl = leftToolbar.indexOf(
-    'className="icon-btn mode-chip composer-mode-chip"',
-  );
-  const permissionControl = leftToolbar.indexOf("<ComposerPermissionPicker");
   const rightToolbar = composerToolbarSource.slice(
     composerToolbarSource.indexOf('<div className="composer-right">'),
   );
 
-  assert.ok(modeControl >= 0);
-  assert.ok(permissionControl > modeControl);
+  // Both execution choices live in one inline switch cluster: no menu to open,
+  // no chip that cycles through the remaining modes.
+  assert.match(leftToolbar, /<ComposerSwitches/);
+  assert.doesNotMatch(
+    leftToolbar,
+    /composer-mode-chip|composer-permission-menu|nextMode/,
+  );
   // The task draft has no session, so its picker must not claim one: with
   // `activeSessionId` unset the menu resolves the selected model's binding
   // default thinking level instead of pinning the draft to its current value.

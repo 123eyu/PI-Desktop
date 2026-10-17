@@ -158,10 +158,10 @@ destination, chat as the home surface, tools and permissions inline.
   destination — centered empty-home content above a bottom-reserved composer
   (D111/D204/D206), bottom-docked in a transcript, with no project / Local / branch
   rail (D095).
-  Its left-of-input operating-mode chip is the sole active-session control for
+  Its left-of-input operating-mode switch is the sole active-session control for
   **Agent**, **Plan**, and **Goal**. Plan shows the same Agent's planning state;
   Goal shows the same approval boundary for an outcome contract. Both keep the
-  permission-mode chip and expose their host-written immutable `.pi/plan/*.md`
+  approval switch and expose their host-written immutable `.pi/plan/*.md`
   or `.pi/goal/*.md` artifact opener after submission. The conversation top bar
   retains only the task title and window actions; the Composer owns model and
   reasoning selection as well as mode control.

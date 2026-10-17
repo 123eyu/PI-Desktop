@@ -21,8 +21,6 @@ export const TOOLBAR_PROPS = {
   modelId: "model-1",
   thinkingLevel: "off",
   composerPermissionMode: "ask",
-  permissionOpen: false,
-  setPermissionOpen: noop,
   controlsBlocked: false,
   pasting: false,
   pickAndAttach: idle,

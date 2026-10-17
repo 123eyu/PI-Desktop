@@ -1,4 +1,3 @@
-import type { Dispatch, SetStateAction } from "react";
 import type { TFunction } from "i18next";
 import {
   keybindingDisplayParts,
@@ -9,7 +8,7 @@ import {
   type PluginComposerTransformMeta,
 } from "@pi-desktop/shared";
 import type { AppState } from "../../../stores/app-store";
-import { ComposerPermissionPicker } from "./ComposerPermissionPicker";
+import { ComposerSwitches } from "./ComposerSwitches";
 import { ContextUsageInspector } from "../../../components/ContextUsageInspector";
 import { ComposerControlSlots } from "./ComposerControlSlots";
 import { TooltipButton } from "../../../components/ui";
@@ -20,13 +19,8 @@ import {
   IconStop,
   IconUndo2,
 } from "../../../components/icons";
-import { ModeIcon } from "./ComposerModeIcon";
 import { LiveVoiceControls } from "../../voice/live/LiveVoiceControls";
 import { ComposerModelPicker } from "./ComposerModelPicker";
-import {
-  MODE_LABEL_KEYS,
-  nextMode,
-} from "./model";
 import type { useComposerModelMenu } from "./hooks/useComposerModelMenu";
 
 type ModelMenuController = ReturnType<typeof useComposerModelMenu>;
@@ -40,8 +34,6 @@ export type ComposerToolbarProps = {
   modelId?: string;
   thinkingLevel: SessionThinkingLevel;
   composerPermissionMode: Exclude<PermissionMode, "inherit">;
-  permissionOpen: boolean;
-  setPermissionOpen: Dispatch<SetStateAction<boolean>>;
   controlsBlocked: boolean;
   localToolsAllowed?: boolean;
   attachmentsAllowed?: boolean;
@@ -79,8 +71,6 @@ export function ComposerToolbar({
   modelId,
   thinkingLevel,
   composerPermissionMode,
-  permissionOpen,
-  setPermissionOpen,
   controlsBlocked,
   localToolsAllowed = true,
   attachmentsAllowed = true,
@@ -121,7 +111,6 @@ export function ComposerToolbar({
             ariaLabel={t("chat.addFiles")}
             disabled={controlsBlocked || pasting || !attachmentsAllowed}
             onClick={() => {
-              setPermissionOpen(false);
               void pickAndAttach();
             }}
           >
@@ -129,18 +118,14 @@ export function ComposerToolbar({
           </TooltipButton>
         </div>
         {localToolsAllowed ? <LiveVoiceControls t={t} workSessionId={workSessionId} /> : null}
-        <TooltipButton
-          type="button"
-          className="icon-btn mode-chip composer-mode-chip"
-          data-mode={mode}
-          data-planning={planningLive ? "true" : undefined}
-          tooltip={planningLive ? t(`${mode}.planning`) : t("settings.mode")}
-          ariaLabel={planningLive ? t(`${mode}.planning`) : t("settings.mode")}
-          disabled={controlsBlocked}
-          onClick={async () => {
+        <ComposerSwitches
+          t={t}
+          mode={mode}
+          planningLive={planningLive}
+          permissionMode={composerPermissionMode}
+          controlsBlocked={controlsBlocked}
+          onSelectMode={async (next) => {
             modelMenu.setOpen(false);
-            setPermissionOpen(false);
-            const next: Mode = nextMode(mode);
             try {
               await configureActiveSession({
                 mode: next,
@@ -154,33 +139,23 @@ export function ComposerToolbar({
               });
             }
           }}
-        >
-          <span className="composer-mode-chip-face" key={mode}>
-            <ModeIcon mode={mode} />
-            <span className="composer-mode-chip-label text-sm">
-              {t(MODE_LABEL_KEYS[mode])}
-            </span>
-          </span>
-        </TooltipButton>
-        <ComposerPermissionPicker t={t} mode={mode}
-          composerPermissionMode={composerPermissionMode}
-          permissionOpen={permissionOpen} setPermissionOpen={setPermissionOpen}
-          controlsBlocked={controlsBlocked} onCloseOtherMenus={() => modelMenu.setOpen(false)}
-          onSelect={async (candidate) => {
-                try {
-                  await configureActiveSession({
-                    mode,
-                    providerId,
-                    modelId,
-                    thinkingLevel,
-                    permissionMode: candidate,
-                  });
-                } catch (error) {
-                  showToast(error instanceof Error ? error.message : String(error), {
-                    variant: "error",
-                  });
-                }
-          }} />
+          onSelectPermission={async (candidate) => {
+            modelMenu.setOpen(false);
+            try {
+              await configureActiveSession({
+                mode,
+                providerId,
+                modelId,
+                thinkingLevel,
+                permissionMode: candidate,
+              });
+            } catch (error) {
+              showToast(error instanceof Error ? error.message : String(error), {
+                variant: "error",
+              });
+            }
+          }}
+        />
         {localToolsAllowed ? <ComposerControlSlots side="left" /> : null}
       </div>
 
@@ -196,7 +171,6 @@ export function ComposerToolbar({
           selectedProviderId={providerId}
           selectedModelId={modelId}
           controlsBlocked={controlsBlocked}
-          onCloseOtherMenus={() => setPermissionOpen(false)}
         />
         {composerTransforms.map((transform) => {
           const key = `${transform.pluginId}/${transform.id}`;

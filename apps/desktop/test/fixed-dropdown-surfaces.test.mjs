@@ -42,7 +42,6 @@ const dropdownSurfaces = [
   "agent-capability-menu",
   "scope-compact-menu",
   "scope-popover",
-  "composer-permission-menu",
   "composer-model-menu",
   "plan-approval-menu",
   "composer-autocomplete",

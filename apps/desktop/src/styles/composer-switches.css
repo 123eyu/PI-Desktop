@@ -1,0 +1,111 @@
+/*
+  Composer execution switches: how the agent works (Agent / Plan / Goal) and
+  how much it may do unattended (Ask / Accept edits / Auto).
+
+  Both are always-visible segmented controls. Every option is one click away,
+  and the committed pair is readable without opening anything — the previous
+  mode chip cycled on click and the approval chip hid its choices behind a
+  menu, so reaching a specific state took repeated actions.
+*/
+.composer-switches {
+  display: inline-flex;
+  flex: 0 1 auto;
+  min-width: 0;
+  align-items: center;
+  gap: 5px;
+  height: 28px;
+  padding: 2px;
+  border-radius: var(--radius-full);
+  background: var(--ds-tile);
+}
+
+.composer-switch-divider {
+  flex: 0 0 auto;
+  width: 1px;
+  height: 12px;
+  background: var(--ds-border-default);
+}
+
+.composer-segment-group {
+  display: inline-flex;
+  flex: 0 1 auto;
+  min-width: 0;
+  align-items: center;
+  gap: 2px;
+}
+
+.composer-segment {
+  display: inline-flex;
+  flex: 0 1 auto;
+  min-width: 0;
+  height: 24px;
+  align-items: center;
+  gap: 5px;
+  padding: 0 9px;
+  border-radius: var(--radius-full);
+  color: var(--ds-text-secondary);
+  font-size: var(--text-sm);
+  line-height: var(--leading-compact);
+  white-space: nowrap;
+  cursor: pointer;
+  transition:
+    background var(--motion-duration-fast) var(--motion-ease-out),
+    color var(--motion-duration-fast) var(--motion-ease-out);
+}
+
+.composer-segment:hover:not(:disabled) {
+  color: var(--ds-text-primary);
+  background: var(--ds-tile-hover);
+}
+
+.composer-segment:focus-visible {
+  outline: 2px solid var(--ds-accent);
+  outline-offset: 1px;
+}
+
+/* The committed option sits on a raised plate, so the row reads as a choice
+   rather than three equal buttons. */
+.composer-segment.is-active {
+  color: var(--ds-text-primary);
+  background: var(--ds-raised);
+  box-shadow: var(--ds-raised-shadow);
+  font-weight: var(--font-weight-medium);
+}
+
+.composer-segment-icon {
+  display: inline-flex;
+  flex: 0 0 auto;
+  align-items: center;
+}
+
+/*
+  Only the committed option spells itself out; the other options stay glyphs
+  with their names one hover away. Six spelled-out choices made the cluster
+  wider than the controls it replaced.
+*/
+.composer-segment:not(.is-active) {
+  padding: 0 7px;
+}
+
+.composer-segment:not(.is-active) .composer-segment-label {
+  display: none;
+}
+
+.composer-segment-label {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.composer-segment:disabled {
+  cursor: default;
+  opacity: 0.45;
+}
+
+/* Goal pins the approval level to Auto: the locked chip still reports it. */
+.composer-segment.is-active:disabled {
+  background: var(--ds-tile);
+  box-shadow: none;
+  opacity: 1;
+}

@@ -1005,8 +1005,8 @@ Agent calls a permission-gated tool (including Plan/Goal Bash under Ask or Accep
    matching contract mode and the renderer projects `planning`.
 2. The Agent investigates with the selected contract tool set. Read/Glob/Grep and
    BrowserPreview are allowed; Bash follows the visible permission mode. A
-   contract-mode Bash command may mutate under Auto, so the mode chip remains visible.
-   While that turn is live `planning`, the Composer mode chip pulses and a compact
+   contract-mode Bash command may mutate under Auto, so the mode switch remains visible.
+   While that turn is live `planning`, the committed Composer mode segment pulses and a compact
    Planning row occupies the same reserved tail slot as Working until completion
    or pending user interaction. A known runtime phase takes precedence; tool
    and answer output do not hide the running status.

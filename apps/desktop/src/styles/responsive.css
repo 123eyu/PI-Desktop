@@ -75,6 +75,16 @@
     display: none;
   }
 
+  /* At the floor even the committed option drops its label; the switches keep
+     the same three options and the same one-click reach. */
+  .composer-segment {
+    padding: 0 6px;
+  }
+
+  .composer-segment-label {
+    display: none;
+  }
+
   .composer-right .context-inspector-trigger {
     gap: 0;
     padding-inline: 3px;
@@ -147,8 +157,7 @@
   }
 
   .composer-placeholder,
-  .composer-mode-chip-face,
-  .composer-mode-chip[data-planning="true"] svg {
+  .composer-mode-switch[data-planning="true"] .composer-segment.is-active svg {
     animation: none;
   }
 
