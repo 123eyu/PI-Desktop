@@ -11151,10 +11151,12 @@ This test plan spec is accepted when:
 
 ### US-UI-73 Composer mode selector has stable width
 - Open the empty home and a docked thread in both English and zh-CN.
-- Switch the Composer mode chip through Agent/Plan/Goal several times.
-- Expect the mode chip to keep one fixed width sized for the longest built-in
-  label (English "Agent" / zh-CN "智能体"); the adjacent Thinking and
-  permission controls, send button, and composer shell do not move or resize.
+- Open the Composer mode chip and switch between Agent/Plan/Goal several times.
+- Expect the chip to list the three modes as checked menu items, to name only
+  the committed mode, and to keep one fixed width sized for the longest built-in
+  label (English "Agent" / zh-CN "智能体") plus its caret; the adjacent Thinking
+  and permission controls, send button, and composer shell do not move or
+  resize.
 - In Goal, expect the permission chip to remain visible with the same geometry,
   show Full auto / 全自动, and stay disabled without opening a permission menu.
   The Plan/Goal approval card remains the separate execution-policy control.

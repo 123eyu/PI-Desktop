@@ -6626,9 +6626,9 @@ eleven-tool-round desktop paths are verified by
 
 ### US-UI-73 Composer 模式选择器具有稳定的宽度
 - 以英语和中文打开空的主页和停靠的线程。
-- 通过Agent/Plan/Goal多次切换Composer模式芯片。
-- 期望模式芯片为最长的内置保持一个固定的宽度尺寸
-  标签（英文“Agent”/zh-CN“智能体”）；相邻的思维和
+- 打开 Composer 模式芯片，在 Agent/Plan/Goal 之间多次切换。
+- 期望芯片以带选中标记的菜单项列出三个模式、只显示当前模式，并为最长内置标签
+  （英文“Agent”/zh-CN“智能体”）加上箭头保留一个固定宽度；相邻的思考与
   权限控件、发送按钮和 Composer shell 不会移动或调整大小。
 - **链接规格**：`04-ux/08-component-spec.md` §11.3
 - **里程碑**：M5
