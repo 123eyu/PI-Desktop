@@ -58,33 +58,37 @@ test("composer runtime chips keep compact line-height for descenders", () => {
   );
 });
 
-test("mode switch labels stay single-line and ellipsize instead of reflowing", () => {
-  // Options render from the canonical mode order, so the row no longer depends
-  // on one fixed chip width sized for the longest built-in label.
-  assert.match(composerSource, /MODE_CYCLE\.map\(\(candidate\) => \(\{/);
-  assert.doesNotMatch(styles, /\.composer-mode-chip\s*\{/);
-  assert.match(
-    styles,
-    /\.composer-segment-label\s*\{[\s\S]*?text-overflow:\s*ellipsis;/,
-  );
-});
-
-test("the committed mode pulses while planning is live", () => {
-  assert.match(composerSource, /planning=\{planningLive\}/);
+test("mode selector reserves the longest localized label width", () => {
   assert.match(
     composerSource,
-    /data-planning=\{planning \? "true" : undefined\}/,
+    /className="icon-btn mode-chip composer-mode-chip"/,
   );
+
+  const block = styles.match(/\.composer-mode-chip\s*\{[^}]+\}/)?.[0] ?? "";
+  assert.match(block, /width:\s*88px;/);
+  assert.match(block, /min-width:\s*88px;/);
+  assert.match(block, /max-width:\s*88px;/);
+  assert.match(block, /flex:\s*0 0 88px;/);
+  assert.match(styles, /\.composer-mode-chip-label\s*\{[\s\S]*?text-overflow:\s*ellipsis;/);
+});
+
+test("mode chip cross-fades on switch and pulses while planning is live", () => {
+  assert.match(composerSource, /data-planning=\{planningLive \? "true" : undefined\}/);
+  assert.match(composerSource, /className="composer-mode-chip-face"/);
   assert.match(
     composerSource,
     /const planningLive =\s*isRunning &&\s*planningState === "planning" &&\s*\(mode === "plan" \|\| mode === "goal"\)/,
   );
   assert.match(
     styles,
-    /\.composer-mode-switch\[data-planning="true"\]\s*\.composer-segment\.is-active svg\s*\{[\s\S]*?animation:\s*composer-mode-planning-pulse/,
+    /\.composer-mode-chip-face\s*\{[\s\S]*?animation:\s*composer-mode-face-in/,
   );
   assert.match(
     styles,
-    /prefers-reduced-motion:\s*reduce[\s\S]*?\.composer-mode-switch\[data-planning="true"\]\s*\.composer-segment\.is-active svg\s*[,{]/,
+    /\.composer-mode-chip\[data-planning="true"\] svg\s*\{[\s\S]*?animation:\s*composer-mode-planning-pulse/,
+  );
+  assert.match(
+    styles,
+    /prefers-reduced-motion:\s*reduce[\s\S]*?\.composer-mode-chip-face,/,
   );
 });

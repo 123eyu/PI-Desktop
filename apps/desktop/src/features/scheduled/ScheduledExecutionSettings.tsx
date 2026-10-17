@@ -1,4 +1,4 @@
-import { useMemo } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
 import {
   type GlobalPermissionMode,
@@ -10,7 +10,7 @@ import { IconChat, IconFolder } from "../../components/icons";
 import { SettingsMenuSelect } from "../../components/settings/SettingsMenuSelect";
 import { useAppStore } from "../../stores/app-store";
 import { ScheduledModelPicker } from "./ScheduledModelPicker";
-import { ComposerPermissionSwitch } from "../chat/composer/ComposerSwitches";
+import { ComposerPermissionPicker } from "../chat/composer/ComposerPermissionPicker";
 
 
 export type ScheduledModelSelection = {
@@ -49,6 +49,8 @@ export function ScheduledExecutionSettings({
   onSessionModeChange: (mode: ScheduledSessionMode) => void;
 }) {
   const { t } = useTranslation();
+  const [permissionOpen, setPermissionOpen] = useState(false);
+  useEffect(() => { if (busy) setPermissionOpen(false); }, [busy]);
   const currentWorkspacePath = useAppStore((state) => state.workspace?.path ?? "");
   const projectOptions = useMemo(() => {
     const seen = new Set<string>();
@@ -84,10 +86,10 @@ export function ScheduledExecutionSettings({
           }
           onChange={onWorkspaceChange}
         />
-        <ComposerPermissionSwitch
-          t={t}
-          permissionMode={permissionMode}
-          controlsBlocked={busy}
+        <ComposerPermissionPicker t={t} mode="agent"
+          composerPermissionMode={permissionMode}
+          permissionOpen={permissionOpen} setPermissionOpen={setPermissionOpen}
+          controlsBlocked={busy} onCloseOtherMenus={() => {}}
           onSelect={onPermissionChange} />
         <SettingsMenuSelect
           className="scheduled-execution-session"

@@ -18,6 +18,7 @@ export type ComposerModelPickerProps = {
   selectedProviderId?: string;
   selectedModelId?: string;
   controlsBlocked: boolean;
+  onCloseOtherMenus: () => void;
   rootActions?: ReactNode;
 };
 
@@ -31,6 +32,7 @@ export function ComposerModelPicker({
   selectedProviderId,
   selectedModelId,
   controlsBlocked,
+  onCloseOtherMenus,
   rootActions,
 }: ComposerModelPickerProps) {
   const {
@@ -76,6 +78,7 @@ export function ComposerModelPicker({
           aria-expanded={open}
           disabled={controlsBlocked}
           onClick={() => {
+            onCloseOtherMenus();
             if (!open) {
               setOtherModelsExpanded(false);
               setQuery("");

@@ -11149,18 +11149,15 @@ This test plan spec is accepted when:
 - **Milestone**: M5
 - **Status**: Partially automated (radius token and shared-control source test)
 
-### US-UI-73 Composer mode and approval switches stay one click away
+### US-UI-73 Composer mode selector has stable width
 - Open the empty home and a docked thread in both English and zh-CN.
-- Expect Agent, Plan, and Goal to render as three always-visible options and
-  Ask / Accept edits / Auto as three more; selecting any of them is one click,
-  never a cycle through the remaining modes and never a menu.
-- Expect the committed mode and approval level to keep their labels as the
-  column narrows while the unselected options collapse to glyphs, and the send
-  button and composer shell not to resize while switching.
-- In Goal, expect the approval switch to remain visible with the same geometry,
-  show Full auto / 全自动, and stay disabled; its accessible name states the
-  mode's automatic warning. The Plan/Goal approval card remains the separate
-  execution-policy control.
+- Switch the Composer mode chip through Agent/Plan/Goal several times.
+- Expect the mode chip to keep one fixed width sized for the longest built-in
+  label (English "Agent" / zh-CN "智能体"); the adjacent Thinking and
+  permission controls, send button, and composer shell do not move or resize.
+- In Goal, expect the permission chip to remain visible with the same geometry,
+  show Full auto / 全自动, and stay disabled without opening a permission menu.
+  The Plan/Goal approval card remains the separate execution-policy control.
 - **Specs linked**: `04-ux/08-component-spec.md` §11.3
 - **Milestone**: M5
 - **Status**: Partially automated (renderer style/source contract)

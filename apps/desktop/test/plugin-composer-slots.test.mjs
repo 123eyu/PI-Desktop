@@ -16,17 +16,7 @@ import { parseProbe, probed, propsProbe, slotMounts, slotSsr } from "./helpers/s
 /** The toolbar's own controls below, by label. */
 // Live Voice's idle entry is conditional on the feature setting and therefore
 // is not a permanent host slot in this disabled-by-default fixture.
-// The execution switches render one radio per option, so the left row shows the
-// three modes and the three approval levels as single-click targets.
-const HOST_LEFT = [
-  "chat.addFiles",
-  "settings.modeAgent",
-  "settings.modePlan",
-  "settings.modeGoal",
-  "chat.permissionAsk",
-  "chat.permissionAcceptEdits",
-  "chat.permissionAuto",
-];
+const HOST_LEFT = ["chat.addFiles", "settings.mode", "chat.permissionMode"];
 const HOST_RIGHT = ["context", "chat.model: Model. chat.reasoningLevel: Off", "chat.send"];
 
 async function composer(t, toolbarProps = {}) {

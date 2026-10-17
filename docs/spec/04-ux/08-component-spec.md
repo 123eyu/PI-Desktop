@@ -1544,7 +1544,7 @@ storage but compose into one assistant turn until the next user message.
 | Turn start | Send / retry / regenerate re-pins follow mode and jumps to bottom |
 | Thinking-only streaming | Transcript opens; the latest thinking disclosure opens unless the user has taken it over; no empty answer bubble; the tail status continues to identify the running turn |
 | Running fallback | Compact animated-dot Working row throughout the running turn when no specific runtime phase or planning state is known, including pauses after partial output or completed tools |
-| Running planning | Compact animated-dot Planning / Goal row in that same slot throughout the planning turn; a runtime phase takes precedence, and pending user interaction or turn completion hides it. The committed Composer mode segment pulses |
+| Running planning | Compact animated-dot Planning / Goal row in that same slot throughout the planning turn; a runtime phase takes precedence, and pending user interaction or turn completion hides it. The Composer mode chip pulses |
 | Idle | Scrollable; no auto-scroll |
 | Permission pending | PermissionCard inserted inline; transcript continues after resolution |
 | Context checkpoint | Existing transcript remains visible; compaction adds one divider row after the message it covers and one warning toast |
@@ -2862,31 +2862,22 @@ reasoning-level control.
 - Padding: px-4 py-3 inner textarea
 - Font: text-sm for Agent, Plan, and Goal; mode changes semantics and tool
   controls, not the typography
-- Composer-left holds one inline segmented cluster with two radiogroups:
-  Agent/Plan/Goal and Ask/Accept edits/Auto. Every option is its own target, so
-  any mode or approval level is one click away — no menu round-trip and no chip
-  that advances through the remaining states. Each segment shows its
-  glyph plus label; the committed one sits on a raised plate
-  (`--ds-raised` + `--ds-raised-shadow`) at medium weight, so the current pair
-  reads without opening anything. A hairline divider separates the two groups.
-  Segments stay single-line and ellipsize rather than reflowing, and the
-  committed option keeps its label longest as the toolbar narrows (480-780px
-  drops the unselected labels to glyphs; the 450px floor drops all labels and
-  keeps tooltips plus accessible names).
-- Arrow keys move to the neighbouring option and commit it, Home/End jump to
-  the ends, and roving `tabindex` keeps one tab stop per group — the native
-  radio-group contract.
-- The approval group stays visible in Agent, Plan, and Goal for a stable
+- The Agent/Plan/Goal mode chip reserves one fixed 88px width, sized from the
+  longest built-in label in English and zh-CN ("Agent" / "智能体"). Its label
+  stays single-line and ellipsizes if a future locale exceeds that budget, so
+  switching modes never reflows the adjacent Composer controls. Cycling the
+  chip cross-fades the icon and label in place. While the live turn is
+  `planning`, the chip pulses on its icon (purple) instead of leaving a
+  second status row parked above the composer; a staged mode choice still
+  updates the chip immediately and does not start that pulse until the
+  in-flight turn actually projects `planning`.
+- The permission chip remains visible in Agent, Plan, and Goal for a stable
   toolbar rhythm. Agent and Plan expose the effective selectable permission;
-  Goal fixes the group to Auto and disables it, with the group's accessible
-  name stating the mode's automatic warning while the approval card remains the
-  separate place for choosing execution policy. The Chinese Composer short
-  label for Accept edits stays `允许编辑` / `允許編輯` so the option remains
-  single-line; the scheduled task draft reuses the same approval switch.
-- While the live turn is `planning`, the committed mode segment pulses on its
-  icon (purple) instead of leaving a second status row parked above the
-  composer; a staged mode choice still updates the switch immediately and does
-  not start that pulse until the in-flight turn actually projects `planning`.
+  Goal displays the localized Auto label as a disabled, non-opening chip while
+  the approval card remains the separate place for choosing execution policy.
+  The permission menu stays 120px wide; its Chinese Composer short label for
+  Accept edits is `允许编辑` / `允許編輯` so the option remains single-line
+  beside its selection indicator.
 - The right toolbar owns the remaining-capacity context inspector (when the
   newest assistant turn has usage) immediately left of one combined model ×
   reasoning-level chip. Explicitly installed plugins may add user-invoked
@@ -3013,7 +3004,7 @@ reasoning-level control.
 | Running | textarea and mode/model × reasoning/permission controls remain editable for the next turn; the single submit slot shows Stop only with an empty draft | Send queues text or attachments; Stop when both are empty |
 | Context checkpoint | Same as Running until durable checkpoint completion; intermediate `turn_end` does not reactivate controls. A retained-tail fallback remains Running and shows a warning toast | Same single-slot Stop/Send behavior as Running |
 | Permission pending | textarea disabled (per [03-permission-ux.md](03-permission-ux.md) §7) | Send disabled; Stop remains active whenever the running empty-draft condition is met |
-| Plan / Goal / planning | textarea active while idle; contract badge and approval switch visible; the committed mode segment pulses while the live turn projects `planning` | inspect, send, or submit a contract |
+| Plan / Goal / planning | textarea active while idle; contract badge and permission chip visible; mode chip pulses while the live turn projects `planning` | inspect, send, or submit a contract |
 | Plan / Goal / awaiting approval | approval surface shows only the title and artifact opener for the exact `.pi/<kind>/*.md` approval; draft is preserved read-only and composer controls remain blocked for that session | approve or reject |
 | Plan / queued or running | Agent badge remains selected; queue/running state is visible; draft and next-turn controls remain editable | Stop; Send queues the next prompt; no replay control |
 | Plan / Goal / planning after rejected, expired, or interrupted proposal | contract chip remains visible and editable | send a later prompt; submit a new contract; no execution action |
@@ -3143,8 +3134,8 @@ reasoning-level control.
   an empty list), so changing a level during a turn cannot collapse the submenu
   to Off-only. An active pending Plan or Goal approval still disables these
   controls. Approval actions are the exception while awaiting approval. The
-  Composer-left Agent/Plan/Goal switch is the sole mode
-  control and commits any mode on a single click. The Composer-right
+  Composer-left Agent/Plan/Goal chip is the sole mode
+  control and cycles Agent → Plan → Goal → Agent on click. The Composer-right
   model × reasoning chip owns both selections. Palette and Composer slash mode commands use the
   same active-session configuration path; after host confirmation resolves an
   approval, the approval surface is removed rather than remaining as a terminal
@@ -3238,12 +3229,11 @@ reasoning-level control.
 - The combined menu closes on outside mousedown or Escape. In a submenu,
   Up/Down moves the highlighted row, Enter selects from the model search/list,
   and Left returns to the root.
-- The approval switch remains visible beside the mode switch. Agent and Plan
-  show the effective Ask / Accept edits / Auto posture as three one-click
-  options. Goal keeps the same geometry but is fixed to the localized Auto
-  option and disabled; its approval card remains the separate place for
-  choosing execution policy. The control does not imply that Write/Edit/plugin
-  tools are available.
+- The permission chip remains visible beside the mode selector. Agent and Plan
+  show the effective Ask / Accept edits / Auto posture. Goal keeps the same
+  geometry but is fixed to the localized Auto label and cannot open a menu;
+  its approval card remains the separate place for choosing execution policy.
+  The control does not imply that Write/Edit/plugin tools are available.
 - Goal shares the Plan approval surface (D198). The bar reads its copy from the
   proposal's `kind`, so a goal contract shows the matching approval label and
   artifact opener while the layout and remembered permission split-button stay

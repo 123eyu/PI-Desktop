@@ -618,16 +618,12 @@ async function inspectUi(state) {
     };
     const text = (node) => (node?.innerText || node?.textContent || "").replace(/\\s+/g, " ").trim();
     const label = (node) => (node?.getAttribute("aria-label") || text(node)).trim();
-    // The execution switches render every mode as its own radio; the checked
-    // one is the session's operating mode.
-    const modeButtons = [...document.querySelectorAll(".composer-shell .composer-mode-switch button[role=\"radio\"]")]
+    const modeButtons = [...document.querySelectorAll(".composer-shell button.mode-chip")]
       .filter(visible)
-      .map((node) => ({
-        label: text(node),
-        checked: node.getAttribute("aria-checked") === "true",
-        disabled: Boolean(node.disabled),
-      }));
-    const operatingModes = modeButtons.filter((item) => item.checked);
+      .map((node) => ({ label: text(node), disabled: Boolean(node.disabled) }));
+    const operatingModes = modeButtons.filter((item) =>
+      ["Agent", "Plan", "智能体", "规划"].includes(item.label),
+    );
     const bar = document.querySelector('[data-testid="plan-approval-bar"]');
     const approvalMain = bar?.querySelector(".plan-approval-approve-main");
     const approvalMenu = document.querySelector(".plan-approval-menu.is-open");
@@ -635,7 +631,7 @@ async function inspectUi(state) {
     const prompt = document.querySelector(".composer-input");
     const model = document.querySelector(".composer-model-thinking button");
     const mode = operatingModes[0];
-    const permission = document.querySelector('.composer-permission-switch button[role="radio"]');
+    const permission = document.querySelector(".composer-permission button");
     const send = document.querySelector(".composer-shell .send-btn");
     const barText = text(bar);
     const bodyText = document.body?.innerText || "";
@@ -653,10 +649,9 @@ async function inspectUi(state) {
       bodyText,
       activeSessionId: activeRow?.getAttribute("data-sidebar-session-row") || null,
       modeLabels: operatingModes.map((item) => item.label),
-      modeOptionLabels: modeButtons.map((item) => item.label),
       modeControlCount: operatingModes.length,
       modeDisabled: mode ? mode.disabled : null,
-      topbarModeControlCount: document.querySelectorAll(".conversation-topbar .composer-mode-switch").length,
+      topbarModeControlCount: document.querySelectorAll(".conversation-topbar button.mode-chip").length,
       permissionVisible: visible(permission),
       permissionDisabled: permission ? Boolean(permission.disabled) : null,
       modelDisabled: model ? Boolean(model.disabled) : null,
@@ -1115,7 +1110,7 @@ function assertShellStructure(snapshot, expectedMode, locale) {
   assert(snapshot.permissionVisible, "Composer permission control is missing");
   assert(snapshot.activeSessionId, "no active rendered session row");
   if (expectedMode === "plan") {
-    assert(snapshot.modeOptionLabels.includes(expectedLabel), `Plan shell label missing for ${locale}`);
+    assert(snapshot.modeLabels.includes(expectedLabel), `Plan shell label missing for ${locale}`);
   }
 }
 

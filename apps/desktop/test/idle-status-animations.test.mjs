@@ -58,7 +58,7 @@ const IDLE_INDICATORS = [
   ".thread-item-status.running::before",
   ".sidebar-session-hover-card-session-link-status::before",
   ".thread-item-status.permission::before",
-  '.composer-mode-switch[data-planning="true"] .composer-segment.is-active svg',
+  '.composer-mode-chip[data-planning="true"] svg',
   ".backend-banner.warn .backend-dot",
 ];
 

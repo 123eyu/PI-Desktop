@@ -224,16 +224,36 @@
   }
 }
 
-/* A live planning turn pulses the committed mode's glyph instead of parking a
-   second status row above the composer. */
-.composer-mode-switch[data-planning="true"] .composer-segment.is-active {
-  color: var(--ds-text-primary);
+.composer-mode-chip-face {
+  display: inline-flex;
+  min-width: 0;
+  max-width: 100%;
+  align-items: center;
+  gap: 6px;
+  animation: composer-mode-face-in var(--motion-duration-fast)
+    var(--motion-ease-out) both;
 }
 
-.composer-mode-switch[data-planning="true"] .composer-segment.is-active svg {
-  color: var(--ds-purple);
+.composer-mode-chip[data-planning="true"] {
+  color: var(--ds-text-primary) !important;
+}
+
+.composer-mode-chip[data-planning="true"] svg {
+  color: var(--ds-purple) !important;
   animation: composer-mode-planning-pulse 1.2s var(--motion-ease-standard)
     2;
+}
+
+@keyframes composer-mode-face-in {
+  from {
+    opacity: 0;
+    transform: translateX(4px);
+  }
+
+  to {
+    opacity: 1;
+    transform: none;
+  }
 }
 
 @keyframes composer-mode-planning-pulse {
@@ -919,7 +939,7 @@
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .composer-mode-switch[data-planning="true"] .composer-segment.is-active svg {
+  .composer-mode-chip[data-planning="true"] svg {
     animation: none;
   }
 

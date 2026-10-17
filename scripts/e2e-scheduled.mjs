@@ -229,9 +229,9 @@ try {
   assert.equal(await evaluate(`document.querySelector('button[aria-label="Cadence"]').textContent.trim()`), "Manual");
   await choose("Cadence", "Daily");
   await choose("Select project", "project-alt");
-  // The approval level is an inline switch: one click, no menu round-trip.
-  await click("Auto", '.composer-permission-switch button[data-value="auto"]');
-  await waitFor(() => evaluate(`document.querySelector('.composer-permission-switch button[data-value="auto"]').getAttribute('aria-checked') === 'true'`), 5000, "approval switch selects Auto");
+  await click("Permission mode", "button[aria-haspopup]", true);
+  await waitFor(() => evaluate(`!!document.querySelector('.composer-permission-menu.is-open')`), 5000, "shared permission menu");
+  await click("Auto", '.composer-permission-menu [role="menuitemradio"]');
   assert.ok(await evaluate(`document.body.innerText.includes('Auto can run restricted actions')`));
   await click(await evaluate(`document.querySelector('.scheduled-execution-toolbar .composer-model-thinking-chip').getAttribute('aria-label')`), 'button[aria-haspopup]', true);
   await waitFor(() => evaluate(`!!document.querySelector('.composer-model-menu.is-open .composer-menu-root')`), 5000, "measured root menu");
