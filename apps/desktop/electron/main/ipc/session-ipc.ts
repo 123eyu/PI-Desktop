@@ -26,7 +26,7 @@ import type { Logger } from "../logger";
 import type { PersistenceOutbox } from "../persistence-outbox";
 import type { PluginRuntime } from "../plugin-runtime";
 import { readSessionCollaboration } from "../services/session-collaboration";
-import { searchSessionsAcrossSources } from "../services/session-search";
+import { localNativeProjectPaths, searchSessionsAcrossSources } from "../services/session-search";
 import type { IpcRegistrar } from "./types";
 import { getActiveRemoteHostsBoot } from "../bootstrap/remote-hosts.js";
 
@@ -203,12 +203,18 @@ export function registerSessionIpc({
   });
   handle(IPC.invoke.sessionList, async () => {
     if (!host) throw new Error("host unavailable");
+    const projectPathsPromise = localNativeProjectPaths(host);
+    const desktopPromise = host.call<{ sessions: RuntimeSession[] }>("session.list");
+    const capabilityPromise = sessionCapabilityContext();
+    const projectPaths = await projectPathsPromise;
     const [result, native, { providers, defaults }] = await Promise.all([
-      host.call<{ sessions: RuntimeSession[] }>("session.list"),
+      desktopPromise,
       sidecar
-        ? sidecar.call<{ sessions: RuntimeSession[] }>("native.session.list").catch(() => ({ sessions: [] }))
+        ? sidecar
+            .call<{ sessions: RuntimeSession[] }>("native.session.list", { projectPaths })
+            .catch(() => ({ sessions: [] }))
         : Promise.resolve({ sessions: [] }),
-      sessionCapabilityContext(),
+      capabilityPromise,
     ]);
     return {
       ...result,

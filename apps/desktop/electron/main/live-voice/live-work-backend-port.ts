@@ -11,6 +11,7 @@ import { DESKTOP_PRINCIPAL } from "../agent-host-bridge";
 import type { BackendRouter, RemoteBackend } from "../remote/backend-router";
 import type { RemoteHostsBoot } from "../bootstrap/remote-hosts";
 import type { LiveWorkAdmission, LiveWorkPort, WorkSnapshot } from "@pi-desktop/host-runtime";
+import { localNativeProjectPaths } from "../services/session-search";
 
 export type LiveWorkSessionRecord = {
   id: string;
@@ -55,10 +56,13 @@ export async function listLiveWorkSessions(input: {
   if (!host) throw Object.assign(new Error("Local Host is unavailable"), { errorCode: "LIVE_WORK_NOT_READY" });
   const sidecar = input.getSidecar();
   const remoteHosts = input.getRemoteHosts();
+  const projectPathsPromise = localNativeProjectPaths(host);
+  const desktopPromise = host.call<{ sessions?: Array<Record<string, unknown>> }>("session.list");
+  const projectPaths = await projectPathsPromise;
   const [desktopResult, nativeResult, remoteResult] = await Promise.all([
-    host.call<{ sessions?: Array<Record<string, unknown>> }>("session.list"),
+    desktopPromise,
     sidecar
-      ? sidecar.call<{ sessions?: Array<Record<string, unknown>> }>("native.session.list")
+      ? sidecar.call<{ sessions?: Array<Record<string, unknown>> }>("native.session.list", { projectPaths })
       : Promise.resolve({ sessions: [] as Array<Record<string, unknown>> }),
     remoteHosts ? remoteHosts.listSessions() : Promise.resolve([]),
   ]);

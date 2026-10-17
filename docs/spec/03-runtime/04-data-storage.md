@@ -1805,11 +1805,27 @@ migration is required.
 
 ## 12. Native Pi session authority (ADR 0254)
 
-Native Pi v3 sessions under the Pi agent session root are a second, explicitly
-source-discriminated transcript authority owned by the Node agent sidecar. They
-are never inserted into SQLite and never copied to the Desktop transcript
-directory. `session.list` merges their projections with Rust-owned
-Desktop summaries, and `session.get` routes by the opaque `native-pi:` id.
+Native Pi v3 sessions are a second, explicitly source-discriminated transcript
+authority owned by the Node agent sidecar. They are never inserted into SQLite
+and never copied to the Desktop transcript directory. `session.list` merges
+their projections with Rust-owned Desktop summaries, and `session.get` routes
+by the opaque `native-pi:` id.
+
+Discovery always walks the Pi agent session root recursively
+(`<agentDir>/sessions`, default `~/.pi/agent/sessions`). It also scans, without
+recursion, each `sessionDir` the pinned coding-agent `SettingsManager` resolves:
+an absolute or `~` value from global settings, and the merged global-plus-project
+setting for each known local project. A relative path resolves from that
+project's working directory, not from the Desktop process cwd. Remote project
+ids are skipped, and at most 500 local project paths are considered. A
+configured directory whose real path is the default root, or is inside it, is
+not scanned again. A file is listed only when its real path stays inside the
+default root or one of those directories; a symlink that escapes, and a nested
+file under a custom `sessionDir`, are omitted. Detail, prompt, and fork use the
+same roots. A child fork is still published beside its parent. A project Desktop
+has not yet recorded does not contribute a relative `sessionDir`. An absolute
+global `sessionDir` is scanned even when no project is known.
+
 Discovery deduplicates native files that share the same JSONL `header.id`,
 keeping the projection with the newest transcript `updatedAt`. The selected
 file retains its path-derived opaque session id; duplicate files are not
