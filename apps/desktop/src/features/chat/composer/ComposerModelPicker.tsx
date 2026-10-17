@@ -96,7 +96,6 @@ export function ComposerModelPicker({
           <span className="composer-model-thinking-model">{modelLabel}</span>
           {thinkingLevel !== "off" ? (
             <>
-              <span className="composer-model-thinking-dot" aria-hidden="true">·</span>
               <span className="composer-model-thinking-level">{thinkingLabel}</span>
             </>
           ) : null}

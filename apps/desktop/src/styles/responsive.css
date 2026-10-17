@@ -40,7 +40,6 @@
 }
 
 @container composer-stack (max-width: 560px) {
-  .composer-model-thinking-dot,
   .composer-model-thinking-level {
     display: none;
   }
