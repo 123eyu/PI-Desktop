@@ -9,6 +9,7 @@ import {
   parseCodexModelConfig,
   parseJsonDocument,
   parseOpenCodeModelConfig,
+  parsePiAuthModelConfig,
   parsePiModelConfig,
   type CcSwitchProviderRow,
   type ModelConfigImportDraft,
@@ -85,10 +86,35 @@ async function scanPi(
   home: string,
   env: ModelConfigImportEnv,
 ): Promise<ModelConfigImportDraft[]> {
-  const models =
-    (await readJson(path.join(home, ".pi", "agent", "models.json"))) ??
-    (await readJson(path.join(home, ".pi", "models.json")));
-  return parsePiModelConfig(models, env);
+  const agentDir = path.join(home, ".pi", "agent");
+  const fallbackDir = path.join(home, ".pi");
+  const [models, auth, modelsStore] = await Promise.all([
+    readJson(path.join(agentDir, "models.json")) ??
+      readJson(path.join(fallbackDir, "models.json")),
+    readJson(path.join(agentDir, "auth.json")) ??
+      readJson(path.join(fallbackDir, "auth.json")),
+    // Pi caches the resolved catalog (including built-in providers) beside
+    // models.json. It is the only place an auth-only provider's base URL and
+    // model limits are available.
+    readJson(path.join(agentDir, "models-store.json")) ??
+      readJson(path.join(fallbackDir, "models-store.json")),
+  ]);
+  const drafts = parsePiModelConfig(models, env);
+  const authConfig = parsePiAuthModelConfig(auth, modelsStore, env);
+  const byProvider = new Map(drafts.map((draft) => [draft.externalId, draft]));
+  for (const draft of authConfig.drafts) {
+    // models.json stays authoritative when it already describes the provider.
+    if (byProvider.has(draft.externalId)) continue;
+    drafts.push(draft);
+    byProvider.set(draft.externalId, draft);
+  }
+  return drafts.map((draft) => {
+    if (draft.hasSecret) return draft;
+    const secret = authConfig.apiKeys[draft.externalId];
+    // A models.json `env:`/`$VAR` reference can resolve to nothing in the
+    // Desktop process; auth.json still holds the key Pi actually uses.
+    return secret ? { ...draft, secretValue: secret, hasSecret: true } : draft;
+  });
 }
 
 async function scanCcSwitch(

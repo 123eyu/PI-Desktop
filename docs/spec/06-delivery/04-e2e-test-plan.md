@@ -13845,17 +13845,21 @@ are withdrawn with ADR 0165.
 
 - **Preconditions**: At least one supported local config exists among
   `~/.claude/settings.json`, `~/.codex/config.toml` `[model_providers.*]`,
-  `~/.config/opencode/opencode.json`, `~/.pi/agent/models.json`, or
+  `~/.config/opencode/opencode.json`, `~/.pi/agent/models.json`,
+  `~/.pi/agent/auth.json` plus `~/.pi/agent/models-store.json`, or
   `~/.cc-switch/cc-switch.db`, including two API-key profiles with the same
-  endpoint and different keys, and optionally one OAuth-only vendor.
-  PI-Desktop may already have an equivalent provider.
+  endpoint and different keys, one auth-only Pi API-key provider, and
+  optionally one OAuth-only vendor. PI-Desktop may already have an equivalent
+  provider.
 - **Steps**:
   1. Open Settings → Models and expand **Import from other tools**. Confirm
      its scan explanation appears as inline text without a help icon, and the
      workbench remains idle until Scan is activated.
   2. Scan model configuration. Confirm source groups start expanded, rows
      show name, model count, host, and an API key / No API key badge, and no
-     secret value appears in the UI or scan IPC payload.
+     secret value appears in the UI or scan IPC payload. Confirm the
+     auth-only Pi provider appears in the Pi group with its cached model
+     count and an API key badge.
   3. Import the selected providers. Confirm both same-endpoint profiles appear
      as separate rows under Settings → Models and remain selectable in the
      Composer model menu. Re-import the same selection and confirm those
@@ -13866,10 +13870,12 @@ are withdrawn with ADR 0165.
   5. Confirm an OAuth-only source account is absent from the candidate
      list.
 - **Expected**: Explicit scan only (D007). Stored API keys land in the host
-  secret store. Only equivalent providers (normalized URL + API style + same
-  credential) skip; different credentials at one endpoint remain separate.
-  The expanded importer shows its scan explanation directly without a
-  question-mark control. No protocol or schema version bump.
+  secret store. Pi providers connected through `auth.json` are paired with
+  the cached `models-store.json` catalog; OAuth grants and `!command` keys
+  are not imported. Only equivalent providers (normalized URL + API style +
+  same credential) skip; different credentials at one endpoint remain
+  separate. The expanded importer shows its scan explanation directly
+  without a question-mark control. No protocol or schema version bump.
 - **Specs linked**: `04-ux/06-settings-ia.md`,
   `04-ux/08-component-spec.md` §18.5, `03-runtime/01-ipc-protocol.md`,
   `03-runtime/11-provider-model-system.md`, ADR 0179, D342
