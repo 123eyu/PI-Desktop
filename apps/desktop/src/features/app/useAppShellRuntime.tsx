@@ -29,7 +29,11 @@ import {
   workPanelRequestedWidth,
   workPanelWidthForSidebarReopen,
 } from "../../lib/work-panel-resize";
-import { browserPluginTab, browserPluginTabForReveal } from "../../lib/work-panel-tabs";
+import {
+  browserPluginTab,
+  browserPluginTabForReveal,
+  pluginWorkPanelTab,
+} from "../../lib/work-panel-tabs";
 import { useAppStore } from "../../stores/app-store";
 import { useSidebarTransition } from "./useSidebarTransition";
 import { useStartupWatchdog } from "./useStartupWatchdog";
@@ -68,6 +72,12 @@ export function useAppShellRuntime() {
   const refreshPluginThemes = useAppStore((s) => s.refreshPluginThemes);
   const plugins = useAppStore((s) => s.plugins);
   const projectPath = useAppStore((s) => s.workspace?.path ?? null);
+  /** The project of the session on screen, for the plugin session snapshot. */
+  const activeSessionProjectPath = useAppStore((s) =>
+    s.activeSessionId
+      ? (s.sessions.find((session) => session.id === s.activeSessionId)?.projectPath ?? null)
+      : null,
+  );
   const workPanelVisible = workPanelOpen;
 
   const [searchOpen, setSearchOpen] = useState(false);
@@ -448,6 +458,20 @@ export function useAppShellRuntime() {
       .catch(() => undefined);
   }, [activeSessionId, page]);
 
+  /**
+   * The selected session is shell state, so the shell publishes it. Plugin
+   * `pi.session.getActive()` and `session:activated` read this instead of any
+   * plugin guessing from the transcript.
+   */
+  useEffect(() => {
+    void api
+      .setPluginActiveSession({
+        sessionId: activeSessionId ?? null,
+        projectPath: activeSessionProjectPath,
+      })
+      .catch(() => undefined);
+  }, [activeSessionId, activeSessionProjectPath]);
+
   useEffect(() => {
     const acknowledgeFocusedSession = () => {
       if (!ready || page !== "chat" || !activeSessionId) return;
@@ -654,6 +678,15 @@ export function useAppShellRuntime() {
       if (state.activeSessionId) {
         state.openWorkPanelTabForSession(state.activeSessionId, browserPluginTab(path));
       }
+    });
+    // A plugin asked to show one of its own views in the work panel
+    // (`pi.ui.revealView`). The main process already refused a stale session,
+    // so this only has to open — and focus — the tab that session owns.
+    const offPluginViewReveal = api.onPluginViewReveal((event) => {
+      useAppStore.getState().openWorkPanelTabForSession(event.sessionId, {
+        ...pluginWorkPanelTab(event.pluginId, event.viewId),
+        ...(event.location ? { location: event.location } : {}),
+      });
     });
     const offHostStatus = api.onHostStatus((status) => {
       if (status.archMismatch) setArchMismatch(status.archMismatch);
@@ -862,6 +895,7 @@ export function useAppShellRuntime() {
       offBrowserPreview();
       offBrowserOpenFile();
       offBrowserState();
+      offPluginViewReveal();
       offHostStatus();
       offNotificationChanged();
       offSessionsChanged();

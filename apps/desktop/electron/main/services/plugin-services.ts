@@ -54,6 +54,7 @@ import { OAUTH_AUTH_KIND, type VendorOAuth } from "../oauth";
 import type { ClipboardHistory } from "../clipboard-history";
 import type { TurnEndedPayload } from "../runtime/session-coordination";
 import type { HostProcess } from "../host-process";
+import { createPluginSessionContext } from "./plugin-session-context";
 import type { Logger } from "../logger";
 import type { PluginAppearance } from "../../shared/plugin-panel-chrome";
 
@@ -77,6 +78,8 @@ export type PluginServicesDependencies = {
   getWorkspacePath: () => string | null;
   resolveAgentRuntimeLaunch: (...args: any[]) => Promise<any>;
   vendorOAuth: VendorOAuth;
+  /** The live turn of one session, read from the host's own turn map. */
+  getActiveTurn: (sessionId: string) => string | null;
 };
 
 export function createPluginServices({
@@ -97,6 +100,7 @@ export function createPluginServices({
   getWorkspacePath,
   resolveAgentRuntimeLaunch,
   vendorOAuth,
+  getActiveTurn,
 }: PluginServicesDependencies) {
   // A plugin request can lose its race with host shutdown or restart.
   const isHostUnavailable = (error: unknown): boolean =>
@@ -579,7 +583,49 @@ export function createPluginServices({
         data: String(error),
       });
     }
+    // The snapshot also carries the running turn, so a surface that subscribes
+    // to `session:activated` learns the selected session went idle from the
+    // same event stream it learns a switch from.
+    pluginSession.noteTurnEnded(payload.sessionId, payload.turnId);
   };
+  /**
+   * The selected session and its running turn, as the plugin surfaces see it.
+   *
+   * Created after the two window hosts above because its fan-out — like
+   * `announceTurnEnded` — reaches all three surfaces, and after nothing else:
+   * `announceTurnEnded` below notifies it, and that only ever runs once this
+   * factory has returned.
+   */
+  const pluginSession = createPluginSessionContext({
+    getActiveTurn,
+    announce: (event, payload) => {
+      try {
+        plugins.broadcastEvent(event, [payload]);
+      } catch (error) {
+        logger.app("plugin", "warn", "sessionContext plugin broadcast failed", {
+          sessionId: payload?.sessionId ?? undefined,
+          data: String(error),
+        });
+      }
+      try {
+        pluginPanels.broadcast(event, payload);
+      } catch (error) {
+        logger.app("plugin", "warn", "sessionContext panel broadcast failed", {
+          sessionId: payload?.sessionId ?? undefined,
+          data: String(error),
+        });
+      }
+      try {
+        pluginViews.broadcast(event, payload);
+      } catch (error) {
+        logger.app("plugin", "warn", "sessionContext view broadcast failed", {
+          sessionId: payload?.sessionId ?? undefined,
+          data: String(error),
+        });
+      }
+    },
+    log: (message, data) => logger.app("plugin", "warn", message, { data }),
+  });
   const pluginViews = new PluginViewHost(({ pluginId, url }) => {
     logger.app("plugin", "warn", "plugin.api", {
       pluginId,
@@ -654,6 +700,20 @@ export function createPluginServices({
     getWorkspacePathForSession: (sessionId) => sessionProjects.get(sessionId) ?? null,
     agentExtensionsChanged: () =>
       sendToRenderer(IPC.event.pluginChanged, { reason: "agentExtensions" }),
+    /** `pi.session.getActive`: the selected session as the shell shows it. */
+    getActiveSession: () => pluginSession.snapshot(),
+    /**
+     * `pi.ui.revealView`: the runtime validated the view and the session; the
+     * shell owns work-panel tabs, so it is the surface that opens the tab.
+     */
+    revealView: async ({ pluginId, viewId, sessionId, location }) => {
+      sendToRenderer(IPC.event.pluginViewReveal, {
+        pluginId,
+        viewId,
+        sessionId,
+        ...(location ? { location } : {}),
+      });
+    },
     browser: {
       reveal: (sessionId) => browserHost.reveal(sessionId),
       navigate: (input, sessionId, tabId) => browserHost.navigate(input, sessionId, tabId),
@@ -691,6 +751,7 @@ export function createPluginServices({
     pluginPanels,
     pluginViews,
     browserHost,
+    pluginSession,
     speech,
   };
 }

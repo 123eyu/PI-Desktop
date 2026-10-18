@@ -215,3 +215,37 @@ test("a finished turn is announced to every plugin surface", () => {
     "every plugin surface must isolate its own delivery",
   );
 });
+
+test("the selected session is announced to every plugin surface", () => {
+  const services = read("services/plugin-services.ts");
+  const context = read("services/plugin-session-context.ts");
+  // The snapshot is announced from the one module that owns it, and reaches the
+  // same three surfaces as a finished turn.
+  assert.match(context, /announce\("session:activated", next\)/);
+  assert.match(services, /plugins\.broadcastEvent\(event, \[payload\]\)/);
+  assert.match(services, /pluginPanels\.broadcast\(event, payload\)/);
+  assert.match(services, /pluginViews\.broadcast\(event, payload\)/);
+  // Turn identity and start time come from the host, never from the renderer.
+  assert.match(
+    services,
+    /const pluginSession = createPluginSessionContext\(\{\n    getActiveTurn,/,
+  );
+  assert.match(services, /pluginSession\.noteTurnEnded\(payload\.sessionId, payload\.turnId\)/);
+  const root = read("index.ts");
+  assert.match(root, /onTurnStarted: \(sessionId: string, turnId: string\)/);
+  assert.match(root, /pluginServices\.pluginSession\.noteTurnStarted\(sessionId, turnId\)/);
+});
+
+test("the shell publishes its selection and opens a revealed view", () => {
+  const shell = readFileSync(
+    join(here, "..", "src", "features", "app", "useAppShellRuntime.tsx"),
+    "utf8",
+  );
+  assert.match(shell, /api\s*\.setPluginActiveSession\(/);
+  const reveal = braceBody(
+    shell,
+    shell.indexOf("{", shell.indexOf("api.onPluginViewReveal(")),
+  );
+  assert.match(reveal, /openWorkPanelTabForSession\(event\.sessionId/);
+  assert.match(reveal, /pluginWorkPanelTab\(event\.pluginId, event\.viewId\)/);
+});
