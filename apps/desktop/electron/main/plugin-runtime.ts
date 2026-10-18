@@ -499,8 +499,14 @@ export type PluginHostServices = {
    */
   getActiveSession?: () => PluginActiveSession | null;
   /**
+   * Whether a plugin's contributions still apply to the shell's current
+   * project. The same scope check every view IPC applies, so a project-scoped
+   * plugin cannot read or reveal a session it is inactive in.
+   */
+  isPluginActiveInProject?: (pluginId: string) => boolean;
+  /**
    * Ask the shell to show one of this plugin's views in a session's work panel.
-   * The runtime has already resolved the view and rejected a stale session.
+   * The runtime has already resolved the view, the scope and a stale session.
    */
   revealView?: (request: {
     pluginId: string;
@@ -4474,6 +4480,11 @@ export class PluginRuntime {
     if (!this.services.getActiveSession) {
       throw apiError("UNSUPPORTED", "host api not available: session.getActive");
     }
+    // A project-scoped plugin is not part of another project's conversation, so
+    // it does not get to read which session that project has open.
+    if (!this.services.isPluginActiveInProject?.(loaded.manifest.id)) {
+      throw apiError("PERMISSION_DENIED", "plugin is not active in this project");
+    }
     const snapshot = this.services.getActiveSession();
     this.services.audit?.({
       pluginId: loaded.manifest.id,
@@ -4503,6 +4514,9 @@ export class PluginRuntime {
     const views = loaded.manifest.contributes?.views ?? [];
     if (views.length === 0) {
       throw apiError("NOT_FOUND", "plugin does not declare a work panel view");
+    }
+    if (!this.services.isPluginActiveInProject?.(loaded.manifest.id)) {
+      throw apiError("PERMISSION_DENIED", "plugin is not active in this project");
     }
     const requested = typeof input?.viewId === "string" ? input.viewId.trim() : "";
     const view = requested

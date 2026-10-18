@@ -80,7 +80,19 @@ export type PluginServicesDependencies = {
   vendorOAuth: VendorOAuth;
   /** The live turn of one session, read from the host's own turn map. */
   getActiveTurn: (sessionId: string) => string | null;
+  /**
+   * Whether a plugin's contributions apply to the project the window shows.
+   * Scope records live in Main, so this is the one lookup that decides.
+   */
+  isPluginActiveInProject: (pluginId: string) => boolean;
 };
+
+/**
+ * Session events whose payload describes the user's current selection. A
+ * detached `ui.panel` window is application-scoped — it does not belong to a
+ * session — so it never receives them; plugin processes and docked views do.
+ */
+const SESSION_SCOPED_EVENTS = new Set(["session:activated"]);
 
 export function createPluginServices({
   dataDir,
@@ -101,6 +113,7 @@ export function createPluginServices({
   resolveAgentRuntimeLaunch,
   vendorOAuth,
   getActiveTurn,
+  isPluginActiveInProject,
 }: PluginServicesDependencies) {
   // A plugin request can lose its race with host shutdown or restart.
   const isHostUnavailable = (error: unknown): boolean =>
@@ -550,39 +563,47 @@ export function createPluginServices({
     pluginViews.broadcast("browser:state", state);
   };
   /**
-   * Tell the plugin surfaces that a host turn reached a terminal state. The
-   * three surfaces are independent: a failure to reach one of them must not
-   * suppress the other two, and inside each one an unreachable recipient is
-   * skipped by the host that owns the fan-out.
+   * One fan-out for every session-lifecycle event, so a rule added here cannot
+   * apply to `session:turnEnded` and be forgotten for `session:activated`.
    *
-   * Delivery is best-effort by contract — no acknowledgement, no replay, and no
-   * guarantee for a plugin that is loading, crashed or unloaded right now.
+   * The selected session and its project path are reported to the plugin
+   * processes and to the docked views that follow the user's selection; a
+   * detached `ui.panel` window is application-scoped and never receives them.
+   * Each surface owns its failure: one unreachable plugin process, panel or view
+   * must not suppress the other two.
    */
+  const broadcastSessionEvent = (event: string, payload: unknown): void => {
+    const sessionId =
+      (payload as { sessionId?: string } | null | undefined)?.sessionId ?? undefined;
+    try {
+      plugins.broadcastEvent(event, [payload]);
+    } catch (error) {
+      logger.app("plugin", "warn", `${event} plugin broadcast failed`, {
+        sessionId,
+        data: String(error),
+      });
+    }
+    if (!SESSION_SCOPED_EVENTS.has(event)) {
+      try {
+        pluginPanels.broadcast(event, payload);
+      } catch (error) {
+        logger.app("plugin", "warn", `${event} panel broadcast failed`, {
+          sessionId,
+          data: String(error),
+        });
+      }
+    }
+    try {
+      pluginViews.broadcast(event, payload);
+    } catch (error) {
+      logger.app("plugin", "warn", `${event} view broadcast failed`, {
+        sessionId,
+        data: String(error),
+      });
+    }
+  };
   const announceTurnEnded = (payload: TurnEndedPayload): void => {
-    try {
-      plugins.broadcastEvent("session:turnEnded", [payload]);
-    } catch (error) {
-      logger.app("plugin", "warn", "turnEnded plugin broadcast failed", {
-        sessionId: payload.sessionId,
-        data: String(error),
-      });
-    }
-    try {
-      pluginPanels.broadcast("session:turnEnded", payload);
-    } catch (error) {
-      logger.app("plugin", "warn", "turnEnded panel broadcast failed", {
-        sessionId: payload.sessionId,
-        data: String(error),
-      });
-    }
-    try {
-      pluginViews.broadcast("session:turnEnded", payload);
-    } catch (error) {
-      logger.app("plugin", "warn", "turnEnded view broadcast failed", {
-        sessionId: payload.sessionId,
-        data: String(error),
-      });
-    }
+    broadcastSessionEvent("session:turnEnded", payload);
     // The snapshot also carries the running turn, so a surface that subscribes
     // to `session:activated` learns the selected session went idle from the
     // same event stream it learns a switch from.
@@ -591,40 +612,13 @@ export function createPluginServices({
   /**
    * The selected session and its running turn, as the plugin surfaces see it.
    *
-   * Created after the two window hosts above because its fan-out — like
-   * `announceTurnEnded` — reaches all three surfaces, and after nothing else:
-   * `announceTurnEnded` below notifies it, and that only ever runs once this
-   * factory has returned.
+   * Created after the two window hosts above because its fan-out reaches them,
+   * and after nothing else: `announceTurnEnded` above notifies it, and that only
+   * ever runs once this factory has returned.
    */
   const pluginSession = createPluginSessionContext({
     getActiveTurn,
-    announce: (event, payload) => {
-      try {
-        plugins.broadcastEvent(event, [payload]);
-      } catch (error) {
-        logger.app("plugin", "warn", "sessionContext plugin broadcast failed", {
-          sessionId: payload?.sessionId ?? undefined,
-          data: String(error),
-        });
-      }
-      try {
-        pluginPanels.broadcast(event, payload);
-      } catch (error) {
-        logger.app("plugin", "warn", "sessionContext panel broadcast failed", {
-          sessionId: payload?.sessionId ?? undefined,
-          data: String(error),
-        });
-      }
-      try {
-        pluginViews.broadcast(event, payload);
-      } catch (error) {
-        logger.app("plugin", "warn", "sessionContext view broadcast failed", {
-          sessionId: payload?.sessionId ?? undefined,
-          data: String(error),
-        });
-      }
-    },
-    log: (message, data) => logger.app("plugin", "warn", message, { data }),
+    announce: broadcastSessionEvent,
   });
   const pluginViews = new PluginViewHost(({ pluginId, url }) => {
     logger.app("plugin", "warn", "plugin.api", {
@@ -702,6 +696,11 @@ export function createPluginServices({
       sendToRenderer(IPC.event.pluginChanged, { reason: "agentExtensions" }),
     /** `pi.session.getActive`: the selected session as the shell shows it. */
     getActiveSession: () => pluginSession.snapshot(),
+    /**
+     * The same project-scope check the view IPCs apply, so following a session
+     * and revealing a view stay inside the project the plugin was activated in.
+     */
+    isPluginActiveInProject: (pluginId) => isPluginActiveInProject(pluginId),
     /**
      * `pi.ui.revealView`: the runtime validated the view and the session; the
      * shell owns work-panel tabs, so it is the surface that opens the tab.

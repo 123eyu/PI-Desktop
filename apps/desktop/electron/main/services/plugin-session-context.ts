@@ -28,6 +28,23 @@ export type PluginSessionContextDependencies = {
   log?: (message: string, data?: Record<string, unknown>) => void;
 };
 
+/**
+ * Sessions whose turn start this module still remembers. Start times exist only
+ * to date the selected session's turn, and a turn that ends without a notice
+ * never removes its entry, so the map is capped instead of growing with every
+ * session that ever ran. Oldest insertions go first.
+ */
+const MAX_TRACKED_SESSIONS = 64;
+
+/** Drop the oldest insertions until `map` holds at most `limit` entries. */
+function enforceBound<K, V>(map: Map<K, V>, limit: number): void {
+  while (map.size > limit) {
+    const oldest = map.keys().next();
+    if (oldest.done) return;
+    map.delete(oldest.value);
+  }
+}
+
 export type PluginSessionContext = ReturnType<typeof createPluginSessionContext>;
 
 export function createPluginSessionContext({
@@ -94,12 +111,19 @@ export function createPluginSessionContext({
       selection = sessionId ? { sessionId, projectPath } : null;
       publish();
     },
-    /** A host turn opened for this session: date it so the snapshot can report it. */
+    /**
+     * A host turn opened for this session: date it so the snapshot can report
+     * it whenever the user switches to that session.
+     */
     noteTurnStarted(sessionId: string, turnId: string): void {
       const id = String(sessionId ?? "").trim();
       const turn = String(turnId ?? "").trim();
       if (!id || !turn) return;
       turnStarts.set(id, { turnId: turn, startedAt: now() });
+      // Only the selected session can change the snapshot, so no other session
+      // needs an announcement — but every session needs a bounded map, because
+      // a turn that ends without a notice never reports its end.
+      enforceBound(turnStarts, MAX_TRACKED_SESSIONS);
       if (selection?.sessionId === id) publish();
     },
     /** That turn reached a terminal state, so the session is idle again. */

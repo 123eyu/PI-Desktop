@@ -45,15 +45,30 @@ export function registerPluginUiIpc({
     registrar.handle(channel, fn);
   };
   /**
+   * The newest selection the shell reported, so a slower invoke that lands
+   * after a newer one cannot restore a session the user already left.
+   */
+  let activeSessionSeq = 0;
+  /**
    * The session on screen, as the shell sees it.
    *
    * The renderer owns the selection and the project path; the main process owns
    * turn identity, so this only records the half it does not already know and
    * the snapshot is assembled from both (spec 07-plugins/03 §session).
+   *
+   * `seq` is the renderer's own counter: two switches can be in flight at once,
+   * and the one that was produced first must never win.
    */
   handle(
     IPC.invoke.pluginSessionActive,
-    async (payload: { sessionId?: string | null; projectPath?: string | null } | null) => {
+    async (
+      payload:
+        | { sessionId?: string | null; projectPath?: string | null; seq?: number | null }
+        | null,
+    ) => {
+      const seq = typeof payload?.seq === "number" ? payload.seq : 0;
+      if (seq > 0 && seq < activeSessionSeq) return { ok: true, ignored: true };
+      if (seq > 0) activeSessionSeq = seq;
       const sessionId = typeof payload?.sessionId === "string" ? payload.sessionId.trim() : "";
       if (!sessionId) {
         setActivePluginSession(null);

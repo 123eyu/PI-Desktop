@@ -150,6 +150,7 @@ test("plugin session follow reads the snapshot and refuses a stale reveal", asyn
       projectPath: "/work/pi",
       activeTurn: { turnId: "turn-1", startedAt: 1_000 },
     }),
+    isPluginActiveInProject: () => true,
     revealView: async (request) => revealed.push(request),
   });
   t.after(async () => {
@@ -205,6 +206,7 @@ test("revealing a work-panel view requires the view permission", async (t) => {
     hostEntry: hostProcessEntry,
     spawnProcess: forkPluginProcess,
     getActiveSession: () => ({ sessionId: "s1", projectPath: null, activeTurn: null }),
+    isPluginActiveInProject: () => true,
     revealView: async (request) => revealed.push(request),
   });
   t.after(async () => {
@@ -240,6 +242,7 @@ test("a docked view reads the same snapshot through the panel bridge", async (t)
     hostEntry: hostProcessEntry,
     spawnProcess: forkPluginProcess,
     getActiveSession: () => ({ sessionId: "s7", projectPath: "/work/pi", activeTurn: null }),
+    isPluginActiveInProject: () => true,
   });
   t.after(async () => {
     for (const loaded of runtime.listLoaded()) await runtime.unload(loaded.manifest.id);
@@ -253,4 +256,69 @@ test("a docked view reads the same snapshot through the panel bridge", async (t)
   await runtime.loadFromPath(dir, ["ui.view"]);
   const snapshot = await runtime.invokePanelBridge("demo.view-bridge", "session.getActive");
   assert.deepEqual(snapshot, { sessionId: "s7", projectPath: "/work/pi", activeTurn: null });
+});
+
+test("a project-scoped plugin cannot follow or reveal outside its project", async (t) => {
+  const revealed = [];
+  const runtime = new PluginRuntime({
+    hostEntry: hostProcessEntry,
+    spawnProcess: forkPluginProcess,
+    getActiveSession: () => ({ sessionId: "s9", projectPath: "/work/other", activeTurn: null }),
+    isPluginActiveInProject: () => false,
+    revealView: async (request) => revealed.push(request),
+  });
+  t.after(async () => {
+    for (const loaded of runtime.listLoaded()) await runtime.unload(loaded.manifest.id);
+  });
+  const dir = writeViewPlugin({
+    id: "demo.out-of-scope",
+    permissions: ["ui.view"],
+    views: [CHANGES_VIEW],
+    main: `
+      module.exports = {
+        async onLoad() {
+          await pi.commands.register({
+            id: "exercise",
+            title: "Exercise",
+            run: async () => {
+              try { await pi.session.getActive(); }
+              catch (error) { await pi.ui.showToast("active:" + error.code); }
+              try { await pi.ui.revealView(); }
+              catch (error) { await pi.ui.showToast("reveal:" + error.code); }
+            }
+          });
+        }
+      };
+    `,
+  });
+  await runtime.loadFromPath(dir, ["ui.view"]);
+  await runCommand(runtime, "exercise");
+  assert.deepEqual(runtime.drainToasts(), [
+    "active:PERMISSION_DENIED",
+    "reveal:PERMISSION_DENIED",
+  ]);
+  assert.deepEqual(revealed, []);
+});
+
+test("turn start times stay bounded when a turn ends without a notice", () => {
+  const announced = [];
+  const liveTurns = new Map();
+  const context = createPluginSessionContext({
+    getActiveTurn: (sessionId) => liveTurns.get(sessionId) ?? null,
+    announce: (event, payload) => announced.push([event, payload]),
+  });
+  // Far more sessions than the cap: the map must not grow with the app's life.
+  for (let index = 0; index < 500; index += 1) {
+    context.noteTurnStarted(`session-${index}`, `turn-${index}`);
+  }
+  for (const sessionId of ["session-0", "session-100", "session-499"]) {
+    liveTurns.set(sessionId, sessionId.replace("session", "turn"));
+  }
+  context.setActiveSession({ sessionId: "session-499", projectPath: null });
+  assert.equal(context.snapshot().activeTurn.turnId, "turn-499");
+  assert.equal(typeof context.snapshot().activeTurn.startedAt, "number");
+  // The oldest insertions were dropped, so switching back reports no turn start
+  // rather than a start time that no longer exists.
+  context.setActiveSession({ sessionId: "session-0", projectPath: null });
+  assert.equal(context.snapshot().activeTurn, null);
 });

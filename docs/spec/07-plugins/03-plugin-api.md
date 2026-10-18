@@ -559,7 +559,10 @@ type PluginActiveSession = {
 ```
 
 It takes no session id: the host reports the selection instead of letting a
-plugin address a session the user is not looking at. `null` means home, the
+plugin address a session the user is not looking at. A plugin whose activation
+scope does not match the project on screen gets `PERMISSION_DENIED`, the same
+answer `pi.ui.revealView` and the view IPC give, so a project-scoped plugin never
+learns which session another project has open. `null` means home, the
 Settings page, or no chat session selected. `activeTurn` names the durable host
 turn that session is running, and is `null` while the session is idle, so a
 plugin does not have to infer a running task from the previous turn's end event
@@ -1399,7 +1402,9 @@ Delivered today:
 - `session:turnEnded` — the same payload as the plugin-process event in §5,
   sent when a host turn reaches a terminal state.
 - `session:activated` — the same payload as the plugin-process event in §5, sent
-  whenever the selected session, its project, or its running turn changes.
+  to docked views whenever the selected session, its project, or its running
+  turn changes. A detached `ui.panel` window is application-scoped and does not
+  belong to a session, so it is the one surface that never receives this event.
 
 ## 7. Call auditing
 

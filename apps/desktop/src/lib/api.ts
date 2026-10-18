@@ -675,8 +675,12 @@ export const api = {
    * `pi.session.getActive()` and the `session:activated` event answer from it,
    * so the shell — not a plugin — is what decides which session is active.
    */
-  setPluginActiveSession: (input: { sessionId: string | null; projectPath?: string | null }) =>
-    invoke<{ ok: boolean }>(IPC.invoke.pluginSessionActive, input),
+  setPluginActiveSession: (input: {
+    sessionId: string | null;
+    projectPath?: string | null;
+    /** Renderer-side counter: a slower push must never undo a newer one. */
+    seq?: number;
+  }) => invoke<{ ok: boolean }>(IPC.invoke.pluginSessionActive, input),
   listSessions: () =>
     invoke<{ sessions: SessionSummary[] }>(IPC.invoke.sessionList).then((result) => ({
       ...result,

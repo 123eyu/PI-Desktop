@@ -338,6 +338,8 @@ const pluginServices = createPluginServices({
    * coordination instance that reads it too.
    */
   getActiveTurn: (sessionId) => activeTurns.get(sessionId) ?? null,
+  /** The same scope lookup every plugin view IPC consults. */
+  isPluginActiveInProject: (pluginId) => pluginActiveInProject(pluginId, currentWorkspacePath()),
   vendorOAuth,
 });
 const {

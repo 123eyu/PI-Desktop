@@ -200,20 +200,26 @@ test("browser state reaches every plugin surface", () => {
 
 test("a finished turn is announced to every plugin surface", () => {
   const services = read("services/plugin-services.ts");
+  const fanOut = braceBody(
+    services,
+    services.indexOf("{", services.indexOf("const broadcastSessionEvent")),
+  );
+  assert.match(fanOut, /plugins\.broadcastEvent\(event, \[payload\]\)/);
+  assert.match(fanOut, /pluginPanels\.broadcast\(event, payload\)/);
+  assert.match(fanOut, /pluginViews\.broadcast\(event, payload\)/);
+  // Each surface owns its failure: one unreachable plugin process, panel or
+  // view must not suppress the other two.
+  assert.equal(
+    (fanOut.match(/\} catch \(/g) ?? []).length,
+    3,
+    "every plugin surface must isolate its own delivery",
+  );
+  // The turn-end event still takes that fan-out; it only adds the snapshot.
   const announce = braceBody(
     services,
     services.indexOf("{", services.indexOf("const announceTurnEnded")),
   );
-  assert.match(announce, /plugins\.broadcastEvent\("session:turnEnded", \[payload\]\)/);
-  assert.match(announce, /pluginPanels\.broadcast\("session:turnEnded", payload\)/);
-  assert.match(announce, /pluginViews\.broadcast\("session:turnEnded", payload\)/);
-  // Each surface owns its failure: one unreachable plugin process, panel or
-  // view must not suppress the other two.
-  assert.equal(
-    (announce.match(/\} catch \(/g) ?? []).length,
-    3,
-    "every plugin surface must isolate its own delivery",
-  );
+  assert.match(announce, /broadcastSessionEvent\("session:turnEnded", payload\)/);
 });
 
 test("the selected session is announced to every plugin surface", () => {

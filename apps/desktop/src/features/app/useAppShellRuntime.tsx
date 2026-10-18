@@ -72,6 +72,8 @@ export function useAppShellRuntime() {
   const refreshPluginThemes = useAppStore((s) => s.refreshPluginThemes);
   const plugins = useAppStore((s) => s.plugins);
   const projectPath = useAppStore((s) => s.workspace?.path ?? null);
+  /** Monotonic counter for the plugin active-session push. */
+  const activeSessionSeq = useRef(0);
   /** The project of the session on screen, for the plugin session snapshot. */
   const activeSessionProjectPath = useAppStore((s) =>
     s.activeSessionId
@@ -462,12 +464,18 @@ export function useAppShellRuntime() {
    * The selected session is shell state, so the shell publishes it. Plugin
    * `pi.session.getActive()` and `session:activated` read this instead of any
    * plugin guessing from the transcript.
+   *
+   * Each push carries a counter because two switches can be in flight at once:
+   * a slower invoke must never land after a newer one and restore a session the
+   * user already left.
    */
   useEffect(() => {
+    activeSessionSeq.current += 1;
     void api
       .setPluginActiveSession({
         sessionId: activeSessionId ?? null,
         projectPath: activeSessionProjectPath,
+        seq: activeSessionSeq.current,
       })
       .catch(() => undefined);
   }, [activeSessionId, activeSessionProjectPath]);
