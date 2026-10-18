@@ -1316,7 +1316,7 @@ works in either placement. The only differences are chrome and the view
 and its `--pi-plugin-titlebar-height` is `0px` rather than `46px`.
 
 Detached panel pages using the current chrome contract declare
-| `ui.revealView` | `ui.view` |
+`<meta name="pi-plugin-chrome" content="v2">` and use the published variable
 for normal-flow top spacing. The host preserves that page-owned spacing. A
 page without the marker remains supported through the legacy additive offset.
 
