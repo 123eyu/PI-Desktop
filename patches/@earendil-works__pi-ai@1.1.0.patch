@@ -745,7 +745,7 @@ index 2a6b4e4..9e44070 100644
      const samplingParams = resolveSamplingParams(model, reasoningEffort ?? "off", options?.samplingParams);
      if (samplingParams) {
 diff --git a/dist/api/simple-options.js b/dist/api/simple-options.js
-index 4e36f35..c817c2e 100644
+index 4e36f35..fd9225e 100644
 --- a/dist/api/simple-options.js
 +++ b/dist/api/simple-options.js
 @@ -5,7 +5,7 @@ const MIN_MAX_TOKENS = 1;
@@ -757,6 +757,14 @@ index 4e36f35..c817c2e 100644
      return Math.min(maxTokens, Math.max(MIN_MAX_TOKENS, available));
  }
  export function resolveSamplingParams(model, thinkingLevel, requestParams) {
+@@ -30,6 +30,7 @@ export function buildBaseOptions(model, context, options, apiKey) {
+         sessionId: options?.sessionId,
+         headers: options?.headers,
+         onPayload: options?.onPayload,
++        serviceTier: options?.serviceTier,
+         onResponse: options?.onResponse,
+         onProviderStreamEvent: options?.onProviderStreamEvent,
+         timeoutMs: options?.timeoutMs,
 diff --git a/dist/auth/oauth/anthropic.js b/dist/auth/oauth/anthropic.js
 index 0823512..713d38a 100644
 --- a/dist/auth/oauth/anthropic.js
@@ -947,10 +955,19 @@ index 1443bb5..5fc0625 100644
 -{"openai-completions":{"chat:deepseek-flash":{"id":"deepseek-flash","name":"DeepSeek V4.1 Flash","api":"openai-completions","baseUrl":"https://api.deepseek.com","provider":"deepseek","reasoning":true,"thinkingLevelMap":{"minimal":null,"low":"low","medium":null,"high":"high","max":"max"},"input":["text","image"],"cost":{"input":0.3,"output":1.2,"cacheRead":0.006,"cacheWrite":0},"contextWindow":1000000,"maxTokens":384000,"compat":{"supportsStore":false,"supportsDeveloperRole":false,"maxTokensField":"max_tokens","requiresReasoningContentOnAssistantMessages":true,"thinkingFormat":"deepseek","supportsStrictMode":true},"inputLimits":{"images":{"resize":{"maxWidth":2000,"maxHeight":2000,"maxBytes":4718592,"jpegQuality":80}}},"type":"chat"},"chat:deepseek-v4-pro":{"id":"deepseek-v4-pro","name":"DeepSeek V4 Pro","api":"openai-completions","baseUrl":"https://api.deepseek.com","provider":"deepseek","reasoning":true,"input":["text"],"cost":{"input":1.32,"output":3.96,"cacheRead":0.044,"cacheWrite":0},"contextWindow":1000000,"maxTokens":384000,"compat":{"supportsStore":false,"supportsDeveloperRole":false,"maxTokensField":"max_tokens","requiresReasoningContentOnAssistantMessages":true,"thinkingFormat":"deepseek","supportsStrictMode":true,"supportsMidConvoSystemMessages":true},"thinkingLevelMap":{"minimal":null,"low":null,"medium":null,"high":"high","max":"max"},"type":"chat"}}}
 +{"openai-completions":{"chat:deepseek-flash":{"id":"deepseek-flash","name":"DeepSeek V4.1 Flash","api":"openai-completions","baseUrl":"https://api.deepseek.com","provider":"deepseek","reasoning":true,"thinkingLevelMap":{"minimal":null,"low":"low","medium":null,"high":"high","max":"max"},"input":["text","image"],"cost":{"input":0.3,"output":1.2,"cacheRead":0.006,"cacheWrite":0},"contextWindow":1000000,"maxTokens":384000,"compat":{"supportsStore":false,"supportsDeveloperRole":false,"maxTokensField":"max_tokens","requiresReasoningContentOnAssistantMessages":true,"thinkingFormat":"deepseek","supportsStrictMode":true,"supportsMidConvoSystemMessages":true},"inputLimits":{"images":{"resize":{"maxWidth":2000,"maxHeight":2000,"maxBytes":4718592,"jpegQuality":80}}},"type":"chat"},"chat:deepseek-v4-pro":{"id":"deepseek-v4-pro","name":"DeepSeek V4 Pro","api":"openai-completions","baseUrl":"https://api.deepseek.com","provider":"deepseek","reasoning":true,"input":["text"],"cost":{"input":1.32,"output":3.96,"cacheRead":0.044,"cacheWrite":0},"contextWindow":1000000,"maxTokens":384000,"compat":{"supportsStore":false,"supportsDeveloperRole":false,"maxTokensField":"max_tokens","requiresReasoningContentOnAssistantMessages":true,"thinkingFormat":"deepseek","supportsStrictMode":true,"supportsMidConvoSystemMessages":true},"thinkingLevelMap":{"minimal":null,"low":null,"medium":null,"high":"high","max":"max"},"type":"chat"}}}
 diff --git a/dist/types.d.ts b/dist/types.d.ts
-index b01603b..39a6d0a 100644
+index b01603b..432fbf7 100644
 --- a/dist/types.d.ts
 +++ b/dist/types.d.ts
-@@ -288,6 +288,30 @@ export interface ToolCall {
+@@ -251,6 +251,8 @@ export interface SimpleStreamOptions extends StreamOptions {
+     };
+     /** Custom token budgets for thinking levels (token-based providers only) */
+     thinkingBudgets?: ThinkingBudgets;
++    /** OpenAI Responses service tier; adapters without the field ignore it. */
++    serviceTier?: "auto" | "default" | "flex" | "scale" | "priority";
+ }
+ export type StreamFunction<TApi extends Api = Api, TOptions extends StreamOptions = StreamOptions> = (model: Model<TApi>, context: TranscriptContext, options?: TOptions) => AssistantMessageEventStream;
+ export type ImagesFunction<TOptions extends ImagesOptions = ImagesOptions> = (model: ImageModel<ImageApi>, context: ImagesContext, options?: TOptions) => Promise<AssistantImages>;
+@@ -288,6 +290,30 @@ export interface ToolCall {
      /** OpenAI Responses namespace for calls to dynamically loaded or namespaced tools. */
      namespace?: string;
  }
@@ -981,7 +998,7 @@ index b01603b..39a6d0a 100644
  export interface Usage {
      input: number;
      output: number;
-@@ -373,7 +397,7 @@ export interface UserMessage {
+@@ -373,7 +399,7 @@ export interface UserMessage {
  }
  export interface AssistantMessage {
      role: "assistant";
@@ -990,7 +1007,7 @@ index b01603b..39a6d0a 100644
      api: Api;
      provider: ProviderId;
      model: string;
-@@ -388,6 +412,8 @@ export interface AssistantMessage {
+@@ -388,6 +414,8 @@ export interface AssistantMessage {
      stopReason: StopReason;
      deferred?: DeferredHandle;
      errorMessage?: string;
@@ -999,7 +1016,7 @@ index b01603b..39a6d0a 100644
      rawStopReason?: string;
      /**
       * Provider indication of whether the model explicitly ended its turn.
-@@ -623,6 +649,10 @@ export type AssistantMessageEvent = {
+@@ -623,6 +651,10 @@ export type AssistantMessageEvent = {
      contentIndex: number;
      toolCall: ToolCall;
      partial: AssistantMessage;
@@ -1010,7 +1027,7 @@ index b01603b..39a6d0a 100644
  } | {
      type: "done";
      reason: Extract<StopReason, "stop" | "length" | "toolUse" | "deferred">;
-@@ -657,6 +687,12 @@ export interface OpenAICompletionsCompat {
+@@ -657,6 +689,12 @@ export interface OpenAICompletionsCompat {
      requiresThinkingAsText?: boolean;
      /** Whether all replayed assistant messages must include an empty reasoning_content field when reasoning is enabled. Default: auto-detected from URL. */
      requiresReasoningContentOnAssistantMessages?: boolean;
@@ -1023,7 +1040,7 @@ index b01603b..39a6d0a 100644
      /** Format for reasoning/thinking parameter. "openai" uses reasoning_effort, "openrouter" uses reasoning: { effort }, "deepseek" uses thinking: { type } plus reasoning_effort when supported, "together" uses reasoning: { enabled } plus reasoning_effort when supported, "baseten" uses configurable chat_template_args plus reasoning_effort when supported, "zai" uses thinking: { type }, "qwen" uses top-level enable_thinking: boolean, "qwen-chat-template" uses chat_template_kwargs.enable_thinking and preserve_thinking, "chat-template" uses configurable chat_template_kwargs, "string-thinking" uses top-level thinking: string, and "ant-ling" uses reasoning: { effort } only when the mapped effort is non-null. Default: "openai". */
      thinkingFormat?: "openai" | "openrouter" | "deepseek" | "together" | "baseten" | "zai" | "qwen" | "chat-template" | "qwen-chat-template" | "string-thinking" | "ant-ling";
      /** Kwargs to send as `chat_template_kwargs` when `thinkingFormat` is `chat-template`. Use `{ "$var": "thinking.enabled" }`, `{ "$var": "thinking.effort" }`, or `{ "$var": "thinking.budget" }` for pi-controlled thinking values. */
-@@ -935,6 +971,8 @@ export interface Model<TApi extends Api> extends BaseModel<TApi> {
+@@ -935,6 +973,8 @@ export interface Model<TApi extends Api> extends BaseModel<TApi> {
       */
      type?: "chat";
      reasoning: boolean;

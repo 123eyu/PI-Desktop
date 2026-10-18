@@ -14,8 +14,9 @@ OpenAI serves a faster priority tier that Codex CLI and the OpenAI API call
 Fast mode. On the wire it is the Responses body field `service_tier:
 "priority"`; the Codex backend rejects `"fast"`. The tier costs more: a ChatGPT
 subscription spends its plan limits faster, and the OpenAI API bills a higher
-per-token price. PI-Desktop never asked for a tier, and pi-ai's `streamSimple`
-does not forward one.
+per-token price. PI-Desktop never asked for a tier. pi-ai's Responses and
+Codex adapters already accept `serviceTier` and price the tier the response
+reports, but `streamSimple` dropped the option while building its base options.
 
 The cost is a decision about one conversation, while whether an endpoint
 honors the field is something only the user knows for a relay. Issue #1657 asks
@@ -42,10 +43,12 @@ in model settings.
    the opt-in.
 4. **The launcher resolves; the runtime only stamps the wire.** Session launch
    sends `fastMode: true` to the sidecar only when the session switch is on and
-   the user's stored binding allows it. The runtime chains a payload hook on
-   main turns that adds `service_tier: "priority"` when the resolved wire is
-   `openai-codex-responses` or `openai-responses`. Subagents, compaction, and
-   one-shot plugin requests build their own options and keep the default tier.
+   the user's stored binding allows it. The runtime passes pi-ai's native
+   `serviceTier: "priority"` on main turns whose resolved wire is
+   `openai-codex-responses` or `openai-responses`; the existing pi-ai patch
+   forwards `serviceTier` through `streamSimple`, so the adapters also apply
+   their own tier pricing. Subagents, compaction, and one-shot plugin requests
+   build their own options and keep the default tier.
 
 ## Alternatives
 

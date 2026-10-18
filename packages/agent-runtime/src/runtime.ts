@@ -2203,6 +2203,7 @@ Do not invent objections or turn speculative risks into blockers. Stop when the 
               sessionId: this.sessionId,
             },
           ),
+          m.api,
           this.fastMode,
         );
         // The watchdog must be able to *stop* what it abandons. It wraps the

@@ -34,12 +34,12 @@ function capture() {
 const context = { messages: [{ role: "user", content: "hi", timestamp: 1 }] } as never;
 
 describe("withFastModeOptions", () => {
-  it("sends the priority tier on the Responses wire when allowed and switched on", async () => {
+  it("sends the priority tier through streamSimple on the Responses wire", async () => {
     const { bodies, options } = capture();
     await responsesStreamSimple(
       responsesModel,
       context,
-      withFastModeOptions(options, true),
+      withFastModeOptions(options, "openai-responses", true),
     ).result();
     expect(bodies).toHaveLength(1);
     expect(bodies[0].service_tier).toBe("priority");
@@ -47,7 +47,7 @@ describe("withFastModeOptions", () => {
 
   it("keeps the default tier when Fast mode is off", async () => {
     const { bodies, options } = capture();
-    const hooked = withFastModeOptions(options, false);
+    const hooked = withFastModeOptions(options, "openai-responses", false);
     expect(hooked).toBe(options);
     await responsesStreamSimple(responsesModel, context, hooked).result();
     expect(bodies[0].service_tier).toBeUndefined();
@@ -56,20 +56,9 @@ describe("withFastModeOptions", () => {
   it("leaves a Chat Completions request untouched even when switched on", async () => {
     const { bodies, options } = capture();
     const model = { ...responsesModel, api: "openai-completions" } as Model<"openai-completions">;
-    await completionsStreamSimple(
-      model,
-      context,
-      withFastModeOptions(options, true),
-    ).result();
+    const hooked = withFastModeOptions(options, model.api, true);
+    expect(hooked).toBe(options);
+    await completionsStreamSimple(model, context, hooked).result();
     expect(bodies[0].service_tier).toBeUndefined();
-  });
-
-  it("chains after an earlier payload hook and keeps its replacement", async () => {
-    const options: SimpleStreamOptions = {
-      onPayload: async (payload) => ({ ...(payload as object), prompt_cache_key: "kept" }),
-    };
-    const hooked = withFastModeOptions(options, true);
-    const payload = await hooked.onPayload?.({ model: "gpt-test" }, responsesModel);
-    expect(payload).toEqual({ model: "gpt-test", prompt_cache_key: "kept", service_tier: "priority" });
   });
 });
