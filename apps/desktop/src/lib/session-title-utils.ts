@@ -18,6 +18,9 @@ const LEGACY_DEFAULT_TITLES = new Set([
   "nova conversa",
   "yeni görev",
   "yeni sohbet",
+  "neue aufgabe",
+  "nouvelle tâche",
+  "nueva tarea",
 ]);
 /** Sidebar/topbar title budget for the local first-prompt fallback. */
 const PROMPT_FALLBACK_TITLE_LENGTH = 48;

@@ -342,11 +342,13 @@ pub struct SearchHit {
 /// The renderer creates a session with its localized `chat.untitledTask` label
 /// and also recognizes `nav.newChat`, so host-core has to recognize the same
 /// values: it owns title eligibility and cannot read the renderer catalog when
-/// it decides whether a title may still be replaced. German, Spanish, and
-/// French fall back to the English label. Keep this in sync with the migration
-/// list in `db/session_title_source_migration.rs` and `LEGACY_DEFAULT_TITLES`
-/// in the renderer.
-const PLACEHOLDER_TITLES: [&str; 13] = [
+/// it decides whether a title may still be replaced. Entries are stored in
+/// the form the renderer writes: lowercased, because every localized
+/// `chat.untitledTask` has its own label — the German, Spanish, and French
+/// ones do not fall back to the English text (#1755). Keep this in sync with
+/// the migration list in `db/session_title_source_migration.rs` and
+/// `LEGACY_DEFAULT_TITLES` in the renderer.
+const PLACEHOLDER_TITLES: [&str; 16] = [
     "",
     "New task",
     "New chat",
@@ -360,6 +362,9 @@ const PLACEHOLDER_TITLES: [&str; 13] = [
     "Nova conversa",
     "Yeni görev",
     "Yeni sohbet",
+    "neue aufgabe",
+    "nouvelle tâche",
+    "nueva tarea",
 ];
 
 fn is_default_title(title: &str) -> bool {
@@ -4269,6 +4274,15 @@ pub fn get_token_usage_history(
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn default_title_matches_the_german_french_and_spanish_placeholders() {
+        // The renderer lowercases `chat.untitledTask` before persisting (#1755).
+        assert!(is_default_title("neue aufgabe"));
+        assert!(is_default_title("Nouvelle tâche"));
+        assert!(is_default_title("nueva tarea"));
+        assert!(!is_default_title("real session name"));
+    }
     use crate::workspace::simple_canonicalize;
 
     fn test_db() -> Database {

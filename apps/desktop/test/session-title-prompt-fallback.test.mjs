@@ -96,3 +96,38 @@ test("automatic AI titles stay plugin-owned", () => {
   assert.doesNotMatch(store, /triggerAutoTitleSummarization/);
   assert.doesNotMatch(main, /IPC\.invoke\.sessionSummarizeTitle/);
 });
+
+test("the German, French and Spanish placeholders are recognized as default titles (#1755)", async (t) => {
+  // The renderer lowercases chat.untitledTask before persisting; the host
+  // list and this legacy set must recognize those forms or auto-titling
+  // never runs in those locales.
+  const locales = [
+    ["de", "Neue Aufgabe", "neue aufgabe"],
+    ["fr", "Nouvelle tâche", "nouvelle tâche"],
+    ["es", "Nueva tarea", "nueva tarea"],
+  ];
+  for (const [locale, label, lowercased] of locales) {
+    assert.equal(
+      catalogs[locale].chat.untitledTask,
+      label,
+      `${locale} catalog must still own its placeholder label`,
+    );
+    assert.equal(
+      isDefaultSessionTitle(label),
+      true,
+      `${locale}: the placeholder is recognized as default`,
+    );
+    assert.equal(
+      isDefaultSessionTitle(lowercased),
+      true,
+      `${locale}: the persisted lowercased form is recognized too`,
+    );
+  }
+
+  // Host side stays in sync: the three labels are in PLACEHOLDER_TITLES.
+  assert.match(
+    host,
+    /"neue aufgabe",\s*\n\s*"nouvelle tâche",\s*\n\s*"nueva tarea",/,
+    "PLACEHOLDER_TITLES must carry the German, French and Spanish labels",
+  );
+});
