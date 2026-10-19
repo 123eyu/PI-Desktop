@@ -2,7 +2,7 @@ import { existsSync, mkdtempSync, mkdirSync, readFileSync, readdirSync, realpath
 import { tmpdir } from "node:os";
 import { basename, join } from "node:path";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { AgentSession, ModelRuntime, SessionManager } from "@earendil-works/pi-coding-agent";
+import { AgentSession, ModelRuntime, SessionManager, SettingsManager } from "@earendil-works/pi-coding-agent";
 import { createAssistantMessageEventStream, type AssistantMessage } from "@earendil-works/pi-ai";
 import { NativePiSessionService } from "./native-pi-session.js";
 import {
@@ -174,6 +174,44 @@ describe("NativePiSessionService", () => {
     expect(again.map((session) => session.title)).not.toContain("project local session");
     expect(service.detail(local!.id)?.messages.map((message) => message.content)).toEqual(["project local session"]);
     expect(service.fork({ id: local!.id }).messages.map((message) => message.content)).toContain("project local session");
+  });
+
+  it("keeps interleaved list() calls on their own configured session dirs (#1732)", async () => {
+    const f = fixture();
+    const projectB = join(f.root, "project-b");
+    mkdirSync(projectB);
+    const dirA = join(f.project, ".pi", "sessions");
+    const dirB = join(projectB, ".pi", "sessions");
+    mkdirSync(dirA, { recursive: true });
+    mkdirSync(dirB, { recursive: true });
+    const settings = `${JSON.stringify({ sessionDir: ".pi/sessions" })}\n`;
+    writeFileSync(join(f.project, ".pi", "settings.json"), settings);
+    writeFileSync(join(projectB, ".pi", "settings.json"), settings);
+    writeFileSync(join(dirA, "a.jsonl"), sessionText("id-a", f.project, "session from project a"));
+    writeFileSync(join(dirB, "b.jsonl"), sessionText("id-b", projectB, "session from project b"));
+    const service = new NativePiSessionService({ agentDir: f.agentDir, sessionRoot: f.sessionRoot });
+    const original = SettingsManager.create;
+    let other: Promise<Awaited<ReturnType<NativePiSessionService["list"]>>> | undefined;
+    let armInterleaving = true;
+    // Discovery reads settings before it walks project paths. A second list()
+    // that starts during that read must not replace the first call's roots.
+    vi.spyOn(SettingsManager, "create").mockImplementation((cwd, agentDir, options) => {
+      const manager = original.call(SettingsManager, cwd, agentDir, options);
+      if (armInterleaving) {
+        armInterleaving = false;
+        other = service.list({ projectPaths: [projectB] });
+      }
+      return manager;
+    });
+
+    const fromA = await service.list({ projectPaths: [f.project] });
+    const fromB = await other;
+    const titlesA = fromA.map((session) => session.title);
+    const titlesB = fromB?.map((session) => session.title) ?? [];
+    expect(titlesA).toContain("session from project a");
+    expect(titlesA).not.toContain("session from project b");
+    expect(titlesB).toContain("session from project b");
+    expect(titlesB).not.toContain("session from project a");
   });
 
   it("logs an unreadable sessionDir settings file once per path and still lists the default root (#1732)", async () => {

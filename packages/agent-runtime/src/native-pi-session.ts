@@ -149,7 +149,11 @@ function projectSessionDir(projectPath: string, agentDir: string, seen: Set<stri
   return isAbsolute(raw) ? resolve(raw) : resolve(projectPath, raw);
 }
 
-/** Custom session directories are flat. Pi does not encode a cwd subdirectory. */
+/**
+ * Custom session directories are flat. Pi writes `*.jsonl` in `sessionDir`
+ * itself and does not encode a cwd subdirectory, so session files in
+ * subdirectories of a configured sessionDir are ignored.
+ */
 function topLevelJsonl(dir: string): string[] {
   try {
     const files: string[] = [];
@@ -538,7 +542,6 @@ export class NativePiSessionService {
   private readonly opening = new Set<string>();
   private modelRuntime?: ModelRuntime;
   private readonly modelRuntimeFactory: () => Promise<ModelRuntime>;
-  private projectPaths: string[] = [];
   /** Real directories that already admitted a file. Open and fork keep them after a later empty project list. */
   private readonly admittedRoots: string[] = [];
 
@@ -560,7 +563,7 @@ export class NativePiSessionService {
         }));
   }
 
-  private configuredSessionDirs(): string[] {
+  private configuredSessionDirs(projectPaths: readonly string[]): string[] {
     const dirs: string[] = [];
     const seen = new Set<string>();
     const settingsErrors = new Set<string>();
@@ -572,11 +575,11 @@ export class NativePiSessionService {
       dirs.push(resolved);
     };
     add(globalAbsoluteSessionDir(this.agentDir, settingsErrors));
-    for (const projectPath of this.projectPaths) add(projectSessionDir(projectPath, this.agentDir, settingsErrors));
+    for (const projectPath of projectPaths) add(projectSessionDir(projectPath, this.agentDir, settingsErrors));
     return dirs;
   }
 
-  private sessionRoots(): string[] {
+  private sessionRoots(projectPaths: readonly string[] = []): string[] {
     const roots: string[] = [];
     const add = (dir: string) => {
       try {
@@ -587,13 +590,14 @@ export class NativePiSessionService {
       }
     };
     add(this.root);
-    for (const dir of this.configuredSessionDirs()) add(dir);
+    for (const dir of this.configuredSessionDirs(projectPaths)) add(dir);
     for (const dir of this.admittedRoots) add(dir);
     return roots;
   }
 
   async list(options?: { projectPaths?: readonly string[] }): Promise<SessionSummary[]> {
-    this.projectPaths = normalizeProjectPaths(options?.projectPaths);
+    // Kept local so two overlapping list() calls cannot swap each other's roots.
+    const projectPaths = normalizeProjectPaths(options?.projectPaths);
     let defaultRoot: string | undefined;
     try {
       defaultRoot = realpathSync(this.root);
@@ -601,7 +605,7 @@ export class NativePiSessionService {
       defaultRoot = undefined;
     }
     const extraRoots: string[] = [];
-    for (const dir of this.configuredSessionDirs()) {
+    for (const dir of this.configuredSessionDirs(projectPaths)) {
       try {
         const real = realpathSync(dir);
         if (defaultRoot && (real === defaultRoot || inside(defaultRoot, real))) continue;

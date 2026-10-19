@@ -1815,15 +1815,16 @@ Discovery always walks the Pi agent session root recursively
 (`<agentDir>/sessions`, default `~/.pi/agent/sessions`). It also scans, without
 recursion, each `sessionDir` the pinned coding-agent `SettingsManager` resolves:
 an absolute or `~` value from global settings, and the merged global-plus-project
-setting for each known local project. A relative path resolves from that
-project's working directory, not from the Desktop process cwd. Remote project
-ids are skipped, and at most 500 local project paths are considered. A
-configured directory whose real path is the default root, or is inside it, is
-not scanned again. A file is listed only when its real path stays inside the
-default root or one of those directories. A symlink that escapes is omitted, and
-an in-directory symlink alias of a session file is not a second row. A nested
-file under a custom `sessionDir` is omitted when that directory is outside the
-default root. A `sessionDir` inside the default root is not scanned again, and
+setting for each known local project. Session files in a subdirectory of a
+configured `sessionDir` are ignored by that scan. A relative path resolves
+from that project's working directory, not from the Desktop process cwd.
+Remote project ids are skipped, and at most 500 local project paths are
+considered. A configured directory whose real path is the default root, or
+is inside it, is not scanned again. A file is listed only when its real
+path stays inside the default root or one of those directories. A symlink
+that escapes is omitted, and an in-directory symlink alias of a session
+file is not a second row. A nested file under a custom `sessionDir` is
+omitted when that directory is outside the default root. A `sessionDir` inside the default root is not scanned again, and
 the recursive default walk can still list nested JSONL there. Detail, prompt,
 and fork authorize a file against the default root, the session directories for
 the current project list, and any session directory that already admitted a
