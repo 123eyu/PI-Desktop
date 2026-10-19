@@ -20,7 +20,7 @@ in `docs/project/pi-110-adoption.md`.
 - `@earendil-works/pi-ai` supplies provider transports, auth, message types,
   request retries, and token estimation. Hosted-search request and estimation
   behavior, and forwarding `serviceTier` through `streamSimple` for Fast mode
-  (ADR 0331), remain covered by PI-Desktop's pi-ai patch and contract tests.
+  (ADR 0332), remain covered by PI-Desktop's pi-ai patch and contract tests.
 - Rust `host-core` remains the sole owner of SQLite and authoritative durable
   session state. The Node sidecar asks it to persist checkpoints and tool
   outcomes through the existing RPC contract.
