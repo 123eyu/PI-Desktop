@@ -322,3 +322,86 @@ test("turn start times stay bounded when a turn ends without a notice", () => {
   context.setActiveSession({ sessionId: "session-0", projectPath: null });
   assert.equal(context.snapshot().activeTurn, null);
 });
+
+test("broadcastEvent's filter keeps an out-of-scope plugin from receiving the session push", async (t) => {
+  const sent = [];
+  const spawnWithSpy = (options) => {
+    const proc = forkPluginProcess(options);
+    const ownerId = currentId;
+    const originalPostMessage = proc.postMessage;
+    proc.postMessage = (message) => {
+      sent.push({ plugin: ownerId, message });
+      originalPostMessage(message);
+    };
+    return proc;
+  };
+  let currentId = "demo.in-scope";
+  const runtime = new PluginRuntime({
+    hostEntry: hostProcessEntry,
+    spawnProcess: spawnWithSpy,
+    isPluginActiveInProject: (pluginId) => pluginId === "demo.in-scope",
+  });
+  t.after(async () => {
+    for (const loaded of runtime.listLoaded()) await runtime.unload(loaded.manifest.id);
+  });
+
+  await runtime.loadFromPath(
+    writeViewPlugin({
+      id: "demo.in-scope",
+      permissions: ["ui.view"],
+      views: [CHANGES_VIEW],
+      main: "module.exports = { async onLoad() {} };",
+    }),
+    ["ui.view"],
+  );
+  currentId = "demo.out-of-scope";
+  await runtime.loadFromPath(
+    writeViewPlugin({
+      id: "demo.out-of-scope",
+      permissions: ["ui.view"],
+      views: [CHANGES_VIEW],
+      main: "module.exports = { async onLoad() {} };",
+    }),
+    ["ui.view"],
+  );
+
+  const payload = { sessionId: "s-other", projectPath: "/work/other" };
+  runtime.broadcastEvent(
+    "session:activated",
+    [payload],
+    (pluginId) => pluginId === "demo.in-scope",
+  );
+  await new Promise((resolve) => setImmediate(resolve));
+
+  const events = sent.filter((entry) => entry.message?.event === "session:activated");
+  assert.equal(events.length, 1, "exactly the in-scope plugin process received the push");
+  assert.equal(events[0].plugin, "demo.in-scope");
+  assert.deepEqual(events[0].message.args, [payload]);
+});
+
+test("the session-push gate restarts with the renderer's boot id and the payload carries it", async () => {
+  const { readMainSource, readStoreModule } = await import("./helpers/source-contracts.mjs");
+  const ipcSource = await readMainSource("ipc/plugin-ui-ipc.ts");
+
+  // Main (#1753): a changed boot id resets the high-water mark, so pushes
+  // keep flowing after a renderer reload; within one boot the old
+  // out-of-order guard still applies.
+  assert.match(
+    ipcSource,
+    /const\s+bootId\s*=\s*typeof\s+payload\?\.bootId\s*===\s*"string"[\s\S]*?bootId\s*!==\s*activeSessionBootId[\s\S]*?activeSessionSeq\s*=\s*seq;[\s\S]*?return\s+\{\s*ok:\s*true,\s*ignored:\s*true\s*\};/,
+    "the gate must reset the high-water mark on a new renderer boot and keep the out-of-order guard within a boot",
+  );
+
+  // Renderer: the push carries the boot id the gate compares.
+  const runtimeSource = await readStoreModule("../../src/features/app/useAppShellRuntime.tsx");
+  assert.match(
+    runtimeSource,
+    /sessionPushBootId\s*=\s*useRef\(crypto\.randomUUID\(\)\)/,
+    "the renderer must own a per-load boot id",
+  );
+  assert.match(
+    runtimeSource,
+    /bootId:\s*sessionPushBootId\.current/,
+    "the push must carry the boot id",
+  );
+});

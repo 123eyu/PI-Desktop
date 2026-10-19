@@ -85,6 +85,12 @@ export type PluginServicesDependencies = {
    * Scope records live in Main, so this is the one lookup that decides.
    */
   isPluginActiveInProject: (pluginId: string) => boolean;
+  /**
+   * Scope check against an explicit project path, so the session-event
+   * fan-out can hold the same line `session.getActive` does for sessions
+   * that are not the window's own selection (#1754).
+   */
+  pluginActiveInProject?: (pluginId: string, projectPath: string | null | undefined) => boolean;
 };
 
 /**
@@ -114,6 +120,7 @@ export function createPluginServices({
   vendorOAuth,
   getActiveTurn,
   isPluginActiveInProject,
+  pluginActiveInProject,
 }: PluginServicesDependencies) {
   // A plugin request can lose its race with host shutdown or restart.
   const isHostUnavailable = (error: unknown): boolean =>
@@ -575,8 +582,21 @@ export function createPluginServices({
   const broadcastSessionEvent = (event: string, payload: unknown): void => {
     const sessionId =
       (payload as { sessionId?: string } | null | undefined)?.sessionId ?? undefined;
+    // Selection events carry another project's session identity, so the
+    // fan-out holds the scope line the pull side (session.getActive,
+    // ui.revealView) already enforces: a project-scoped plugin does not
+    // receive a session its scope excludes (#1754). Sessions without a
+    // project fall back to the workspace-relative check.
+    const scopeFilter =
+      SESSION_SCOPED_EVENTS.has(event) && pluginActiveInProject
+        ? (pluginId: string) =>
+            pluginActiveInProject(
+              pluginId,
+              (sessionId && sessionProjects.get(sessionId)) ?? null,
+            )
+        : undefined;
     try {
-      plugins.broadcastEvent(event, [payload]);
+      plugins.broadcastEvent(event, [payload], scopeFilter);
     } catch (error) {
       logger.app("plugin", "warn", `${event} plugin broadcast failed`, {
         sessionId,
@@ -594,7 +614,7 @@ export function createPluginServices({
       }
     }
     try {
-      pluginViews.broadcast(event, payload);
+      pluginViews.broadcast(event, payload, scopeFilter);
     } catch (error) {
       logger.app("plugin", "warn", `${event} view broadcast failed`, {
         sessionId,

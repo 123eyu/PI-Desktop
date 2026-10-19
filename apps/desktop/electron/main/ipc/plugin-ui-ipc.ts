@@ -49,6 +49,10 @@ export function registerPluginUiIpc({
    * after a newer one cannot restore a session the user already left.
    */
   let activeSessionSeq = 0;
+  /** The renderer load the high-water mark belongs to. A reload restarts the
+   * renderer's counter from one, so a changed boot id resets the mark and
+   * pushes keep flowing afterwards (#1753). */
+  let activeSessionBootId: string | null = null;
   /**
    * The session on screen, as the shell sees it.
    *
@@ -63,12 +67,21 @@ export function registerPluginUiIpc({
     IPC.invoke.pluginSessionActive,
     async (
       payload:
-        | { sessionId?: string | null; projectPath?: string | null; seq?: number | null }
+        | { sessionId?: string | null; projectPath?: string | null; seq?: number | null; bootId?: string | null }
         | null,
     ) => {
       const seq = typeof payload?.seq === "number" ? payload.seq : 0;
-      if (seq > 0 && seq < activeSessionSeq) return { ok: true, ignored: true };
-      if (seq > 0) activeSessionSeq = seq;
+      const bootId = typeof payload?.bootId === "string" ? payload.bootId : null;
+      if (seq > 0) {
+        if (bootId && bootId !== activeSessionBootId) {
+          activeSessionBootId = bootId;
+          activeSessionSeq = seq;
+        } else if (seq >= activeSessionSeq) {
+          activeSessionSeq = seq;
+        } else {
+          return { ok: true, ignored: true };
+        }
+      }
       const sessionId = typeof payload?.sessionId === "string" ? payload.sessionId.trim() : "";
       if (!sessionId) {
         setActivePluginSession(null);
