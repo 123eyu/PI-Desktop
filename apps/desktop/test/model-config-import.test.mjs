@@ -303,3 +303,62 @@ test("scanModelConfigs imports Pi auth-only providers and fills unresolved model
     ),
   );
 });
+
+// Regression: readPi originally used `promise ?? fallbackPromise`, which never
+// awaited the left side and therefore never read the documented ~/.pi fallback.
+test("scanModelConfigs reads Pi fallback files directly under ~/.pi", async () => {
+  const home = await mkdtemp(join(tmpdir(), "pi-fallback-import-"));
+  const configDir = join(home, ".pi");
+  await mkdir(configDir, { recursive: true });
+
+  await writeFile(
+    join(configDir, "models.json"),
+    JSON.stringify({
+      providers: {
+        legacy: {
+          baseUrl: "https://legacy.example/v1",
+          api: "openai-completions",
+          apiKey: "env:LEGACY_KEY",
+          models: [{ id: "legacy-model" }],
+        },
+      },
+    }),
+  );
+  await writeFile(
+    join(configDir, "auth.json"),
+    JSON.stringify({
+      legacy: { type: "api_key", key: "sk-legacy" },
+      "auth-only": { type: "api_key", key: "sk-auth-only" },
+    }),
+  );
+  await writeFile(
+    join(configDir, "models-store.json"),
+    JSON.stringify({
+      "auth-only": {
+        models: [
+          {
+            id: "auth-model",
+            api: "openai-completions",
+            baseUrl: "https://auth.example/v1",
+          },
+        ],
+      },
+    }),
+  );
+
+  const drafts = (await scanModelConfigs({ homeDir: home, env: {} })).filter(
+    (draft) => draft.source === "pi",
+  );
+  assert.deepEqual(
+    drafts.map((draft) => draft.externalId).sort(),
+    ["auth-only", "legacy"],
+  );
+  assert.equal(
+    drafts.find((draft) => draft.externalId === "legacy")?.secretValue,
+    "sk-legacy",
+  );
+  assert.equal(
+    drafts.find((draft) => draft.externalId === "auth-only")?.secretValue,
+    "sk-auth-only",
+  );
+});
