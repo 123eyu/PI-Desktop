@@ -90,7 +90,7 @@ export type PluginServicesDependencies = {
    * fan-out can hold the same line `session.getActive` does for sessions
    * that are not the window's own selection (#1754).
    */
-  pluginActiveInProject?: (pluginId: string, projectPath: string | null | undefined) => boolean;
+  pluginActiveInProject: (pluginId: string, projectPath: string | null | undefined) => boolean;
 };
 
 /**
@@ -587,14 +587,13 @@ export function createPluginServices({
     // ui.revealView) already enforces: a project-scoped plugin does not
     // receive a session its scope excludes (#1754). Sessions without a
     // project fall back to the workspace-relative check.
-    const scopeFilter =
-      SESSION_SCOPED_EVENTS.has(event) && pluginActiveInProject
-        ? (pluginId: string) =>
-            pluginActiveInProject(
-              pluginId,
-              (sessionId && sessionProjects.get(sessionId)) ?? null,
-            )
-        : undefined;
+    const scopeFilter = SESSION_SCOPED_EVENTS.has(event)
+      ? (pluginId: string) =>
+          pluginActiveInProject(
+            pluginId,
+            (sessionId && sessionProjects.get(sessionId)) ?? null,
+          )
+      : undefined;
     try {
       plugins.broadcastEvent(event, [payload], scopeFilter);
     } catch (error) {

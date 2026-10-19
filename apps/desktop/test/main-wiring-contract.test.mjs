@@ -204,9 +204,9 @@ test("a finished turn is announced to every plugin surface", () => {
     services,
     services.indexOf("{", services.indexOf("const broadcastSessionEvent")),
   );
-  assert.match(fanOut, /plugins\.broadcastEvent\(event, \[payload\]\)/);
+  assert.match(fanOut, /plugins\.broadcastEvent\(event, \[payload\](?:, scopeFilter)?\)/);
   assert.match(fanOut, /pluginPanels\.broadcast\(event, payload\)/);
-  assert.match(fanOut, /pluginViews\.broadcast\(event, payload\)/);
+  assert.match(fanOut, /pluginViews\.broadcast\(event, payload(?:, scopeFilter)?\)/);
   // Each surface owns its failure: one unreachable plugin process, panel or
   // view must not suppress the other two.
   assert.equal(
@@ -228,9 +228,9 @@ test("the selected session is announced to every plugin surface", () => {
   // The snapshot is announced from the one module that owns it, and reaches the
   // same three surfaces as a finished turn.
   assert.match(context, /announce\("session:activated", next\)/);
-  assert.match(services, /plugins\.broadcastEvent\(event, \[payload\]\)/);
+  assert.match(services, /plugins\.broadcastEvent\(event, \[payload\](?:, scopeFilter)?\)/);
   assert.match(services, /pluginPanels\.broadcast\(event, payload\)/);
-  assert.match(services, /pluginViews\.broadcast\(event, payload\)/);
+  assert.match(services, /pluginViews\.broadcast\(event, payload(?:, scopeFilter)?\)/);
   // Turn identity and start time come from the host, never from the renderer.
   assert.match(
     services,

@@ -51,7 +51,9 @@ export function registerPluginUiIpc({
   let activeSessionSeq = 0;
   /** The renderer load the high-water mark belongs to. A reload restarts the
    * renderer's counter from one, so a changed boot id resets the mark and
-   * pushes keep flowing afterwards (#1753). */
+   * pushes keep flowing afterwards (#1753). The boot id is per renderer
+   * load, so with two windows open the out-of-order guarantee is per window
+   * — only one window's session is on screen at a time. */
   let activeSessionBootId: string | null = null;
   /**
    * The session on screen, as the shell sees it.
