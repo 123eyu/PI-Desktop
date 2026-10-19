@@ -1,4 +1,4 @@
-# Provider metadata recovery from optional client certificate requests
+# ADR: Provider metadata recovery from optional client certificate requests
 
 - Status: Implemented candidate
 - Date: 2026-10-16
