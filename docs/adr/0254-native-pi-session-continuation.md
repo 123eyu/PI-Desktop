@@ -102,8 +102,15 @@ addition to the default agent session root (`<agentDir>/sessions`).
   At most 500 local project paths are considered.
 - Custom directories are scanned non-recursively, matching Pi's flat `*.jsonl`
   layout. A file is admitted only when its real path stays inside the default
-  root or a resolved `sessionDir`. Symlink escapes are dropped.
-- Detail, prompt, and fork use those same roots. A fork still publishes the
-  child beside its parent. Trust and provider gates are unchanged: a session
-  discovered through a project `.pi/settings.json` stays browseable and
-  read-only until that project is trusted.
+  root or a resolved `sessionDir`. Symlink escapes are dropped. An in-directory
+  symlink is not a second copy of its target. A nested file is omitted only
+  when the custom directory is outside the default root; a directory inside
+  that root is not scanned again, and the recursive default walk can still
+  list nested JSONL there.
+- Detail, prompt, and fork authorize the file against the default root, the
+  session directories for the current project list, and any session directory
+  that already admitted a file. A later empty project list does not revoke
+  that directory. A fork still publishes the child beside its parent. Trust
+  and provider gates are unchanged and follow the session header cwd, not
+  which settings file pointed at the directory. Untrusted project resources
+  stay browseable and read-only. Ancestor trust counts as trusted.

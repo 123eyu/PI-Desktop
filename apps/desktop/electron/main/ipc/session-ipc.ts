@@ -203,19 +203,16 @@ export function registerSessionIpc({
   });
   handle(IPC.invoke.sessionList, async () => {
     if (!host) throw new Error("host unavailable");
-    const projectPathsPromise = localNativeProjectPaths(host);
-    const desktopPromise = host.call<{ sessions: RuntimeSession[] }>("session.list");
-    const capabilityPromise = sessionCapabilityContext();
-    const projectPaths = await projectPathsPromise;
-    const [result, native, { providers, defaults }] = await Promise.all([
-      desktopPromise,
-      sidecar
-        ? sidecar
-            .call<{ sessions: RuntimeSession[] }>("native.session.list", { projectPaths })
-            .catch(() => ({ sessions: [] }))
-        : Promise.resolve({ sessions: [] }),
-      capabilityPromise,
+    const [projectPaths, result, { providers, defaults }] = await Promise.all([
+      localNativeProjectPaths(host),
+      host.call<{ sessions: RuntimeSession[] }>("session.list"),
+      sessionCapabilityContext(),
     ]);
+    const native = sidecar
+      ? await sidecar
+          .call<{ sessions: RuntimeSession[] }>("native.session.list", { projectPaths })
+          .catch(() => ({ sessions: [] as RuntimeSession[] }))
+      : { sessions: [] as RuntimeSession[] };
     return {
       ...result,
       sessions: [

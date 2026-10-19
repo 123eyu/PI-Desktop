@@ -108,23 +108,43 @@ function normalizeProjectPaths(paths: readonly string[] | undefined): string[] {
   return normalized;
 }
 
-function rawSessionDir(cwd: string, agentDir: string): string | undefined {
+function warnSessionDirErrors(
+  cwd: string,
+  errors: ReadonlyArray<{ path?: string; scope: string; error: unknown }>,
+  seen: Set<string>,
+): void {
+  for (const entry of errors) {
+    const key = entry.path ?? `${cwd}\0${entry.scope}`;
+    if (seen.has(key)) continue;
+    seen.add(key);
+    console.warn("[native-pi] sessionDir settings unreadable", key, entry.error);
+  }
+}
+
+function rawSessionDir(cwd: string, agentDir: string, seen: Set<string>): string | undefined {
   try {
-    return SettingsManager.create(cwd, agentDir).getSessionDir() || undefined;
-  } catch {
+    const manager = SettingsManager.create(cwd, agentDir);
+    warnSessionDirErrors(cwd, manager.drainErrors(), seen);
+    return manager.getSessionDir() || undefined;
+  } catch (error) {
+    const key = `throw\0${cwd}\0${agentDir}`;
+    if (!seen.has(key)) {
+      seen.add(key);
+      console.warn("[native-pi] sessionDir resolution failed", cwd, error);
+    }
     return undefined;
   }
 }
 
 /** Absolute `sessionDir` from global settings. Relative values stay project-scoped. */
-function globalAbsoluteSessionDir(agentDir: string): string | undefined {
-  const raw = rawSessionDir(agentDir, agentDir);
+function globalAbsoluteSessionDir(agentDir: string, seen: Set<string>): string | undefined {
+  const raw = rawSessionDir(agentDir, agentDir, seen);
   return raw && isAbsolute(raw) ? resolve(raw) : undefined;
 }
 
 /** Pi resolves a relative `sessionDir` from the project working directory. */
-function projectSessionDir(projectPath: string, agentDir: string): string | undefined {
-  const raw = rawSessionDir(projectPath, agentDir);
+function projectSessionDir(projectPath: string, agentDir: string, seen: Set<string>): string | undefined {
+  const raw = rawSessionDir(projectPath, agentDir, seen);
   if (!raw) return undefined;
   return isAbsolute(raw) ? resolve(raw) : resolve(projectPath, raw);
 }
@@ -134,8 +154,8 @@ function topLevelJsonl(dir: string): string[] {
   try {
     const files: string[] = [];
     for (const entry of readdirSync(dir, { withFileTypes: true })) {
-      if (entry.isDirectory()) continue;
-      if (entry.name.endsWith(".jsonl")) files.push(join(dir, entry.name));
+      // `isFile()` is false for a symlink, same as the default-root walk.
+      if (entry.isFile() && entry.name.endsWith(".jsonl")) files.push(join(dir, entry.name));
     }
     return files;
   } catch {
@@ -519,6 +539,8 @@ export class NativePiSessionService {
   private modelRuntime?: ModelRuntime;
   private readonly modelRuntimeFactory: () => Promise<ModelRuntime>;
   private projectPaths: string[] = [];
+  /** Real directories that already admitted a file. Open and fork keep them after a later empty project list. */
+  private readonly admittedRoots: string[] = [];
 
   constructor(options: {
     agentDir?: string;
@@ -541,6 +563,7 @@ export class NativePiSessionService {
   private configuredSessionDirs(): string[] {
     const dirs: string[] = [];
     const seen = new Set<string>();
+    const settingsErrors = new Set<string>();
     const add = (dir: string | undefined) => {
       if (!dir) return;
       const resolved = resolve(dir);
@@ -548,8 +571,8 @@ export class NativePiSessionService {
       seen.add(resolved);
       dirs.push(resolved);
     };
-    add(globalAbsoluteSessionDir(this.agentDir));
-    for (const projectPath of this.projectPaths) add(projectSessionDir(projectPath, this.agentDir));
+    add(globalAbsoluteSessionDir(this.agentDir, settingsErrors));
+    for (const projectPath of this.projectPaths) add(projectSessionDir(projectPath, this.agentDir, settingsErrors));
     return dirs;
   }
 
@@ -565,6 +588,7 @@ export class NativePiSessionService {
     };
     add(this.root);
     for (const dir of this.configuredSessionDirs()) add(dir);
+    for (const dir of this.admittedRoots) add(dir);
     return roots;
   }
 
@@ -588,6 +612,9 @@ export class NativePiSessionService {
     }
     if (!defaultRoot && extraRoots.length === 0) return [];
     const allowed = [...(defaultRoot ? [defaultRoot] : []), ...extraRoots];
+    for (const root of allowed) {
+      if (!this.admittedRoots.includes(root)) this.admittedRoots.push(root);
+    }
     const seenCandidates = new Set<string>();
     const candidates = [
       ...(defaultRoot ? walkJsonl(defaultRoot) : []),
@@ -692,13 +719,20 @@ export class NativePiSessionService {
       const record = this.records.get(summary.id);
       if (!record) continue;
       if (seenNativeIds.has(record.nativeId)) {
-        this.records.delete(summary.id);
+        // Two directory names can resolve to one file and share this id.
+        // Deleting it would drop the winner while both rows stay listed.
+        if (!winnerIds.has(summary.id)) this.records.delete(summary.id);
         continue;
       }
       seenNativeIds.add(record.nativeId);
       winnerIds.add(summary.id);
     }
-    deduped.push(...summaries.filter((summary) => summary && winnerIds.has(summary.id)));
+    const emittedIds = new Set<string>();
+    deduped.push(...summaries.filter((summary) => {
+      if (!summary || !winnerIds.has(summary.id) || emittedIds.has(summary.id)) return false;
+      emittedIds.add(summary.id);
+      return true;
+    }));
     return deduped
       .filter((session): session is SessionSummary => Boolean(session))
       .sort((a, b) => b.updatedAt.localeCompare(a.updatedAt));

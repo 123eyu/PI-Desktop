@@ -332,6 +332,86 @@ test("session list forwards local project paths to native discovery (#1732)", as
   assert.deepEqual(hostCalls.map((call) => call.method), ["projects.list", "session.list"]);
 });
 
+test("a failed projects.list keeps Desktop sessions and logs the skip (#1732)", async () => {
+  const warnings = [];
+  const original = console.warn;
+  console.warn = (...args) => {
+    warnings.push(args);
+  };
+  try {
+    const { list, sidecarCalls } = forkHarness({
+      host: () => ({
+        call: async (method) => {
+          if (method === "projects.list") throw new Error("index down");
+          if (method === "session.list") {
+            return { sessions: [{ id: "desktop-1", updatedAt: "2026-09-14T00:00:01.000Z" }] };
+          }
+          return {};
+        },
+      }),
+      sidecar: (calls) => ({
+        call: async (method, input) => {
+          calls.push({ method, input });
+          return { sessions: [] };
+        },
+      }),
+    });
+    const result = await list();
+    assert.deepEqual(result.sessions.map((session) => session.id), ["desktop-1"]);
+    assert.deepEqual(sidecarCalls, [{
+      method: "native.session.list",
+      input: { projectPaths: [] },
+    }]);
+    assert.ok(
+      warnings.some((args) => String(args[0]).includes("projects.list failed")),
+      "expected a projects.list warning",
+    );
+  } finally {
+    console.warn = original;
+  }
+});
+
+test("session list attaches host handlers before projects.list settles (#1732)", async () => {
+  let releaseProjects;
+  const projectsGate = new Promise((resolve) => {
+    releaseProjects = resolve;
+  });
+  const rejections = [];
+  const onRejection = (error) => {
+    rejections.push(error);
+  };
+  process.on("unhandledRejection", onRejection);
+  try {
+    const { list } = forkHarness({
+      host: () => ({
+        call: async (method) => {
+          if (method === "projects.list") return projectsGate;
+          if (method === "session.list") throw new Error("session list failed");
+          return {};
+        },
+      }),
+      sidecar: (calls) => ({
+        call: async (method, input) => {
+          calls.push({ method, input });
+          return { sessions: [] };
+        },
+      }),
+    });
+    const pending = list().then(
+      () => "resolved",
+      (error) => error,
+    );
+    await new Promise((resolve) => setTimeout(resolve, 30));
+    assert.deepEqual(rejections.map((error) => error.message), []);
+    releaseProjects({ projects: [] });
+    const outcome = await pending;
+    assert.equal(outcome instanceof Error, true);
+    assert.match(outcome.message, /session list failed/);
+  } finally {
+    process.off("unhandledRejection", onRejection);
+  }
+});
+
 test("native fork routes to the sidecar and never to the Desktop host", async () => {
   const { handle, hostCalls, sidecarCalls } = forkHarness({
     host: () => ({ call: () => { throw new Error("native fork must not call the host"); } }),

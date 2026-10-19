@@ -104,6 +104,8 @@ describe("NativePiSessionService", () => {
 
     const local = sessions.find((session) => session.title === "project local session");
     expect(local?.projectPath).toBe(f.project);
+    expect(local?.readOnlyReason).toBe("project-untrusted");
+    expect(local?.capabilities?.canPrompt).toBe(false);
     const detail = service.detail(local!.id);
     expect(detail?.messages.map((message) => message.content)).toEqual(["project local session"]);
     expect(readFileSync(join(customDir, "local.jsonl"), "utf8")).toBe(localText);
@@ -141,6 +143,53 @@ describe("NativePiSessionService", () => {
     expect((await service.list()).map((session) => session.title)).not.toContain("relative global session");
     const sessions = await service.list({ projectPaths: [f.project, "remote-project:host/path"] });
     expect(sessions.map((session) => session.title)).toContain("relative global session");
+  });
+
+  it("lists one openable row when a custom sessionDir aliases a file inside itself (#1732)", async () => {
+    const f = fixture();
+    const customDir = join(f.project, ".pi", "sessions");
+    mkdirSync(customDir, { recursive: true });
+    writeFileSync(join(f.project, ".pi", "settings.json"), `${JSON.stringify({ sessionDir: ".pi/sessions" })}\n`);
+    writeFileSync(join(customDir, "local.jsonl"), sessionText("local-id", f.project, "project local session"));
+    symlinkSync(join(customDir, "local.jsonl"), join(customDir, "latest.jsonl"));
+    const service = new NativePiSessionService({ agentDir: f.agentDir, sessionRoot: f.sessionRoot });
+    const sessions = await service.list({ projectPaths: [f.project] });
+    const matches = sessions.filter((session) => session.title === "project local session");
+    expect(matches).toHaveLength(1);
+    expect(new Set(matches.map((session) => session.id)).size).toBe(1);
+    expect(service.detail(matches[0].id)?.messages.map((message) => message.content)).toEqual(["project local session"]);
+  });
+
+  it("opens a project sessionDir session after a later empty project list (#1732)", async () => {
+    const f = fixture();
+    const customDir = join(f.project, ".pi", "sessions");
+    mkdirSync(customDir, { recursive: true });
+    writeFileSync(join(f.project, ".pi", "settings.json"), `${JSON.stringify({ sessionDir: ".pi/sessions" })}\n`);
+    writeFileSync(join(customDir, "local.jsonl"), sessionText("local-id", f.project, "project local session"));
+    const service = new NativePiSessionService({ agentDir: f.agentDir, sessionRoot: f.sessionRoot });
+    const listed = await service.list({ projectPaths: [f.project] });
+    const local = listed.find((session) => session.title === "project local session");
+    expect(local).toBeTruthy();
+    const again = await service.list({ projectPaths: [] });
+    expect(again.map((session) => session.title)).not.toContain("project local session");
+    expect(service.detail(local!.id)?.messages.map((message) => message.content)).toEqual(["project local session"]);
+    expect(service.fork({ id: local!.id }).messages.map((message) => message.content)).toContain("project local session");
+  });
+
+  it("logs an unreadable sessionDir settings file once per path and still lists the default root (#1732)", async () => {
+    const f = fixture();
+    writeFileSync(join(f.agentDir, "settings.json"), "{");
+    mkdirSync(join(f.root, "other-project"));
+    const warnings: unknown[][] = [];
+    vi.spyOn(console, "warn").mockImplementation((...args: unknown[]) => {
+      warnings.push(args);
+    });
+    const service = new NativePiSessionService({ agentDir: f.agentDir, sessionRoot: f.sessionRoot });
+    const sessions = await service.list({ projectPaths: [f.project, join(f.root, "other-project")] });
+    expect(sessions.map((session) => session.title)).toContain("hello");
+    const settingsWarnings = warnings.filter((args) => String(args[0]).includes("sessionDir settings unreadable"));
+    expect(settingsWarnings).toHaveLength(1);
+    expect(String(settingsWarnings[0]?.[1])).toContain("settings.json");
   });
 
   it("collapses copied session files onto one entry per native id (#1359)", async () => {

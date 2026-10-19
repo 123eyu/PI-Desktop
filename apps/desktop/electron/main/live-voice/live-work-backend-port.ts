@@ -56,16 +56,14 @@ export async function listLiveWorkSessions(input: {
   if (!host) throw Object.assign(new Error("Local Host is unavailable"), { errorCode: "LIVE_WORK_NOT_READY" });
   const sidecar = input.getSidecar();
   const remoteHosts = input.getRemoteHosts();
-  const projectPathsPromise = localNativeProjectPaths(host);
-  const desktopPromise = host.call<{ sessions?: Array<Record<string, unknown>> }>("session.list");
-  const projectPaths = await projectPathsPromise;
-  const [desktopResult, nativeResult, remoteResult] = await Promise.all([
-    desktopPromise,
-    sidecar
-      ? sidecar.call<{ sessions?: Array<Record<string, unknown>> }>("native.session.list", { projectPaths })
-      : Promise.resolve({ sessions: [] as Array<Record<string, unknown>> }),
+  const [projectPaths, desktopResult, remoteResult] = await Promise.all([
+    localNativeProjectPaths(host),
+    host.call<{ sessions?: Array<Record<string, unknown>> }>("session.list"),
     remoteHosts ? remoteHosts.listSessions() : Promise.resolve([]),
   ]);
+  const nativeResult = sidecar
+    ? await sidecar.call<{ sessions?: Array<Record<string, unknown>> }>("native.session.list", { projectPaths })
+    : { sessions: [] as Array<Record<string, unknown>> };
   const desktop: LiveWorkSessionRecord[] = (desktopResult.sessions ?? []).flatMap((session) => {
     if (typeof session.id !== "string" || !session.id.trim() || (session.source !== undefined && session.source !== "desktop")) return [];
     return [{

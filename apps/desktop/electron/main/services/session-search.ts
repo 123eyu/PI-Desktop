@@ -28,7 +28,8 @@ export async function localNativeProjectPaths(host: NativeProjectHost): Promise<
       if (paths.length >= MAX_NATIVE_PROJECT_PATHS) break;
     }
     return paths;
-  } catch {
+  } catch (error) {
+    console.warn("[session-search] projects.list failed; native sessionDir discovery skipped", error);
     return [];
   }
 }

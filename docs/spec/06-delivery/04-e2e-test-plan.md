@@ -16717,7 +16717,8 @@ plugin-form fixtures in an isolated temporary directory at runtime.
   Untrusted project resources stay browseable and read-only.
 - **Specs:** runtime §12; storage §12; security §12; ADR 0254.
 - **Status:** Source-regression covered by
-  `packages/agent-runtime/src/native-pi-session.test.ts` and
+  `packages/agent-runtime/src/native-pi-session.test.ts` (the project fixture
+  asserts `readOnlyReason: project-untrusted` and `canPrompt: false`) and
   `apps/desktop/test/native-pi-sessions.test.mjs`; full Desktop journey Draft.
 
 ### E2E-SUBAGENT-ordered-model-fallback-preserves-work

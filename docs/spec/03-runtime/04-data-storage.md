@@ -1820,9 +1820,16 @@ project's working directory, not from the Desktop process cwd. Remote project
 ids are skipped, and at most 500 local project paths are considered. A
 configured directory whose real path is the default root, or is inside it, is
 not scanned again. A file is listed only when its real path stays inside the
-default root or one of those directories; a symlink that escapes, and a nested
-file under a custom `sessionDir`, are omitted. Detail, prompt, and fork use the
-same roots. A child fork is still published beside its parent. A project Desktop
+default root or one of those directories. A symlink that escapes is omitted, and
+an in-directory symlink alias of a session file is not a second row. A nested
+file under a custom `sessionDir` is omitted when that directory is outside the
+default root. A `sessionDir` inside the default root is not scanned again, and
+the recursive default walk can still list nested JSONL there. Detail, prompt,
+and fork authorize a file against the default root, the session directories for
+the current project list, and any session directory that already admitted a
+file in this process, so a later empty project list does not revoke an open of
+a session that was already discovered. A child fork is still published beside
+its parent. A project Desktop
 has not yet recorded does not contribute a relative `sessionDir`. An absolute
 global `sessionDir` is scanned even when no project is known.
 
