@@ -5723,6 +5723,7 @@ eleven-tool-round desktop paths are verified by
 ## 8. 可追溯性矩阵
 | 验收 | 应用场景 |
 |---|---|
+| B / Security / Quality — Optional provider client certificate requests | E2E-PROVIDER-optional-client-certificate |
 | C / E / F / Quality / Security — Session Todo checklist | E2E-CHAT-session-todo-checklist |
 | C / E / Security / Quality — Live Voice 四阶段交互 | E2E-LIVE-VOICE-four-stage-ui |
 | C / F — Hourly task updates | E2E-SCHEDULED-manual-to-hourly |
