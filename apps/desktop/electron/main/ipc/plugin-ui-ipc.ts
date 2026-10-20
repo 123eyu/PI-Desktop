@@ -11,6 +11,7 @@ import { PluginPanelHost } from "../plugin-panel-host";
 import type { PluginPanelTheme } from "../../shared/plugin-panel-chrome";
 import type { IpcRegistrar } from "./types";
 import { pluginProviderCatalogEntries } from "../plugin-provider-catalog";
+import { createSessionPushGate } from "../plugin-session-push-gate";
 
 export type PluginUiIpcDependencies = {
   registrar: IpcRegistrar;
@@ -48,13 +49,7 @@ export function registerPluginUiIpc({
    * The newest selection the shell reported, so a slower invoke that lands
    * after a newer one cannot restore a session the user already left.
    */
-  let activeSessionSeq = 0;
-  /** The renderer load the high-water mark belongs to. A reload restarts the
-   * renderer's counter from one, so a changed boot id resets the mark and
-   * pushes keep flowing afterwards (#1753). The boot id is per renderer
-   * load, so with two windows open the out-of-order guarantee is per window
-   * — only one window's session is on screen at a time. */
-  let activeSessionBootId: string | null = null;
+  const sessionPushGate = createSessionPushGate();
   /**
    * The session on screen, as the shell sees it.
    *
@@ -74,15 +69,8 @@ export function registerPluginUiIpc({
     ) => {
       const seq = typeof payload?.seq === "number" ? payload.seq : 0;
       const bootId = typeof payload?.bootId === "string" ? payload.bootId : null;
-      if (seq > 0) {
-        if (bootId && bootId !== activeSessionBootId) {
-          activeSessionBootId = bootId;
-          activeSessionSeq = seq;
-        } else if (seq >= activeSessionSeq) {
-          activeSessionSeq = seq;
-        } else {
-          return { ok: true, ignored: true };
-        }
+      if (sessionPushGate({ seq, bootId }).ignored) {
+        return { ok: true, ignored: true };
       }
       const sessionId = typeof payload?.sessionId === "string" ? payload.sessionId.trim() : "";
       if (!sessionId) {

@@ -381,15 +381,27 @@ test("broadcastEvent's filter keeps an out-of-scope plugin from receiving the se
 
 test("the session-push gate restarts with the renderer's boot id and the payload carries it", async () => {
   const { readMainSource, readStoreModule } = await import("./helpers/source-contracts.mjs");
-  const ipcSource = await readMainSource("ipc/plugin-ui-ipc.ts");
+  const { readFile } = await import("node:fs/promises");
+  const gateSource = await readFile(
+    new URL("../electron/main/plugin-session-push-gate.ts", import.meta.url),
+    "utf8",
+  );
 
-  // Main (#1753): a changed boot id resets the high-water mark, so pushes
-  // keep flowing after a renderer reload; within one boot the old
-  // out-of-order guard still applies.
+  // The gate module owns the boot-id reset (#1753): a new renderer boot
+  // restarts the high-water mark, and within a boot the out-of-order guard
+  // still ignores older sequences.
+  assert.match(
+    gateSource,
+    /push\.bootId !== activeSessionBootId[\s\S]*?activeSessionSeq = push\.seq;[\s\S]*?return \{ ok: true, ignored: true \};/,
+    "the gate must reset the high-water mark on a new renderer boot and keep the out-of-order guard within a boot",
+  );
+
+  // The production handler gates every push through the shared gate.
+  const ipcSource = await readMainSource("ipc/plugin-ui-ipc.ts");
   assert.match(
     ipcSource,
-    /const\s+bootId\s*=\s*typeof\s+payload\?\.bootId\s*===\s*"string"[\s\S]*?bootId\s*!==\s*activeSessionBootId[\s\S]*?activeSessionSeq\s*=\s*seq;[\s\S]*?return\s+\{\s*ok:\s*true,\s*ignored:\s*true\s*\};/,
-    "the gate must reset the high-water mark on a new renderer boot and keep the out-of-order guard within a boot",
+    /const sessionPushGate = createSessionPushGate\(\);[\s\S]*?sessionPushGate\(\{ seq, bootId \}\)\.ignored/,
+    "plugin-ui-ipc must route session pushes through the shared gate",
   );
 
   // Renderer: the push carries the boot id the gate compares.
@@ -404,4 +416,32 @@ test("the session-push gate restarts with the renderer's boot id and the payload
     /bootId:\s*sessionPushBootId\.current/,
     "the push must carry the boot id",
   );
+});
+
+test("the session-push gate accepts a new renderer boot and still rejects an older sequence within it (#1753)", async (t) => {
+  const { createSessionPushGate } = await import(
+    "../electron/main/plugin-session-push-gate.ts"
+  );
+  const gate = createSessionPushGate();
+
+  // Within one boot: in-order accepted, out-of-order ignored.
+  assert.deepEqual(gate({ seq: 3, bootId: "boot-1" }), { ok: true });
+  assert.deepEqual(gate({ seq: 5, bootId: "boot-1" }), { ok: true });
+  assert.deepEqual(gate({ seq: 4, bootId: "boot-1" }), {
+    ok: true,
+    ignored: true,
+  });
+
+  // A reload restarts the renderer counter: the new boot resets the mark and
+  // the low sequences flow again.
+  assert.deepEqual(gate({ seq: 1, bootId: "boot-2" }), { ok: true });
+  assert.deepEqual(gate({ seq: 2, bootId: "boot-2" }), { ok: true });
+  assert.deepEqual(gate({ seq: 1, bootId: "boot-2" }), {
+    ok: true,
+    ignored: true,
+  });
+
+  // Zero-sequence pushes (no selection) never touch the mark.
+  assert.deepEqual(gate({ seq: 0, bootId: "boot-2" }), { ok: true });
+  assert.deepEqual(gate({ seq: 2, bootId: "boot-2" }), { ok: true });
 });

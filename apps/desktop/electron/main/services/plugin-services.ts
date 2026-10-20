@@ -48,6 +48,7 @@ import {
 import { McpOAuthManager } from "../mcp-oauth";
 import { PluginPanelHost } from "../plugin-panel-host";
 import { PluginViewHost } from "../plugin-view-host";
+import { SESSION_SCOPED_EVENTS, sessionEventScopeFilter } from "../plugin-session-scope";
 import { BrowserPane } from "../browser-view";
 import { BrowserHost, BROWSER_PLUGIN_ID } from "../browser-host";
 import { OAUTH_AUTH_KIND, type VendorOAuth } from "../oauth";
@@ -98,8 +99,6 @@ export type PluginServicesDependencies = {
  * detached `ui.panel` window is application-scoped — it does not belong to a
  * session — so it never receives them; plugin processes and docked views do.
  */
-const SESSION_SCOPED_EVENTS = new Set(["session:activated"]);
-
 export function createPluginServices({
   dataDir,
   logger,
@@ -587,13 +586,12 @@ export function createPluginServices({
     // ui.revealView) already enforces: a project-scoped plugin does not
     // receive a session its scope excludes (#1754). Sessions without a
     // project fall back to the workspace-relative check.
-    const scopeFilter = SESSION_SCOPED_EVENTS.has(event)
-      ? (pluginId: string) =>
-          pluginActiveInProject(
-            pluginId,
-            (sessionId && sessionProjects.get(sessionId)) ?? null,
-          )
-      : undefined;
+    const scopeFilter = sessionEventScopeFilter(
+      event,
+      sessionId,
+      sessionProjects,
+      pluginActiveInProject,
+    );
     try {
       plugins.broadcastEvent(event, [payload], scopeFilter);
     } catch (error) {
