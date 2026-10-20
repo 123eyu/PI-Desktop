@@ -79,6 +79,7 @@ export class MainProcessState {
   closePromptOpen = false;
   quitConfirmed = false;
   developerMode = false;
+  macosWindowTranslucency = false;
 
   updaterLocale = "en";
   pluginPanelTheme: PluginPanelTheme = nativeTheme.shouldUseDarkColors ? "dark" : "light";
@@ -248,6 +249,12 @@ export class MainProcessState {
       },
       set developerMode(value) {
         self.developerMode = value;
+      },
+      get macosWindowTranslucency() {
+        return self.macosWindowTranslucency;
+      },
+      set macosWindowTranslucency(value) {
+        self.macosWindowTranslucency = value;
       },
       get pluginLauncherWindow() {
         return self.pluginLauncherWindow;
