@@ -1359,6 +1359,27 @@ identify the platform validation still needed.
 - **Milestone**: M2
 - **Status**: Unit-covered (binding resolution and endpoint assertion)
 
+#### E2E-005K: OpenCode Go Claude models use the published Anthropic route
+
+- **Preconditions**: An OpenCode Go provider uses the built-in preset. The
+  deterministic catalog fixture contains `claude-haiku-5-5` with
+  `api: "anthropic_messages"` and an OpenCode Anthropic root `baseUrl`, plus a
+  DeepSeek Chat Completions control model.
+- **Steps**: 1) Select Claude Haiku and send a text turn through a capture
+  fixture. 2) Capture the request URL and adapter payload. 3) Repeat with the
+  DeepSeek control model. 4) Repeat with the same catalog metadata on a custom
+  OpenAI-compatible provider.
+- **Expected**: OpenCode Claude uses the Anthropic adapter and posts to
+  `/zen/go/v1/messages`; it does not post Chat Completions and does not return
+  `ModelProtocolUnsupported`. DeepSeek keeps `/chat/completions`. The custom
+  provider keeps its saved wire style and base URL despite the foreign catalog
+  API. Unit coverage lives in `packages/agent-runtime/src/provider-binding.test.ts`.
+- **Specs linked**: `03-runtime/11-provider-model-system.md`,
+  `03-runtime/13-model-catalog-and-selection.md`, issue #1728
+- **Acceptance**: F (runtime provider requests)
+- **Milestone**: M2
+- **Status**: Unit-covered; live endpoint scenario Draft
+
 #### E2E-005C: OpenAI-compatible system role fallback
 
 - **Preconditions**: A deterministic OpenAI-compatible Chat Completions
