@@ -2153,7 +2153,7 @@ reservation, and background artifacts cannot change visible window geometry.
 ## 13c. Composer input APIs (D123/D124/D197, ADR 0024/0059)
 
 Electron-only channels backing composer autocomplete and file references.
-`composer/commands` and `fs/index` are read-only and fail soft;
+`composer/commands`, `fs/index`, and `fs/search` are read-only and fail soft;
 `composer/pickFiles` opens the unified native picker used by the Composer and
 returns a one-shot token; the legacy `composer/pickPhotos` channel remains
 available for compatibility but is not exposed by the Composer UI.
@@ -2207,7 +2207,28 @@ Workspace-rooted relative paths for the `@` menu: `git ls-files -co
 --exclude-standard` fast path, ignore-set recursive walk fallback,
 directories derived from file paths, 8000-entry cap with `truncated: true`,
 short TTL cache per root. Fails closed to an empty list without a
-workspace. Fuzzy filtering happens renderer-side.
+workspace. Fuzzy filtering happens renderer-side; a truncated index keeps
+only the shallowest entries, so a query against it is also sent to
+`fs/search`.
+
+### fs/search
+
+```ts
+fs/search({ sessionId?, query }) -> { entries: FsIndexEntry[]; truncated: boolean }
+```
+
+The `@` menu calls this only while its `fs/index` snapshot is truncated and
+the query is non-empty, after a short typing pause, then merges the answer
+with its own matches (D665). Main ranks the query with the renderer's fuzzy
+scorer over the root's full listing and returns the best 50 entries. The
+listing is the `git ls-files` list behind the index, or — when the index came
+from the walk — a deeper ignore-set walk of at most 200,000 entries or two
+seconds. It shares the index's TTL cache and is released when that expires.
+`truncated: true` means the search itself was capped. The query is trimmed and
+bounded to 256 characters; an empty query returns no entries. A remote session
+returns `{ entries: [], truncated: true }` without contacting its host — the
+remote file protocol has no search operation — so the menu keeps filtering
+the remote snapshot alone.
 
 ### composer/pickFiles and composer/pickPhotos
 

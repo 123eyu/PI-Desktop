@@ -72,6 +72,7 @@ This log freezes previously open questions into concrete decisions.
 | D021 | First-run onboarding | **Inline checklist (not modal wizard)** |
 | D022 | Local telemetry | **Local logs only in MVP (no remote telemetry)** |
 | D664 | Sidebar running activity defaults | **When unset, the master and Count badge resolve on while Activity rail resolves off. Explicit saved values remain authoritative. The master continues gating both affordances; turning it off does not rewrite either child preference. No schema or migration change.** |
+| D665 | `@` queries search past a truncated file index | **Amend D124: while the 8000-entry `fs/index` snapshot is truncated, a non-empty `@` query is also searched over the root's full listing through the read-only Electron channel `pi-desktop/fs/search` once typing pauses, and its best 50 rows merge with the local matches. A complete index never searches. Remote sessions keep their snapshot. No host RPC, storage, or schema change.** |
 
 
 ## C. Provider & model coverage decisions (0.3.4)
@@ -7778,3 +7779,26 @@ must keep splitting are covered by `markdown-blocks.test.mjs`.
   default. Settings reads apply these defaults through renderer API
   normalization; no persisted schema or migration change is required. See
   `04-ux/01-ui-ia.md`, `04-ux/06-settings-ia.md`, and E2E-266.
+
+## 2026-10-19 — `@` queries search past a truncated file index (D665)
+
+- The `fs/index` snapshot keeps the shallowest 8000 entries, and the menu
+  fuzzy-filtered only that snapshot. In a large tree — a Unity project, where
+  every asset has a `.meta` sibling — scripts several folders deep were never
+  in it, so no query could reach them even though the truncation footnote
+  invited refining the query (issue #1781).
+- While the snapshot is truncated, a non-empty query is now also sent to
+  `fs/search` after a 150 ms typing pause. Main ranks it with the renderer's
+  scorer over the listing it already built for the index (`git ls-files`), or
+  over a deeper ignore-set walk (at most 200,000 entries or two seconds) when
+  the index came from the walk, and returns the best 50 rows. The menu merges
+  them with its local matches; an answer for an earlier query is dropped.
+- A complete index never searches, so small projects behave as before. The
+  footnote stays while the list may be incomplete. Remote sessions keep their
+  snapshot because the remote file protocol has no search operation. Bundling
+  a native lister (ripgrep, bfs) was not needed: git already lists the whole
+  repository, and searching 60,000 paths takes a few milliseconds.
+- Covered by `packages/host-runtime/src/fs-index.test.ts` and
+  `apps/desktop/test/composer-deep-file-search-user-path.test.mjs`. See
+  `03-runtime/01-ipc-protocol.md` §13c, `04-ux/08-component-spec.md` §11.8,
+  and E2E-COMPOSER-deep-file-mentions.
