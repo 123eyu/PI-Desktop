@@ -1845,6 +1845,78 @@ describe("DesktopAgentRuntime configuration matching", () => {
       await expect(pending).rejects.toThrow("tools.abort protocol failure");
     await runtime.dispose();
   });
+
+  // #1767: host-core only cancels Bash and GenerateImages, so a stop used to
+  // leave the turn waiting for every other tool to return on its own.
+  it("ends the turn when a stop lands while a tool host-core cannot cancel runs", async () => {
+    let finishExecution!: (value: { ok: boolean; content: unknown }) => void;
+    const execution = new Promise<{ ok: boolean; content: unknown }>((resolve) => {
+      finishExecution = resolve;
+    });
+    const host = {
+      call: vi.fn((method: string) =>
+        method === "tools.execute"
+          ? execution
+          : Promise.resolve({ ok: true, content: "done" }),
+      ),
+      onNotification: vi.fn(() => () => undefined),
+    };
+    const runtime = createRuntime({ host });
+    const grep = (runtime as any).toolCatalog.get("Grep");
+    const controller = new AbortController();
+    const pending = grep.execute("grep-stop", { query: "needle" }, controller.signal);
+    await new Promise<void>((resolve) => setImmediate(resolve));
+
+    controller.abort();
+
+    // The Grep is still running in host-core; only this turn stops waiting.
+    await expect(pending).rejects.toMatchObject({ errorCode: "TOOL_ABORTED" });
+    expect(
+      host.call.mock.calls.filter((call: unknown[]) => call[0] === "tools.abort"),
+    ).toHaveLength(0);
+    // The orphaned call settling later must not resurface as an unhandled
+    // rejection or a second tool result.
+    finishExecution({ ok: true, content: "late result" });
+    await runtime.dispose();
+  });
+
+  it("stops waiting for a Bash call that ignores tools.abort once the grace window closes", async () => {
+    vi.useFakeTimers();
+    try {
+      const host = {
+        call: vi.fn((method: string) =>
+          method === "tools.execute"
+            ? new Promise<never>(() => undefined)
+            : Promise.resolve({ ok: true, content: "abort requested" }),
+        ),
+        onNotification: vi.fn(() => () => undefined),
+      };
+      const runtime = createRuntime({ host });
+      const bash = (runtime as any).toolCatalog.get("Bash");
+      const controller = new AbortController();
+      const pending = bash.execute(
+        "bash-hung",
+        { command: "sleep 600" },
+        controller.signal,
+      );
+      await vi.advanceTimersByTimeAsync(0);
+
+      controller.abort();
+      const assertion = expect(pending).rejects.toMatchObject({
+        errorCode: "TOOL_ABORTED",
+      });
+      await vi.advanceTimersByTimeAsync(10_000);
+      await assertion;
+      expect(host.call).toHaveBeenCalledWith("tools.abort", {
+        sessionId: "session-1",
+        toolCallId: "bash-hung",
+      });
+
+      await runtime.dispose();
+    } finally {
+      vi.useRealTimers();
+    }
+  });
 });
 
 describe("DesktopAgentRuntime live activity", () => {

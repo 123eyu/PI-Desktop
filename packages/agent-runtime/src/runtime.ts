@@ -1262,6 +1262,13 @@ const TOOL_PARAM_ALIASES: Record<string, Record<string, string>> = {
   Grep: { query: "pattern" },
 };
 const TOOL_OUTPUT_UPDATE_THROTTLE_MS = 100;
+/**
+ * How long a stop request waits for a tool that host-core can actually
+ * interrupt (`Bash`, `GenerateImages`) to hand back the output it collected
+ * before the kill (#1767). Tools without host-side cancellation do not wait at
+ * all: the runtime stops waiting the moment the signal fires.
+ */
+const TOOL_ABORT_GRACE_MS = 10_000;
 const MAX_TOOL_PROGRESS_CHARS = 64 * 1024;
 const TOOL_PROGRESS_TRUNCATION_MARKER =
   "\n\n[tool output progress truncated]\n\n";
@@ -3466,21 +3473,51 @@ Do not invent objections or turn speculative risks into blockers. Stop when the 
               scheduleProgress();
             })
           : undefined;
+        // #1767: host-core only honours `tools.abort` for `Bash` and
+        // `GenerateImages` — it kills the process and answers the in-flight
+        // execute with `TOOL_ABORTED`. Every other tool keeps running to
+        // completion whatever the runtime sends, so awaiting it blocked the
+        // turn long after the user pressed Stop. Those tools therefore abandon
+        // the wait locally the instant the signal fires; the orphaned host call
+        // settles on its own and its result is discarded.
+        const hostAbortsTool = isBash || toolName === "GenerateImages";
+        const abortedMarker = Symbol("tool-aborted");
+        let resolveAborted: (marker: typeof abortedMarker) => void = () => undefined;
+        const aborted = new Promise<typeof abortedMarker>((resolve) => {
+          resolveAborted = resolve;
+        });
+        let abortGraceTimer: ReturnType<typeof setTimeout> | undefined;
+        let stopped = false;
         const abort = () => {
-          if ((!isBash && toolName !== "GenerateImages") || abortRequested || settled) return;
+          if (abortRequested || settled) return;
           abortRequested = true;
-          abortPromise = this.host
-            .call("tools.abort", {
-              sessionId: this.sessionId,
-              toolCallId,
-            })
-            .then(
-              () => undefined,
-              (error) => {
-                abortError = error;
-              },
-            );
+          if (hostAbortsTool) {
+            abortPromise = this.host
+              .call("tools.abort", {
+                sessionId: this.sessionId,
+                toolCallId,
+              })
+              .then(
+                () => undefined,
+                (error) => {
+                  abortError = error;
+                },
+              );
+          }
+          // Release progress/output resources before arming the grace window:
+          // cleanup is idempotent and must not race the timer it would clear.
           cleanup(true);
+          if (hostAbortsTool) {
+            // Bounded window for the partial output the host collected before
+            // the kill; past it the turn ends regardless.
+            abortGraceTimer = setTimeout(
+              () => resolveAborted(abortedMarker),
+              TOOL_ABORT_GRACE_MS,
+            );
+          } else {
+            // Nothing host-side can interrupt this tool, so stop waiting now.
+            resolveAborted(abortedMarker);
+          }
         };
 
         cleanup = (flush: boolean) => {
@@ -3514,7 +3551,7 @@ Do not invent objections or turn speculative risks into blockers. Stop when the 
         let executionError: unknown;
         let executionFailed = false;
         try {
-          result = await this.host.call<{
+          const execution = this.host.call<{
               ok: boolean;
               content: unknown;
               isError?: boolean;
@@ -3565,15 +3602,33 @@ Do not invent objections or turn speculative risks into blockers. Stop when the 
                 ? { delegationId: this.delegateWorktrees.get(toolCallId) }
                 : {}),
             });
+          // #1767: stop has to end the turn even when the tool never yields.
+          // Losing the race does not cancel the host call — it only stops this
+          // turn from waiting on it.
+          const raced = await Promise.race([execution, aborted]);
+          if (raced === abortedMarker) {
+            stopped = true;
+          } else {
+            result = raced;
+          }
         } catch (error) {
           executionFailed = true;
           executionError = error;
         } finally {
           this.delegatePermissionScopes.delete(toolCallId);
           cleanup(true);
+          // cleanup is a no-op once the abort path has run, so the grace timer
+          // it armed is released here instead.
+          if (abortGraceTimer) clearTimeout(abortGraceTimer);
         }
         if (abortPromise) await abortPromise;
         if (abortError) throw abortError;
+        if (stopped) {
+          throw Object.assign(
+            new Error(`tool execution aborted while ${toolName} was running`),
+            { errorCode: "TOOL_ABORTED" },
+          );
+        }
         if (executionFailed) throw executionError;
         if (!result) throw new Error("tool execution returned no result");
         const recordParams = isRecord(params) ? params : undefined;
