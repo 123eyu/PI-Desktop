@@ -6949,6 +6949,10 @@ must keep splitting are covered by `markdown-blocks.test.mjs`.
     loop on a second overflow. A recoverable first overflow emits no terminal
     error message or `error` event; only a failed retry (or failed compaction)
     closes the bubble with `CONTEXT_TOO_LARGE` / the actual terminal error.
+  - If a retryable provider stream failure arrives after compaction has already
+    replaced the failed assistant with a summary or retained user message, the
+    retry keeps that current compacted transcript and calls `continue()`; it
+    does not surface the missing-assistant guard error (issue #1768).
   - If automatic summary generation fails, a durable retained-tail fallback
     checkpoint is appended, the run stays active, and one warning explains
     that older model context was reduced; the transcript row for that
