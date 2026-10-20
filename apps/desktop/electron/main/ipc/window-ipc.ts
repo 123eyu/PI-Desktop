@@ -181,9 +181,13 @@ export function registerWindowIpc({
     ) {
       throw new Error("unsupported window control action");
     }
+    // A window outside macOS has no vibrancy surface: report `false` so the
+    // renderer never reads "not applicable" as "translucent".
+    const macosWindowTranslucency =
+      process.platform === "darwin" && isMacosWindowTranslucent();
     const mainWindow = getMainWindow();
     if (!mainWindow || mainWindow.isDestroyed()) {
-      return { maximized: false, macosWindowTranslucency: isMacosWindowTranslucent() };
+      return { maximized: false, macosWindowTranslucency };
     }
     switch (input.action as WindowControlAction) {
       case "getState":
@@ -203,7 +207,7 @@ export function registerWindowIpc({
       maximized: !mainWindow.isDestroyed() && mainWindow.isMaximized(),
       // The surface this window was created with, so a Settings switch can tell
       // whether the stored preference has taken effect (#1064 / ADR 0332).
-      macosWindowTranslucency: isMacosWindowTranslucent(),
+      macosWindowTranslucency,
     };
   });
 

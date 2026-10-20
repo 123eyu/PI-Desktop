@@ -593,8 +593,10 @@ export function createApplicationLifecycle({
   function applyMacosWindowTranslucency(
     settings?: { macosWindowTranslucency?: unknown } | null,
   ) {
+    // Absent means the shipped translucency: the setting is an opt-out for the
+    // GPU cost of the material, never an opt-in that changes the default look.
     state.macosWindowTranslucency =
-      process.platform === "darwin" && settings?.macosWindowTranslucency === true;
+      process.platform === "darwin" && settings?.macosWindowTranslucency !== false;
   }
 
   /**

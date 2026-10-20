@@ -1428,7 +1428,7 @@ sklm: {
     preventScreenSleep: "阻止屏幕休眠",
     preventScreenSleepDesc: "应用运行时保持屏幕常亮，跨平台使用系统电源管理接口。",
     windowTranslucency: "窗口透明效果",
-    windowTranslucencyDesc: "让 macOS 窗口保持透明并显示桌面模糊背景。窗口可见时占用更多 GPU；关闭可让空闲占用最低。",
+    windowTranslucencyDesc: "让 macOS 窗口保持透明并显示桌面模糊背景（默认开启）。窗口可见时会占用更多 GPU；关闭后使用不透明窗口，空闲占用最低。修改后需重启生效。",
     windowTranslucencyRestart: "重启后生效",
     linkOpenTarget: "链接打开位置",
     linkOpenTargetWorkpanel: "工作区浏览器",

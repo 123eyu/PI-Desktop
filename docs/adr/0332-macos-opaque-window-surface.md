@@ -1,9 +1,9 @@
-# ADR 0332: macOS paints an opaque native window surface
+# ADR 0332: macOS keeps its translucent window surface with an opaque opt-out
 
 - Status: Accepted
 - Date: 2026-10-16
 - Deciders: PI-Desktop maintainers
-- Related: issue #1064, D665, D304, D348, ADR 0248 (theme assets and window
+- Related: issue #1064, D665, D666, D667, D304, D348, ADR 0248 (theme assets and window
   background), ADR 0260 (plugin runtime theme APIs),
   `docs/spec/04-ux/07-ui-design-system.md`,
   `docs/spec/04-ux/08-component-spec.md`
@@ -40,61 +40,60 @@ compositor's per-frame path while it was visible and focused.
 
 ## Decision
 
-macOS paints an opaque native surface. The main window keeps its frameless
-`hiddenInset` titlebar, its inset traffic-light position, and the renderer's
-glass tint and sheen, but no longer declares `vibrancy`, `visualEffectState`, or
-a transparent backing. The window's native background comes from the same
-platform helper the other platforms use, so a theme change repaints it instead
-of being skipped on `darwin`.
+macOS keeps the translucent native surface the product has always shipped, and
+the opaque surface is now the opt-out. The main window keeps its frameless
+`hiddenInset` titlebar, its inset traffic-light position, its vibrancy material,
+and the renderer's glass tint and sheen.
 
 - `macosWindowSurfaceOptions(translucent, color)` is the single place that
-  declares the macOS surface: `false` paints an opaque
-  `{ transparent: false, backgroundColor }` window, `true` restores
-  `vibrancy: "sidebar"`, `visualEffectState: "followWindow"`, and the
-  transparent `#00000000` backing.
-- `mainWindowBackgroundOptions("darwin", color)` keeps returning the opaque
-  surface, so callers that only know a platform never get the material.
-- `applyMainWindowBackground` applies the colour on darwin like every other
-  platform; the `win32` content-view and Windows 11 DWM branches are unchanged.
-- `applyNativeThemeSource` re-applies `setVibrancy("sidebar")` only when the
-  running window is translucent; an opaque window has no material to reset.
-- The `window.setBackgroundColor` IPC applies the colour on darwin unless the
-  running window is translucent — a vibrancy surface keeps its transparent
-  pixels, while an opaque one takes a plugin theme's
-  `windowAppearance.backgroundColor` (ADR 0248) for the palette the renderer
-  resolved.
-
-`AppSettings.macosWindowTranslucency` opts back into the material on macOS. It
-is read once, before `new BrowserWindow`, because Electron fixes `transparent`
-at creation: absent and `false` mean the opaque default, and a change is
-persisted for the next launch instead of mutating the window on screen. The
-Settings switch is darwin-only and shows a restart hint while the stored value
-differs from the surface the running process was created with.
+  declares the macOS surface: `true` keeps `vibrancy: "sidebar"`,
+  `visualEffectState: "followWindow"`, and the transparent `#00000000` backing;
+  `false` paints an opaque `{ transparent: false, backgroundColor }` window that
+  stays out of WindowServer's per-frame recomposition path (#1064).
+- `AppSettings.macosWindowTranslucency` is the stored preference. Absent and
+  `true` mean the shipped translucent surface; only `false` asks for the cheaper
+  opaque one. It is read once, before `new BrowserWindow`, because Electron
+  fixes `transparent` at creation, so a change is persisted for the next launch
+  instead of mutating the window on screen. The Settings switch is darwin-only
+  and shows a restart hint while the stored value differs from the surface the
+  running process was created with.
+- A translucent window owns its pixels: the post-creation background paint, the
+  `window.setBackgroundColor` IPC, and `applyMainWindowBackground` all leave it
+  alone. Painting a host or plugin palette over a transparent backing flattens
+  the material, which is also what made an "enabled" switch look ignored. The
+  opaque surface takes the colour on darwin like every other platform, so a
+  plugin theme's `windowAppearance.backgroundColor` (ADR 0248) applies there.
+- `applyNativeThemeSource` re-applies `setVibrancy("sidebar")` for a translucent
+  window when the theme source changes; an opaque one has no material to reset.
+- `mainWindowBackgroundOptions("darwin", color)` still describes the opaque
+  surface, so a caller that only knows a platform never gets the material.
 
 The renderer-side sidebar treatment is unchanged: `--ds-sidebar-glass-tint` and
-the sheen still paint the sidebar, splash, and rail so the surface keeps
-reading as glass. The tint is now composited over the opaque host palette
-rather than over a live blur, which is what keeps the visual language intact
-without the per-frame material cost.
+the sheen paint the sidebar, splash, and rail over whichever surface the window
+has, so the glass reads the same and the setting only changes what shows
+through it.
 
 ## Consequences
 
-- An idle focused window returns to the desktop GPU baseline: after the change
-  the same measurement showed the focused-idle case matching the idle baseline
-  instead of ~40%.
-- macOS can still show the live wallpaper blur: the opt-in restores the
-  material, and with it WindowServer's per-frame recomposition cost while the
-  window is visible and focused. The tint and sheen are the same in both
-  surfaces, so only the translucency to desktop content changes.
-- Plugins with a granted `ui.window.appearance` permission now have their
-  `windowAppearance.backgroundColor` applied on macOS, matching Windows and
-  Linux. Previously darwin silently ignored it because vibrancy owned the
-  surface (ADR 0248 said darwin "never receives a colour"; that exclusion is
-  superseded).
-- The bounded-animation contract from #1064 stays in force. Its rationale text
-  referenced the transparent/vibrancy window, which no longer describes the
-  window; the rule itself (no unbounded idle animation) is still required
-  because a dirty window is recomposited on every platform.
+- Default installs still pay the compositor cost of the material: translucency
+  is the shipped look, so the per-frame recomposition described in Context
+  remains for anyone who leaves the switch on. That is a product decision, not
+  an oversight — the desktop blur is part of the window's language, and a
+  default that silently dropped it changed the app under existing users.
+- Turning the switch off paints the opaque surface and returns an idle focused
+  window to the desktop GPU baseline measured under #1064. The setting is an
+  opt-out, so the saving is one launch away without editing files or starting
+  the app differently.
+- The renderer tint, sheen, and layout are identical on both surfaces, so the
+  switch changes only whether the desktop shows through; no other visual,
+  persisted-data, or plugin contract changes.
+- Plugins with a granted `ui.window.appearance` permission have their
+  `windowAppearance.backgroundColor` applied on the opaque surface, matching
+  Windows and Linux, and keep the vibrancy material on the translucent one —
+  the same rule as before the setting existed (ADR 0248).
+- The bounded-animation contract from #1064 stays in force on both surfaces. A
+  dirty window is recomposited on every platform, and on macOS the material
+  still multiplies that cost.
 
 ## Alternatives rejected
 
@@ -114,9 +113,10 @@ without the per-frame material cost.
   opaque window that can never show the material. Persisting the preference for
   the next launch keeps one rendering path per process instead of a
   half-applied state.
-- **Make the opaque surface opt-in behind a setting.** Rejected as the
-  *starting* point: the load is present on default installs, so the default
-  stays opaque and translucency is the explicit opt-in (see Decision).
+- **Make the opaque surface the default.** Tried and reverted: an idle focused
+  window stopped costing GPU time, but every existing user lost the material
+  their window was designed around. The cost belongs behind a switch the user
+  can see, not behind a silent default change.
 
 ## Evidence
 
