@@ -677,7 +677,18 @@ export class McpOAuthManager {
               clientSecret = registered.clientSecret;
               redirectUrisToStore = registered.redirectUris;
             } else {
-              clientId = "pi-desktop";
+              // #1782: no Dynamic Client Registration endpoint means this
+              // server expects a pre-registered client id, and the app has
+              // none to give. The previous fallback opened the authorize URL
+              // with a literal `client_id=pi-desktop`, which no authorization
+              // server ever registered — the browser landed on a bare 404 and
+              // the user was left with no way forward and no explanation.
+              // Fail here, before opening anything, saying what is missing.
+              // The message must not promise a settings field that does not
+              // exist yet: it names the two real ways forward.
+              throw new Error(
+                `MCP server "${session.serverId}" does not support Dynamic Client Registration, and PI-Desktop has no client id registered with ${metadata.authorizationEndpoint}. Ask the server operator for a client id, or use a server that supports DCR.`,
+              );
             }
 
             const authUrl = new URL(metadata.authorizationEndpoint);
