@@ -47,15 +47,29 @@ a transparent backing. The window's native background comes from the same
 platform helper the other platforms use, so a theme change repaints it instead
 of being skipped on `darwin`.
 
-- `mainWindowBackgroundOptions("darwin", color)` returns an opaque
-  `{ transparent: false, backgroundColor }` surface.
+- `macosWindowSurfaceOptions(translucent, color)` is the single place that
+  declares the macOS surface: `false` paints an opaque
+  `{ transparent: false, backgroundColor }` window, `true` restores
+  `vibrancy: "sidebar"`, `visualEffectState: "followWindow"`, and the
+  transparent `#00000000` backing.
+- `mainWindowBackgroundOptions("darwin", color)` keeps returning the opaque
+  surface, so callers that only know a platform never get the material.
 - `applyMainWindowBackground` applies the colour on darwin like every other
   platform; the `win32` content-view and Windows 11 DWM branches are unchanged.
-- `applyNativeThemeSource` no longer calls `setVibrancy` — there is no material
-  to reset when the theme source changes.
-- The `window.setBackgroundColor` IPC no longer returns early on darwin, so a
-  plugin theme's `windowAppearance.backgroundColor` is applied on macOS too
-  (ADR 0248), for the palette the renderer has resolved.
+- `applyNativeThemeSource` re-applies `setVibrancy("sidebar")` only when the
+  running window is translucent; an opaque window has no material to reset.
+- The `window.setBackgroundColor` IPC applies the colour on darwin unless the
+  running window is translucent — a vibrancy surface keeps its transparent
+  pixels, while an opaque one takes a plugin theme's
+  `windowAppearance.backgroundColor` (ADR 0248) for the palette the renderer
+  resolved.
+
+`AppSettings.macosWindowTranslucency` opts back into the material on macOS. It
+is read once, before `new BrowserWindow`, because Electron fixes `transparent`
+at creation: absent and `false` mean the opaque default, and a change is
+persisted for the next launch instead of mutating the window on screen. The
+Settings switch is darwin-only and shows a restart hint while the stored value
+differs from the surface the running process was created with.
 
 The renderer-side sidebar treatment is unchanged: `--ds-sidebar-glass-tint` and
 the sheen still paint the sidebar, splash, and rail so the surface keeps
@@ -68,9 +82,10 @@ without the per-frame material cost.
 - An idle focused window returns to the desktop GPU baseline: after the change
   the same measurement showed the focused-idle case matching the idle baseline
   instead of ~40%.
-- macOS loses the live wallpaper blur behind the sidebar. The tint and sheen
-  keep the glass appearance; the material is no longer translucent to desktop
-  content.
+- macOS can still show the live wallpaper blur: the opt-in restores the
+  material, and with it WindowServer's per-frame recomposition cost while the
+  window is visible and focused. The tint and sheen are the same in both
+  surfaces, so only the translucency to desktop content changes.
 - Plugins with a granted `ui.window.appearance` permission now have their
   `windowAppearance.backgroundColor` applied on macOS, matching Windows and
   Linux. Previously darwin silently ignored it because vibrancy owned the
@@ -93,9 +108,15 @@ without the per-frame material cost.
 - **Drop transparency but keep vibrancy.** A vibrancy material without a
   transparent surface still has WindowServer composite the material; the
   transparent backing is what let it blend, not what made it expensive.
-- **Make the opaque surface opt-in behind a setting.** The load is present on
-  default installs, and a setting would leave every default user with the
-  regression while adding a second rendering path to maintain.
+- **Make the setting live on a running window.** `transparent` is fixed when
+  Electron creates the window, so a live change would either leave a
+  transparent window with an opaque colour (keeping the compositor cost) or an
+  opaque window that can never show the material. Persisting the preference for
+  the next launch keeps one rendering path per process instead of a
+  half-applied state.
+- **Make the opaque surface opt-in behind a setting.** Rejected as the
+  *starting* point: the load is present on default installs, so the default
+  stays opaque and translucency is the explicit opt-in (see Decision).
 
 ## Evidence
 
@@ -104,4 +125,6 @@ without the per-frame material cost.
   foreground vs. minimized, before and after this change.
 - `apps/desktop/test/macos-opaque-window-surface.test.mjs` — window option and
   native-background contracts.
+- `apps/desktop/test/macos-window-translucency.test.mjs` — the setting, its
+  restart boundary, and the macOS-only Settings row.
 - `apps/desktop/test/window-background.test.mjs` — per-platform surface colours.

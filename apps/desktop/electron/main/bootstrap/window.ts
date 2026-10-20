@@ -41,7 +41,11 @@ import {
   installWindows11CornerController,
   usesWindows11NativeCorners,
 } from "../window-native-corners";
-import { applyMainWindowBackground, mainWindowBackgroundOptions } from "../window-background";
+import {
+  applyMainWindowBackground,
+  macosWindowSurfaceOptions,
+  mainWindowBackgroundOptions,
+} from "../window-background";
 import { recoverRendererAfterGone } from "../renderer-recovery";
 
 function windowsIconPath(): string | undefined {
@@ -76,6 +80,13 @@ export type WindowLifecycleState = {
   tray: Tray | null;
   closeBehavior: CloseBehavior;
   developerMode: boolean;
+  /**
+   * macOS surface this process launched with: `true` keeps the vibrancy
+   * material behind a transparent window, `false` paints an opaque one. It is
+   * read once before the window is created and is not the live preference —
+   * `settings.macosWindowTranslucency` is.
+   */
+  macosWindowTranslucency: boolean;
   pluginLauncherWindow: BrowserWindow | null;
   host: HostProcess | null;
 };
@@ -196,12 +207,13 @@ export async function createWindow({
       ? {
           titleBarStyle: "hiddenInset" as const,
           trafficLightPosition: MAC_TRAFFIC_LIGHT_POSITION,
-          // An opaque native surface avoids continuous WindowServer
+          // The default opaque surface avoids continuous WindowServer
           // recomposition while the Electron window is visible (issue #1064).
-          ...mainWindowBackgroundOptions(
-            process.platform,
-            initialWindowBackground,
-            windows11NativeCorners,
+          // `settings.macosWindowTranslucency` opts back into the vibrancy
+          // material, and it is only readable here: Electron fixes
+          // `transparent` when the window is created.
+          ...macosWindowSurfaceOptions(
+            windowState.macosWindowTranslucency,
             initialWindowBackground,
           ),
         }

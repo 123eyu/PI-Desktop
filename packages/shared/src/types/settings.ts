@@ -75,6 +75,14 @@ export type AppSettings = {
   promptEnhancementThinkingLevel?: ThinkingLevel;
   defaultPermissionMode?: GlobalPermissionMode;
   theme: ThemePreference;
+  /**
+   * macOS only: keep the native `sidebar` vibrancy material behind a
+   * transparent window surface. Absent and false paint an opaque surface,
+   * which keeps the window out of WindowServer's per-frame recomposition path
+   * (#1064). Other platforms ignore it. Electron fixes `transparent` when the
+   * window is created, so a change applies on the next launch.
+   */
+  macosWindowTranslucency?: boolean;
   /** UI language; `auto` (and absent) follows the OS locale. */
   language?: "auto" | "en" | "zh-CN" | "zh-TW" | "tr" | "de" | "es" | "fr" | "ko" | "pt-BR";
   /**

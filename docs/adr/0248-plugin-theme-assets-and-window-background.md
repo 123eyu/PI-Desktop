@@ -77,7 +77,9 @@ existing rule that darwin does not download one.
 > **Superseded in part by ADR 0332.** macOS now paints an opaque native window
 > surface instead of a vibrancy plate, so `windowAppearance.backgroundColor` is
 > applied on darwin like every other platform. The permission, the derived-not-
-> remembered restoration, and the palette resolution above are unchanged.
+> remembered restoration, and the palette resolution above are unchanged. With
+> `settings.macosWindowTranslucency` on, the window is a vibrancy surface again
+> and the colour is skipped for the same reason it was skipped before.
 
 Permission: new `ui.window.appearance`, confirmed at install and shown in the
 Settings permission list. A declaration without the grant is audited and

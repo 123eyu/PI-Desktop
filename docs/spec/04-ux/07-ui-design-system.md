@@ -754,7 +754,8 @@ plain status text:
 - Reduced motion: near-zero enter/exit and a static full-width bar
 - macOS: the splash uses the same sidebar treatment as the app shell (D304 /
   D348) — the `--ds-sidebar-glass-tint` fill plus top/bottom sheen over the
-  opaque native surface (ADR 0332 superseded the `sidebar` vibrancy plate), so
+  native surface (ADR 0332 superseded the `sidebar` vibrancy plate; the
+  `Translucent window` setting brings the plate back), so
   the boot surface never flashes a mismatched panel ahead of the sidebar. The
   mounted shell stays hidden under the splash until the exit fade, then
   cross-fades in. Other platforms keep the opaque `--ds-bg-primary` fill

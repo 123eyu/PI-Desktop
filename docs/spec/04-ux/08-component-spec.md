@@ -172,6 +172,12 @@ Outer frame that positions Topbar, Sidebar, MainChat, and WorkPanel. Owns resize
   `bg-primary` surfaces, so the sidebar treatment does not spread across the
   whole window.
   Windows/Linux retain their existing opaque background and frameless behavior.
+- Settings → General → Appearance → **Translucent window** (macOS only) opts
+  back into the `sidebar` vibrancy material behind a transparent backing. The
+  choice is read when the main window is created, so the row shows a restart
+  hint until the app is relaunched; both surfaces keep the same tint and sheen,
+  and while the window is translucent the `window.setBackgroundColor` IPC leaves
+  the surface to the material (a plugin theme colour is not painted over it).
 - The macOS system menu exposes New Task, Open Project, Settings, Command
   Palette, Sidebar, standard editing, zoom/fullscreen, window, Help, Logs, and
   Check for Updates actions. Windows/Linux expose equivalent product actions

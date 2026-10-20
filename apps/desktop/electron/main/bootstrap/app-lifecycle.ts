@@ -572,6 +572,29 @@ export function createApplicationLifecycle({
     }
     if (nativeTheme.themeSource === next) return;
     nativeTheme.themeSource = next;
+    // Only a translucent window owns a vibrancy material to re-apply; the
+    // opaque surface is repainted through the background path instead.
+    if (
+      process.platform === "darwin" &&
+      state.macosWindowTranslucency &&
+      state.mainWindow &&
+      !state.mainWindow.isDestroyed()
+    ) {
+      state.mainWindow.setVibrancy("sidebar");
+    }
+  }
+
+  /**
+   * Remember the surface the next main window is created with.
+   * `settings.macosWindowTranslucency` cannot take effect on a live window —
+   * Electron fixes `transparent` at creation — so a change is persisted and
+   * applied on the next launch instead of mutating the current window.
+   */
+  function applyMacosWindowTranslucency(
+    settings?: { macosWindowTranslucency?: unknown } | null,
+  ) {
+    state.macosWindowTranslucency =
+      process.platform === "darwin" && settings?.macosWindowTranslucency === true;
   }
 
   /**
@@ -725,6 +748,7 @@ export function createApplicationLifecycle({
     executeNativeMenuAction,
     dispatchNativeMenuAction,
     applyDeveloperMode,
+    applyMacosWindowTranslucency,
     applyPreventScreenSleep,
     applyKeepAwakeWhileRunning,
     disposePowerSaveBlockers,

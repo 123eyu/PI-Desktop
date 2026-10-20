@@ -35,16 +35,42 @@ export function mainWindowBackgroundOptions(
     }
     return { transparent: true, backgroundColor: "#00000000" };
   }
-  if (platform === "darwin") {
-    // An opaque native surface stops WindowServer from recompositing the
-    // window every frame while it stays visible; the vibrancy material
-    // behind a transparent surface did exactly that (issue #1064).
+  if (platform === "darwin") return macosWindowSurfaceOptions(false, color);
+  return { backgroundColor: toElectronBackgroundColor(color) };
+}
+
+/**
+ * macOS paints one of two surfaces:
+ *
+ * - `translucent` keeps the native `sidebar` vibrancy material behind a
+ *   transparent Electron surface. That is the original Liquid Glass look, and
+ *   it is also why WindowServer recomposited the whole window every frame the
+ *   material stayed visible (issue #1064).
+ * - `opaque` (the default) paints the host palette on an opaque surface, so
+ *   the window leaves the compositor's per-frame path.
+ *
+ * Electron fixes `transparent` when the window is created, so the preference
+ * is read before `new BrowserWindow` rather than applied to a live window.
+ */
+export function macosWindowSurfaceOptions(
+  translucent: boolean,
+  color: string,
+): Pick<
+  BrowserWindowConstructorOptions,
+  "vibrancy" | "visualEffectState" | "transparent" | "backgroundColor"
+> {
+  if (translucent) {
     return {
-      transparent: false,
-      backgroundColor: toElectronBackgroundColor(color),
+      vibrancy: "sidebar",
+      visualEffectState: "followWindow",
+      transparent: true,
+      backgroundColor: "#00000000",
     };
   }
-  return { backgroundColor: toElectronBackgroundColor(color) };
+  return {
+    transparent: false,
+    backgroundColor: toElectronBackgroundColor(color),
+  };
 }
 
 /** Apply a theme background to its platform-owned surface. */

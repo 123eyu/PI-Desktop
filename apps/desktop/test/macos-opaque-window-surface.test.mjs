@@ -30,18 +30,22 @@ function functionSource(source, name) {
   return source.slice(start, next === -1 ? undefined : next);
 }
 
-test("macOS main window paints an opaque native surface", () => {
+test("macOS main window takes its surface from the platform helper", () => {
   assert.match(macOptions, /titleBarStyle:\s*"hiddenInset"/);
   // The position itself lives in @pi-desktop/shared so the renderer's reserve
   // for it (styles/tokens.css) is derived from the same numbers.
   assert.match(macOptions, /trafficLightPosition:\s*MAC_TRAFFIC_LIGHT_POSITION/);
   // A transparent window over the macOS vibrancy material made WindowServer
   // recomposite the whole window every frame it stayed dirty: an idle foreground
-  // app held ~40% GPU (issue #1064). macOS now uses the opaque helper surface.
+  // app held ~40% GPU (issue #1064). The window no longer declares a material
+  // itself; the helper paints an opaque surface unless the user opted back in.
   assert.doesNotMatch(macOptions, /vibrancy:/);
   assert.doesNotMatch(macOptions, /visualEffectState:/);
   assert.doesNotMatch(macOptions, /transparent:\s*true/);
-  assert.match(macOptions, /\.\.\.mainWindowBackgroundOptions\(/);
+  assert.match(
+    macOptions,
+    /\.\.\.macosWindowSurfaceOptions\(\s*windowState\.macosWindowTranslucency,\s*initialWindowBackground,?\s*\)/,
+  );
   assert.doesNotMatch(
     mainWindowBlock,
     /vibrancy:\s*"(?:sidebar|under-window)"/,
@@ -85,9 +89,11 @@ test("native theme source follows the app preference without touching window mat
   );
   assert.match(applyNative, /if \(nativeTheme\.themeSource === next\) return;/);
   assert.match(applyNative, /nativeTheme\.themeSource = next;/);
-  // Setting the source must not re-apply a vibrancy material: the window has no
-  // material to reset, and the opaque surface is updated by the background path.
-  assert.doesNotMatch(applyNative, /setVibrancy/);
+  // Only a translucent window owns a material to reset. The opaque surface is
+  // repainted by the background path, so the theme switch and the material must
+  // not diverge.
+  assert.match(applyNative, /state\.macosWindowTranslucency &&/);
+  assert.match(applyNative, /state\.mainWindow\.setVibrancy\("sidebar"\)/);
 
   // The theme mapping lives in `applyAppThemePreference` so the narrow plugin
   // `setTheme` path can never re-derive locale, keybindings, or dev-mode menu
@@ -103,12 +109,14 @@ test("native theme source follows the app preference without touching window mat
 
 test("a theme change repaints the macOS native surface instead of skipping it", () => {
   // The native background path used to return early on darwin because vibrancy
-  // owned the surface. With an opaque window the colour has to be applied.
+  // owned the surface. With the default opaque window the colour has to be
+  // applied; only a translucent window keeps its transparent pixels.
   assert.doesNotMatch(
     windowIpcSource,
     /if \(process\.platform === "darwin"\) return \{ applied: false, theme \};/,
-    "darwin must no longer skip the native window background",
+    "darwin must no longer skip the native window background unconditionally",
   );
+  assert.match(windowIpcSource, /if \(process\.platform === "darwin" && isMacosWindowTranslucent\(\)\) \{/);
   assert.match(windowIpcSource, /applyMainWindowBackground\(/);
 });
 

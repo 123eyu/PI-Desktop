@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import {
   applyMainWindowBackground,
+  macosWindowSurfaceOptions,
   mainWindowBackgroundOptions,
   toElectronBackgroundColor,
 } from "../electron/main/window-background.ts";
@@ -41,6 +42,28 @@ test("constructor backgrounds use opaque macOS and Windows 11 surfaces", () => {
   });
 });
 
+test("macOS surfaces are opaque by default and translucent only on request", () => {
+  // Absent/false keeps the window out of WindowServer's per-frame
+  // recomposition path (issue #1064).
+  assert.deepEqual(macosWindowSurfaceOptions(false, "#12345680"), {
+    transparent: false,
+    backgroundColor: "rgba(18, 52, 86, 0.5019607843137255)",
+  });
+  // The opt-in restores the native `sidebar` material behind a transparent
+  // Electron surface.
+  assert.deepEqual(macosWindowSurfaceOptions(true, "#12345680"), {
+    vibrancy: "sidebar",
+    visualEffectState: "followWindow",
+    transparent: true,
+    backgroundColor: "#00000000",
+  });
+  // The platform helper must not disagree with the default surface.
+  assert.deepEqual(
+    mainWindowBackgroundOptions("darwin", "#12345680"),
+    macosWindowSurfaceOptions(false, "#12345680"),
+  );
+});
+
 test("Windows 11 uses an opaque top-level background", () => {
   assert.deepEqual(mainWindowBackgroundOptions("win32", "#12345680", true, "#ffffff"), {
     transparent: false,
@@ -64,6 +87,7 @@ test("background updates target the rounded content view on Windows and native w
   assert.equal(applyMainWindowBackground(linux, "linux", "#123456"), true);
   assert.deepEqual(linux.calls, [["window", "rgba(18, 52, 86, 1)"]]);
 
+  // macOS takes the colour on the opaque surface like every other platform.
   const mac = makeWindow();
   assert.equal(applyMainWindowBackground(mac, "darwin", "#123456"), true);
   assert.deepEqual(mac.calls, [["window", "rgba(18, 52, 86, 1)"]]);
