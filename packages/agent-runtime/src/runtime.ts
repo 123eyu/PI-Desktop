@@ -2012,6 +2012,12 @@ export class DesktopAgentRuntime {
   private contextReminderClaimed = false;
   private contextFallbackReminderClaimed = false;
   private activeToolProgressCleanups = new Set<(flush: boolean) => void>();
+  /**
+   * Abort handlers for the tool calls currently awaiting `tools.execute`.
+   * `abort()` drives these directly: a tool must be released even when the
+   * signal it was handed never fires, or the stop RPC stays pending forever.
+   */
+  private activeToolAborts = new Set<() => void>();
   private hostCloseUnsubscribe?: () => void;
   private turnSubagentUsage?: MessageUsage;
   private compactionRequestShape?: CompactionRequestShape;
@@ -3529,6 +3535,7 @@ Do not invent objections or turn speculative risks into blockers. Stop when the 
           unsubscribeOutput?.();
           signal?.removeEventListener("abort", abort);
           this.activeToolProgressCleanups.delete(cleanup);
+          this.activeToolAborts.delete(abort);
         };
         this.activeToolProgressCleanups.add(cleanup);
         if (signal?.aborted) {
@@ -3540,6 +3547,7 @@ Do not invent objections or turn speculative risks into blockers. Stop when the 
         if (signal) {
           signal.addEventListener("abort", abort, { once: true });
         }
+        this.activeToolAborts.add(abort);
 
         let result: {
           ok: boolean;
@@ -9152,6 +9160,14 @@ Do not invent objections or turn speculative risks into blockers. Stop when the 
     this.providerRetryAbort?.abort();
     if (this.compactionInProgress) this.compactionAborted = true;
     this.compactionAbort?.abort();
+    // `agent.abort()` normally fires the signal each in-flight tool was handed,
+    // and the tool executor reacts to that. When the signal does not reach a
+    // tool, the executor keeps awaiting `tools.execute`, the turn never
+    // settles, and this method never returns. The renderer awaits this RPC
+    // before it clears the "processing" state, so one unyielding tool pinned
+    // the whole session until it finished on its own (#1767). Drive the tools
+    // from here as well, so a stop always releases them.
+    for (const abortTool of [...this.activeToolAborts]) abortTool();
     await settlement;
   }
 

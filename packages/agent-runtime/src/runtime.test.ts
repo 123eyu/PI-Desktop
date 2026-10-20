@@ -1917,6 +1917,31 @@ describe("DesktopAgentRuntime configuration matching", () => {
       vi.useRealTimers();
     }
   });
+
+  it("releases an in-flight tool when the stop lands without the tool signal firing", async () => {
+    const host = {
+      call: vi.fn((method: string) =>
+        method === "tools.execute"
+          ? new Promise<never>(() => undefined)
+          : Promise.resolve({ ok: true, content: "abort requested" }),
+      ),
+      onNotification: vi.fn(() => () => undefined),
+    };
+    const runtime = createRuntime({ host });
+    const grep = (runtime as any).toolCatalog.get("Grep");
+    // A signal that never fires stands in for the field case: the stop reached
+    // the runtime but not the tool, so the executor kept awaiting a host call
+    // that would not return and the abort RPC never came back.
+    const silent = new AbortController();
+    const pending = grep.execute("grep-silent", { query: "needle" }, silent.signal);
+    await new Promise<void>((resolve) => setImmediate(resolve));
+
+    await runtime.abort();
+
+    await expect(pending).rejects.toMatchObject({ errorCode: "TOOL_ABORTED" });
+    expect(silent.signal.aborted).toBe(false);
+    await runtime.dispose();
+  });
 });
 
 describe("DesktopAgentRuntime live activity", () => {
