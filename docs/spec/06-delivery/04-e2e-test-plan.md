@@ -10162,6 +10162,7 @@ must keep splitting are covered by `markdown-blocks.test.mjs`.
 | Quality | E2E-SETTINGS-inline-capability-imports, E2E-CHAT-long-history-stream-keeps-responsive, E2E-CHAT-running-status-survives-output-pauses, E2E-032, E2E-033, E2E-039, E2E-043, E2E-044, E2E-045, E2E-046, E2E-047, E2E-048, E2E-048A, E2E-049, E2E-050, E2E-053, E2E-055, E2E-056, E2E-057, E2E-058, E2E-059, E2E-060, E2E-061, E2E-062, E2E-063, E2E-064, E2E-065, E2E-066, E2E-067, E2E-068, E2E-069, E2E-070, E2E-071, E2E-072, E2E-073, E2E-074, E2E-075, E2E-076, E2E-077, E2E-078, E2E-079, E2E-080, E2E-081, E2E-082, E2E-083, E2E-084, E2E-085, E2E-086, E2E-092, E2E-093, E2E-094, E2E-095, E2E-096, E2E-097, E2E-098, E2E-099, E2E-100, E2E-101, E2E-102, E2E-102a, E2E-102b, E2E-102c, E2E-102d, E2E-102e, E2E-103, E2E-AGENTS-001, E2E-021a, E2E-024N, E2E-059a, E2E-060b, E2E-060c, E2E-061a, E2E-073a, E2E-111, E2E-114, E2E-117, E2E-118, E2E-119, E2E-120, E2E-122, E2E-123, E2E-142, E2E-143, E2E-144, E2E-145, E2E-146, E2E-147, E2E-148, E2E-150, E2E-151, E2E-153, E2E-155, E2E-158, E2E-159, E2E-160, E2E-161, E2E-162, E2E-163, E2E-168, E2E-172, E2E-173, E2E-174, E2E-011g, E2E-176, E2E-177, E2E-178, E2E-179, E2E-180, E2E-181, E2E-182, E2E-183, E2E-186, E2E-187, E2E-194, E2E-195, E2E-196a, E2E-196b, E2E-196c, E2E-198, E2E-199, E2E-200, E2E-196, E2E-201, E2E-204, E2E-202, E2E-203, E2E-205, E2E-206, E2E-207, E2E-208, E2E-209, E2E-210, E2E-UPDATE-preference-and-once-only-reminder, E2E-218, E2E-259, E2E-219, E2E-250, E2E-252, E2E-102i, E2E-SUBAGENT-settlement-updates-before-parent-poll, E2E-PLUGIN-imported-pi-package-skills, E2E-PLUGIN-fs-root-follows-the-calling-session, E2E-SUBAGENT-resume-a-settled-delegation, E2E-PLUGIN-provider-catalog-add-service |
 | Quality (sidebar menu placement) | E2E-021c |
 | Quality (project ordering) | E2E-253 |
+| Quality (work-panel tab close visibility) | E2E-WORK-PANEL-active-tab-close-visibility |
 | C — Conversation & stream (IME slash alias) | E2E-255 |
 | E — Tools & permissions (Skill residency) | E2E-254 |
 | Quality (Skill residency and IME slash alias) | E2E-254, E2E-255 |
@@ -16182,6 +16183,27 @@ plugin-form fixtures in an isolated temporary directory at runtime.
 - **Status**: Windows native regression covered by
   `scripts/e2e-work-panel-drag.mjs` (`pnpm test:e2e:work-panel-drag`). macOS/Linux
   native dragging remains unqualified.
+
+### E2E-WORK-PANEL-active-tab-close-visibility
+
+- **Preconditions**: Open a desktop session on Windows with the work panel at
+  its narrow supported width and create a long-named file or plugin tab so the
+  tab wrapper is wider than the visible horizontal strip.
+- **Steps**: Activate the overflowing tab, then inspect the tab wrapper and
+  its `.work-panel-tab-close` rectangle against the strip's client viewport.
+  Repeat after switching between two overflowing tabs and after scrolling the
+  strip toward either end.
+- **Expected**: Activating a tab scrolls the whole tab wrapper and then its
+  close button into the visible strip. The close button is visible and hit
+  testable without requiring a middle click, keyboard shortcut, or widening
+  the panel.
+- **Specs linked**: `04-ux/07-ui-design-system.md` §10, issue #1762
+- **Acceptance**: Quality
+- **Milestone**: Post-M6 desktop shell maintenance
+- **Status**: Renderer source-contract regression covered by
+  `apps/desktop/test/work-panel.test.mjs`; the Windows probe in
+  `scripts/e2e-work-panel-drag.mjs` also checks the active close-button
+  rectangle before its native hit-test stages.
 
 #### E2E-LAYOUT-sidebar-project-group-fold
 
