@@ -28,6 +28,7 @@ function loadPluginUiIpc() {
     "../plugin-view-host": { pluginViewKey: (...parts) => parts.join("/") },
     "../plugin-panel-host": {},
     "../plugin-provider-catalog": { pluginProviderCatalogEntries },
+    "../plugin-session-push-gate": { createSessionPushGate: () => () => ({ ignored: false }) },
   };
   new Function("require", "exports", "module", outputText)(
     (id) => {
