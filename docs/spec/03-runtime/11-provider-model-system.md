@@ -711,6 +711,13 @@ adapter instead of Chat Completions. Foreign catalog wire APIs (such as
 relay) do not replace the provider's configured wire style (issue #1310).
 Without a model-level pin the provider-wide style applies.
 
+The built-in OpenCode Go row is a documented exception for catalog entries that
+publish a distinct Anthropic Messages route. For a models.dev Claude entry whose
+`api` is `anthropic_messages` and whose `baseUrl` is the OpenCode Anthropic root,
+agent-runtime uses that catalog API/base URL pair and reaches `/v1/messages`.
+This exception is limited to the named OpenCode Go preset; custom endpoints and
+foreign relay matches continue to use their saved provider API and base URL.
+
 This is the **universal escape hatch** guaranteeing market coverage beyond native integrations.
 
 ### 16.1 Responses stream termination (pi-ai patch)

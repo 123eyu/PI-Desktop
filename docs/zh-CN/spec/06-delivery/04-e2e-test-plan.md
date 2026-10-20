@@ -493,6 +493,24 @@ task-candidate E2E 从请求工作树运行，但使用主工作区已经准备�
 - **里程碑**：M2
 - **状态**：单元覆盖（行级模型标头、请求上下文标头、Anthropic Messages Bearer 认证与令牌轮换）；真实 Copilot 账户旅程待验证
 
+#### E2E-005K：OpenCode Go Claude 模型使用目录发布的 Anthropic 线路
+
+- **前提条件**：使用内置预设配置 OpenCode Go；确定性目录 fixture 包含
+  `claude-haiku-5-5`，其声明 `api: "anthropic_messages"` 和 OpenCode Anthropic
+  根 `baseUrl`，另有一个 DeepSeek Chat Completions 对照模型。
+- **步骤**：1）选择 Claude Haiku，通过捕获 fixture 发送文本回合。2）记录请求 URL
+  和适配器请求体。3）换成 DeepSeek 对照模型重复。4）将相同目录元数据放到自定义
+  OpenAI 兼容提供商上重复。
+- **预期**：OpenCode Claude 使用 Anthropic 适配器并访问 `/zen/go/v1/messages`，不再
+  发往 Chat Completions，也不返回 `ModelProtocolUnsupported`。DeepSeek 保持
+  `/chat/completions`。自定义提供商即使匹配到外部目录 API，仍使用保存的 wire 格式与
+  Base URL。单元覆盖位于 `packages/agent-runtime/src/provider-binding.test.ts`。
+- **链接规格**：`03-runtime/11-provider-model-system.md`、
+  `03-runtime/13-model-catalog-and-selection.md`、issue #1728
+- **验收**：F（运行时提供商请求）
+- **里程碑**：M2
+- **状态**：单元覆盖；真实端点场景草稿
+
 #### E2E-MODELS-list-layout：受限窗口中的模型列表可完整浏览
 
 - **前置条件：** 60 个已发现并配置的模型；隔离的 Electron 环境使用真实
