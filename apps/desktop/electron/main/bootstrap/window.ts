@@ -257,13 +257,19 @@ export async function createWindow({
       installWindowShape(window, DEFAULT_WINDOW_CORNER_RADIUS, screen);
     }
   }
-  applyMainWindowBackground(
-    window,
-    process.platform,
-    initialWindowBackground,
-    windows11NativeCorners,
-    initialWindowBackground,
-  );
+  // A translucent macOS window owns its transparent backing and the native
+  // vibrancy material; painting the host palette here would flatten the glass
+  // and quietly make the setting look broken. The opaque surface still takes
+  // the colour on every platform.
+  if (!(process.platform === "darwin" && windowState.macosWindowTranslucency)) {
+    applyMainWindowBackground(
+      window,
+      process.platform,
+      initialWindowBackground,
+      windows11NativeCorners,
+      initialWindowBackground,
+    );
+  }
   suppressLinuxFramelessSystemMenu(window);
   const initialBounds = window.getBounds();
   windowState.workPanelBaseBounds = restoredBounds

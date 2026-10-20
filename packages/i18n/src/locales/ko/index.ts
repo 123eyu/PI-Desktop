@@ -1444,7 +1444,7 @@ sklm: {
     preventScreenSleep: "화면 절전 방지",
     preventScreenSleepDesc: "앱이 실행되는 동안 화면이 꺼지지 않도록 합니다. 모든 플랫폼에서 시스템 전원 관리 API를 사용합니다.",
     windowTranslucency: "반투명 창",
-    windowTranslucencyDesc: "macOS 창을 데스크톱 흐림 위에 반투명하게 유지합니다. 창이 보이는 동안 GPU를 더 사용하므로 유휴 부하를 가장 낮추려면 끄세요.",
+    windowTranslucencyDesc: "macOS 창을 데스크톱 흐림 위에 반투명하게 유지합니다(기본값). 창이 보이는 동안 GPU를 더 사용하므로, 유휴 부하를 가장 낮추려면 끄세요. 변경 사항은 재시작 후 적용됩니다.",
     windowTranslucencyRestart: "적용하려면 재시작",
     linkOpenTarget: "링크 열기 위치",
     linkOpenTargetWorkpanel: "작업 패널 브라우저",

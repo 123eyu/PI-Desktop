@@ -1434,7 +1434,7 @@ sklm: {
     "preventScreenSleep": "Evitar suspensión de pantalla",
     "preventScreenSleepDesc": "Mantiene la pantalla encendida mientras la aplicación está en ejecución. Usa las API de gestión de energía del sistema en todas las plataformas.",
     "windowTranslucency": "Ventana translúcida",
-    "windowTranslucencyDesc": "Mantiene la ventana de macOS translúcida sobre el desenfoque del escritorio. Usa más GPU mientras la ventana está visible; desactívalo para la menor carga en reposo.",
+    "windowTranslucencyDesc": "Mantiene la ventana de macOS translúcida sobre el desenfoque del escritorio; es el valor predeterminado. Usa más GPU mientras la ventana está visible; desactívalo para una ventana opaca con la menor carga en reposo. El cambio se aplica tras reiniciar.",
     "windowTranslucencyRestart": "Reinicia para aplicar",
     "linkOpenTarget": "Destino al abrir enlaces",
     "linkOpenTargetWorkpanel": "Navegador del panel de trabajo",

@@ -19,17 +19,35 @@ const [sharedTypes, settingsSource, windowSource, lifecycleSource, mainStateSour
     readMainModule("bootstrap/startup.ts"),
   ]);
 
-test("the macOS translucency preference is an optional, off-by-default setting", () => {
+test("the macOS translucency preference is a stored opt-out of the default surface", () => {
   assert.match(sharedTypes, /macosWindowTranslucency\?: boolean;/);
-  assert.match(mainStateSource, /macosWindowTranslucency = false;/);
+  // The store defaults to the shipped translucent surface, so a boot without
+  // settings still paints the window the user expects.
+  assert.match(mainStateSource, /macosWindowTranslucency = true;/);
+  // Absent means the shipped translucency; only an explicit `false` asks for
+  // the cheaper opaque surface.
   assert.match(
     lifecycleSource,
-    /state\.macosWindowTranslucency =\s*process\.platform === "darwin" && settings\?\.macosWindowTranslucency === true;/,
+    /state\.macosWindowTranslucency =\s*process\.platform === "darwin" && settings\?\.macosWindowTranslucency !== false;/,
   );
   // The value is read where the window is created, before Electron fixes the
   // surface, and it comes from the settings the boot sequence applied.
   assert.match(windowSource, /windowState\.macosWindowTranslucency,/);
   assert.match(startupSource, /applyMacosWindowTranslucency\(stored\);/);
+});
+
+test("creating a translucent macOS window does not repaint its surface opaque", () => {
+  // `applyMainWindowBackground` runs right after the window exists. On darwin it
+  // must stay out of a translucent window, or the vibrancy glass is flattened
+  // before it is ever shown.
+  const backgroundCall =
+    windowSource.match(
+      /if \(!\(process\.platform === "darwin" && windowState\.macosWindowTranslucency\)\) \{\s*applyMainWindowBackground\(/,
+    )?.[0] ?? "";
+  assert.ok(
+    backgroundCall,
+    "the post-creation background paint must skip a translucent macOS window",
+  );
 });
 
 test("a running window cannot switch surfaces, so the preference waits for a launch", async () => {
@@ -45,7 +63,9 @@ test("a running window cannot switch surfaces, so the preference waits for a lau
     windowIpc,
     /process\.platform === "darwin" && isMacosWindowTranslucent\(\)/,
   );
-  assert.match(windowIpc, /macosWindowTranslucency: isMacosWindowTranslucent\(\)/);
+  // The renderer reads the surface this process created, and a non-macOS window
+  // reports `false` rather than inheriting a platform-independent default.
+  assert.match(windowIpc, /const macosWindowTranslucency =\s*process\.platform === "darwin" && isMacosWindowTranslucent\(\);/);
 });
 
 test("the switch is macOS-only and says when a restart is needed", async () => {
@@ -54,7 +74,7 @@ test("the switch is macOS-only and says when a restart is needed", async () => {
     settingsSource,
     /platform === "darwin" && \(\s*<MacosWindowTranslucencyRow settings=\{settings\} saveSettings=\{saveSettings\} \/>/,
   );
-  assert.match(row, /settings\.macosWindowTranslucency === true/);
+  assert.match(row, /settings\.macosWindowTranslucency !== false/);
   assert.match(row, /saveSettings\(\{ macosWindowTranslucency: !translucent \}\)/);
   assert.match(row, /t\("settings\.windowTranslucencyRestart"\)/);
   assert.match(row, /const \[applied, setApplied\] = useState<boolean \| null>\(null\)/);

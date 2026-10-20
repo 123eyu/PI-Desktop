@@ -1434,7 +1434,7 @@ sklm: {
     "preventScreenSleep": "Bildschirmsperre verhindern",
     "preventScreenSleepDesc": "Hält das Display wach, solange die App läuft. Nutzt plattformübergreifend die System-Energieverwaltung.",
     "windowTranslucency": "Transparentes Fenster",
-    "windowTranslucencyDesc": "Hält das macOS-Fenster über der Unschärfe des Schreibtischs transparent. Kostet mehr GPU, solange das Fenster sichtbar ist; für die geringste Leerlauflast ausschalten.",
+    "windowTranslucencyDesc": "Hält das macOS-Fenster über der Unschärfe des Schreibtischs transparent; das ist die Voreinstellung. Kostet mehr GPU, solange das Fenster sichtbar ist; für die geringste Leerlauflast ausschalten. Die Änderung greift nach einem Neustart.",
     "windowTranslucencyRestart": "Zum Anwenden neu starten",
     "linkOpenTarget": "Ziel für Link-Öffnung",
     "linkOpenTargetWorkpanel": "Arbeitsbereich-Browser",

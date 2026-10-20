@@ -1434,7 +1434,7 @@ sklm: {
     "preventScreenSleep": "Empêcher la mise en veille",
     "preventScreenSleepDesc": "Garde l'écran allumé tant que l'application est ouverte. Utilise les API de gestion d'énergie du système sur toutes les plateformes.",
     "windowTranslucency": "Fenêtre translucide",
-    "windowTranslucencyDesc": "Garde la fenêtre macOS translucide sur le flou du bureau. Consomme plus de GPU tant que la fenêtre est visible ; désactivez pour une charge au repos minimale.",
+    "windowTranslucencyDesc": "Garde la fenêtre macOS translucide sur le flou du bureau ; c'est le réglage par défaut. Consomme plus de GPU tant que la fenêtre est visible ; désactivez pour une fenêtre opaque et une charge au repos minimale. Le changement s'applique après un redémarrage.",
     "windowTranslucencyRestart": "Redémarrer pour appliquer",
     "linkOpenTarget": "Destination d'ouverture des liens",
     "linkOpenTargetWorkpanel": "Navigateur du panneau de travail",

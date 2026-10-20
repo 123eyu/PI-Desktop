@@ -1448,7 +1448,7 @@ sklm: {
     preventScreenSleep: "Prevent screen sleep",
     preventScreenSleepDesc: "Keep the display awake while the app is running. Uses system power management APIs on all platforms.",
     windowTranslucency: "Translucent window",
-    windowTranslucencyDesc: "Keep the macOS window translucent over the desktop blur. It costs more GPU while the window is visible; turn it off for the lowest idle load.",
+    windowTranslucencyDesc: "Keep the macOS window translucent over the desktop blur, which is the default. It costs more GPU while the window is visible; turn it off for an opaque window with the lowest idle load. A change applies after a restart.",
     windowTranslucencyRestart: "Restart to apply",
     linkOpenTarget: "Link open destination",
     linkOpenTargetWorkpanel: "Work panel browser",

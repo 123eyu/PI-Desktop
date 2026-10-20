@@ -42,7 +42,7 @@ test("constructor backgrounds use opaque macOS and Windows 11 surfaces", () => {
   });
 });
 
-test("macOS surfaces are opaque by default and translucent only on request", () => {
+test("macOS surfaces follow the translucency flag", () => {
   // Absent/false keeps the window out of WindowServer's per-frame
   // recomposition path (issue #1064).
   assert.deepEqual(macosWindowSurfaceOptions(false, "#12345680"), {

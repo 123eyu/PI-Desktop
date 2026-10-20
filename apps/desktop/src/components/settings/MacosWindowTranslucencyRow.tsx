@@ -21,7 +21,8 @@ export function MacosWindowTranslucencyRow({
   saveSettings: (patch: Partial<AppSettings>) => Promise<void>;
 }) {
   const { t } = useTranslation();
-  const translucent = settings.macosWindowTranslucency === true;
+  // Translucency is the shipped look, so only an explicit `false` turns it off.
+  const translucent = settings.macosWindowTranslucency !== false;
   // `null` until the running window reports its surface; an unreadable state
   // keeps the hint hidden rather than claiming a restart is needed.
   const [applied, setApplied] = useState<boolean | null>(null);
