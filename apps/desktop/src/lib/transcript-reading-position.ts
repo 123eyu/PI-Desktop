@@ -75,12 +75,29 @@ export function restoreTranscriptReadingPosition(
   content: HTMLElement,
   position: TranscriptReadingPosition,
 ): boolean {
-  if (!transcriptHasLayout(scroller) || !position.messageId) return false;
-  const id = CSS.escape(position.messageId);
-  const row = content.querySelector<HTMLElement>(`[data-minimap-id="${id}"], [data-message-id="${id}"]`);
-  if (!row) return false;
-  const rect = row.getBoundingClientRect();
-  if (rect.height === 0) return false;
-  scroller.scrollTop += rect.top - scroller.getBoundingClientRect().top - position.offset;
+  if (!transcriptHasLayout(scroller)) return false;
+  if (position.messageId) {
+    const id = CSS.escape(position.messageId);
+    const row = content.querySelector<HTMLElement>(`[data-minimap-id="${id}"], [data-message-id="${id}"]`);
+    if (row) {
+      const rect = row.getBoundingClientRect();
+      if (rect.height > 0) {
+        scroller.scrollTop += rect.top - scroller.getBoundingClientRect().top - position.offset;
+        return true;
+      }
+    }
+  }
+  // The anchored row is not mounted. A reveal mounts only a trailing slice of
+  // history (lib/transcript-window.ts:23-28), so an older bookmark routinely
+  // points at a row that is not in the DOM yet — and waiting for it to arrive
+  // cannot work, because a pending restore makes `useTranscriptScroll` discard
+  // every scroll event, so the reader can never travel up to mount it.
+  //
+  // The bookmark already recorded the absolute offset it was taken at, so fall
+  // back to it: an approximation of the same place beats a pane that cannot be
+  // scrolled and does not restore. `false` is reserved for a bookmark with no
+  // usable offset at all, which only a never-laid-out pane produces.
+  if (!Number.isFinite(position.scrollTop) || position.scrollTop < 0) return false;
+  scroller.scrollTop = position.scrollTop;
   return true;
 }
