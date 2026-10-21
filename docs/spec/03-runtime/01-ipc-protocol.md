@@ -1759,10 +1759,12 @@ type McpOAuthLoginEvent = {
   | { kind: "authUrl"; url: string; instructions?: string; opened: boolean }
   | { kind: "progress"; message: string }
   | { kind: "done"; status: McpServerStatus }
-  | { kind: "error"; message: string }
+  | { kind: "error"; message: string; errorCode?: "MCP_OAUTH_DCR_UNAVAILABLE" }
   | { kind: "cancelled" }
 );
 ```
+
+When authorization-server metadata has no `registration_endpoint` and no reusable client is available, login fails before opening the external browser. The error event carries `MCP_OAUTH_DCR_UNAVAILABLE`; the renderer shows localized recovery guidance. The main-process message remains diagnostic and must not include discovered authorization endpoint URLs.
 
 #### Status and Token Storage
 - `McpServerStatus` includes:

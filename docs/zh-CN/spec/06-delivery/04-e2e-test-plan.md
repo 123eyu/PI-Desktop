@@ -5146,6 +5146,7 @@ eleven-tool-round desktop paths are verified by
   6. 设置界面状态更新为已连接及工具数量，弹出成功提示，并显示 OAuth 徽标。
   7. 访问令牌过期时，`UserMcpRuntime` 透明使用 refresh token 换取新令牌，无需用户重新交互。
   8. 通过 `mcp.transfer` 迁移服务器时，自动将 OAuth 令牌迁移至新 ID 下。
+- **无 DCR 的情况**：如果授权服务器元数据缺少 `registration_endpoint`，且没有可复用的客户端，点击“授权”不会打开浏览器。错误事件包含 `MCP_OAUTH_DCR_UNAVAILABLE`，设置页会显示本地化恢复指引，建议向服务器运营方索取客户端 ID，或改用支持 DCR 的服务器。
 - **链接规格**：`03-runtime/01-ipc-protocol.md`、ADR 0283、ADR 0142
 - **验收**：E（工具和权限）、安全性
 - **里程碑**：M5

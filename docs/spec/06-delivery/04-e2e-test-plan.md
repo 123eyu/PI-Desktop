@@ -8512,6 +8512,7 @@ must keep splitting are covered by `markdown-blocks.test.mjs`.
   6. Settings UI updates status to `Ready` with discovered tools, shows localized success toast, and displays `OAuth` badge.
   7. When access token expires, `UserMcpRuntime` transparently uses refresh token to obtain a fresh access token without user prompt.
   8. Moving the server via `mcp.transfer` preserves and re-keys the OAuth token secret under the destination ID.
+- **No-DCR case**: When authorization-server metadata omits `registration_endpoint` and there is no reusable client, Authorize does not open a browser. The error event contains `MCP_OAUTH_DCR_UNAVAILABLE` and Settings shows localized recovery guidance to request a client ID from the server operator or use a DCR-capable server.
 - **Specs linked**: `03-runtime/01-ipc-protocol.md`, ADR 0283, ADR 0142
 - **Acceptance**: E (tools & permissions), Security
 - **Milestone**: M5
