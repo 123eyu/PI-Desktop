@@ -46,7 +46,7 @@ export type ShutdownDependencies = {
   mcpOAuth?: Pick<McpOAuthManager, "disposeAll">;
   browserHost: Pick<BrowserHost, "dispose">;
   pluginViews: Pick<PluginViewHost, "dispose">;
-  /** Composer suggestions still waiting for an answer at quit (ADR 0332). */
+  /** Composer suggestions still waiting for an answer at quit (ADR 0333). */
   composerSuggestion?: Pick<ComposerSuggestionRelay, "dispose">;
   updater: Pick<AppUpdaterController, "dispose" | "isInstallingUpdate">;
   logger: Pick<Logger, "app">;

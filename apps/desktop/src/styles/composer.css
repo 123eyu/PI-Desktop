@@ -225,7 +225,7 @@
 }
 
 /*
- * A plugin suggestion (`pi.composer.suggest`, ADR 0332) rides in the same
+ * A plugin suggestion (`pi.composer.suggest`, ADR 0333) rides in the same
  * placeholder layer, so it can never cover a message. It reads brighter than
  * the shell's own placeholder because it is text a person can take with Tab,
  * not a hint about the box; the hint beside it stays quiet and never wraps.

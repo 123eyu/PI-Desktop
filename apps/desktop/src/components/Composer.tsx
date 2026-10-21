@@ -497,7 +497,7 @@ export function Composer({
   // Plugin draft and attachment actions reach this composer while it takes input.
   usePluginComposerBridge({ ...draft, inputBlocked, enabled: localToolsAllowed });
   // A plugin may have offered one line for this empty draft; it shows in the
-  // placeholder layer and `Tab` takes it (ADR 0332).
+  // placeholder layer and `Tab` takes it (ADR 0333).
   const suggestion = useComposerSuggestion();
 
   // Keep the transcript's bottom reserve in sync with the composer's real

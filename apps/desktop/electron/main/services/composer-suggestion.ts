@@ -1,5 +1,5 @@
 /**
- * The main-process half of `pi.composer.suggest` (ADR 0332).
+ * The main-process half of `pi.composer.suggest` (ADR 0333).
  *
  * A suggestion is produced by a plugin process, long after the turn it answers
  * ended, so by the time it arrives the user may have typed, switched session,

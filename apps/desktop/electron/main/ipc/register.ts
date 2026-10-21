@@ -65,7 +65,7 @@ export type RegisterIpcDependencies = {
   setActivePluginSession: (
     next: { sessionId: string; projectPath: string | null } | null,
   ) => void;
-  /** The shell's answer to a composer suggestion it was offered (ADR 0332). */
+  /** The shell's answer to a composer suggestion it was offered (ADR 0333). */
   settleComposerSuggestion: (answer: ComposerSuggestionAnswer) => boolean;
   activeUserSubagentDocuments: (...args: any[]) => Promise<any>;
   disabledBuiltinSubagents: () => Promise<string[]>;

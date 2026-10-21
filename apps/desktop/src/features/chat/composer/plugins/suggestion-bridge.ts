@@ -1,5 +1,5 @@
 /**
- * The renderer end of `pi.composer.suggest` (ADR 0332).
+ * The renderer end of `pi.composer.suggest` (ADR 0333).
  *
  * A plugin process offers one line, the shell decides whether the composer can
  * take it, and the user takes it with Tab, drops it with Esc, or drops it by

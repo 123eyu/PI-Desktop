@@ -28,7 +28,7 @@ export type ComposerInputProps = {
   runActive: boolean;
   composerAc: CompletionController;
   /**
-   * The plugin suggestion on screen, if any (ADR 0332). It is drawn in the
+   * The plugin suggestion on screen, if any (ADR 0333). It is drawn in the
    * placeholder layer while the draft is empty, and `Tab` / `Esc` act on it only
    * when nothing else claims those keys.
    */

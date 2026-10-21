@@ -4616,7 +4616,7 @@ export class PluginRuntime {
   }
   /**
    * `pi.composer.suggest`: one line into the composer of the session the user
-   * is looking at (`composer.suggest`, ADR 0332).
+   * is looking at (`composer.suggest`, ADR 0333).
    *
    * The plugin names the session and the turn its text answers. Nothing here
    * can fail the plugin for a place that will not show it: the text is shaped
@@ -5584,7 +5584,7 @@ export class PluginRuntime {
       composer: {
         /**
          * One dismissible line in the placeholder layer of the composer the
-         * user is looking at (`composer.suggest`, ADR 0332).
+         * user is looking at (`composer.suggest`, ADR 0333).
          */
         suggest: async (input?: PluginComposerSuggestInput) =>
           this.suggestComposer(loaded, input),

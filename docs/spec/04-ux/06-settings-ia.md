@@ -318,6 +318,14 @@ Settings is a **full-window page** that replaces the app sidebar + main chrome (
   persisted-settings compatibility and is no longer exposed; an absent or
   unknown value shows reasoning and an explicit `compact` hides it. Settings
   search indexes the row.
+- **Don't collapse commands** is a toggle that persists as the optional
+  `keepCommandsExpanded` boolean in host-owned settings, defaulting to on when
+  absent. On keeps shell calls on their own rows beside the tool groups they ran
+  among; off folds them back into those groups, the layout used before commands
+  were separated. It affects presentation only — neither value changes how many
+  process disclosures a turn renders (always one), what a tool received, or what
+  is stored — and it is read at render time, so toggling repaints the transcript
+  immediately. Settings search indexes the row.
 - The **Command shell** row in Defaults uses the host-discovered catalog of native
   PowerShell 5.1, PowerShell 7, cmd, Git Bash, and Bash with IDs
   `windows-powershell`, `windows-pwsh`, `cmd`, `git-bash`, and

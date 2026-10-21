@@ -4,7 +4,7 @@ import test from "node:test";
 register(new URL("./helpers/ts-import-hooks.mjs", import.meta.url));
 
 /*
- * The main-process half of `pi.composer.suggest` (ADR 0332): which offers never
+ * The main-process half of `pi.composer.suggest` (ADR 0333): which offers never
  * reach the window, which one may answer, and what happens to a suggestion when
  * the turn or the plugin behind it ends first.
  */

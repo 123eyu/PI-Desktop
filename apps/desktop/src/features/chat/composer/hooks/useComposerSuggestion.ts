@@ -1,5 +1,5 @@
 /**
- * The composer's view of the plugin suggestion slot (ADR 0332).
+ * The composer's view of the plugin suggestion slot (ADR 0333).
  *
  * The state itself lives in `../plugins/suggestion-bridge.ts`, outside React, so
  * a suggestion that arrives while the composer is unmounted is refused once

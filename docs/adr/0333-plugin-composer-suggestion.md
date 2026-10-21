@@ -1,4 +1,4 @@
-# ADR 0332: A plugin-owned suggestion in the Composer placeholder
+# ADR 0333: A plugin-owned suggestion in the Composer placeholder
 
 - Status: Accepted
 - Date: 2026-10-24

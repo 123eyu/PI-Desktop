@@ -4,7 +4,7 @@ import test from "node:test";
 register(new URL("./helpers/ts-import-hooks.mjs", import.meta.url));
 
 /*
- * The renderer half of `pi.composer.suggest` (ADR 0332): whether an offer can go
+ * The renderer half of `pi.composer.suggest` (ADR 0333): whether an offer can go
  * on screen, what takes it down, and which key acts on it while the completion
  * list still owns Tab and the first Escape.
  */

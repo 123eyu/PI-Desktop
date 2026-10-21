@@ -3367,21 +3367,33 @@ identify the platform validation still needed.
 - **Steps**: 1) Stream progress paragraph A, a multi-item search segment,
   progress paragraph B, and a multi-item command segment with adjacent Bash rows.
   2) Inspect the open active group; manually close it while more output arrives.
-  3) Complete the turn and inspect untouched versus user-owned groups, and confirm
-  the Bash rows stay visible with every group collapsed. 4) Open one completed
-  group and one item, copy its output, close and reopen the group, then open a
-  sibling group independently. 5) Repeat with a singleton item and with the last
-  activity group's literal final item set to a tool/search, thinking, failed tool,
-  and denied tool. 6) Toggle `Show thinking` off and on and inspect the
-  active-thinking, failure/recovery and completed states. 7) Remount rows within
-  the retained pane, then reload the renderer and reopen the session.
-- **Expected**: Chronological collapsible process segments keep the trailing answer
-  outside them. The active group opens, then closes on completion only if
-  untouched; completed groups otherwise start closed. Bash/run aliases are excluded
-  from every process disclosure and stay visible even when every group is collapsed.
-  A singleton has no group wrapper. No item payload opens itself: a tool/search row
-  stays a header until the user opens it, while a final thinking item keeps its own
-  leaf default and never selects an earlier tool. When `Show thinking` is off, the
+  3) Complete the turn and confirm exactly one process disclosure owns every
+  pre-answer row; close it and confirm the groups and run rows close with it, then
+  reopen and confirm the group choice returns. 4) Open one completed group and one
+  item, copy its output, close and reopen the group, then open a sibling group
+  independently. 5) Toggle `Don't collapse commands` off and on and inspect where
+  the run rows render while the disclosure count stays one. 6) Repeat with a
+  singleton item and with the last activity group's literal final item set to a
+  tool/search, thinking, failed tool, and denied tool. 7) Toggle `Show thinking`
+  off and on and inspect the active-thinking, failure/recovery and completed
+  states. 8) Remount rows within the retained pane, then reload the renderer and
+  reopen the session.
+- **Expected**: A turn renders exactly one process disclosure containing every
+  pre-answer row, the `Bash`/run rows included; the trailing answer, assistant
+  errors and stopped trailing text stay outside it, as do pending actions. The
+  active group opens, then closes on completion only if untouched; completed
+  groups otherwise start closed. Closing the turn's disclosure closes the groups
+  and run rows under it, and reopening restores the user's group choices. With
+  `Don't collapse commands` on (default), run rows render as their own top-level
+  rows beside the groups, adjacent calls stay separate, and a row's detail stays
+  closed until opened; with it off they fold into their groups. Neither value
+  changes the disclosure count. A singleton has no group wrapper. No item payload
+  opens itself: a tool/search row stays a header until the user opens it, while a
+  final thinking item keeps its own leaf default and never selects an earlier
+  tool. The header reports `Running`, `Finished`, `Stopped`, or `Failed` with
+  failure and stop outranking a normal finish, reads `Thinking` while the live
+  step is reasoning, never repeats the current command, and omits the duration
+  when none was recorded. When `Show thinking` is off, the
   live thinking indicator stays visible while completed reasoning text and excerpts
   are hidden and empty thinking-only containers are omitted; turning it back on
   restores them. Parent, child and sibling choices are independent;
@@ -3395,9 +3407,9 @@ identify the platform validation still needed.
   `04-ux/09-interaction-patterns.md`
 - **Acceptance**: C (chat stream), E (tools), F (persistence)
 - **Milestone**: M3
-- **Status**: Draft. For the 2026-09-20 nested-disclosure change, this scenario is
-  intended behavior for static source/design review only; no unit, component,
-  integration, browser, Electron or E2E test is added or run by that scoped task.
+- **Status**: Draft. Unit and style checks cover the one-disclosure,
+  command-folding and header rules; this scenario remains the intended manual
+  transcript-reload behavior.
 
 #### E2E-041: Conversation minimap navigates long transcripts
 
@@ -17168,34 +17180,48 @@ plugin-form fixtures in an isolated temporary directory at runtime.
 
 - **Preconditions:** A turn with progress paragraph A, multiple searches plus
   thinking, progress paragraph B, multiple commands plus thinking, and a final
-  answer; the `Show thinking` preference on and off; legacy message-level
-  transcript search targets.
+  answer; the `Show thinking` preference on and off; the `Don't collapse
+  commands` preference on and off; legacy message-level transcript search
+  targets.
 - **Steps:** Confirm a live active group starts open, let that same turn finish
-  without interacting, and confirm the group collapses. On a second turn, explicitly
-  open a completed group and confirm the choice survives subsequent updates. Turn
-  `Show thinking` off and confirm the live thinking indicator remains while
-  completed reasoning rows and excerpts disappear and no empty thinking-only
-  container is left; turn it back on and confirm the completed rows return. Collapse
-  every group and confirm the Bash/run rows stay visible. Review the nested path,
-  including independent group/item toggles, parent close/reopen, a singleton
-  segment, literal-final-item leaf selection, failure/denial/recovery, retained-pane
-  remounts, Bash rows staying standalone (including adjacent Bash rows) with their
-  details closed until opened, and a legacy search reveal.
-- **Expected:** Chronological collapsible process segments leave the final answer,
-  assistant errors, stopped trailing text and pending actions outside them. The
-  active group starts open; untouched groups collapse at completion, while explicit
-  user choices persist. These group defaults do not depend on the `Show thinking`
-  preference. Bash/run aliases are excluded from every process disclosure and stay
-  standalone rows visible even when every group is collapsed; adjacent Bash rows
-  each remain standalone and a Bash row's detail stays closed until the user opens
-  it. When `Show thinking` is off, the live thinking indicator stays visible,
+  without interacting, and confirm the group collapses. On a second turn,
+  explicitly open a completed group and confirm the choice survives subsequent
+  updates; then close the turn's disclosure and confirm the group closes with it,
+  and reopen to confirm the group choice is restored. Turn `Show thinking` off
+  and confirm the live thinking indicator remains while completed reasoning rows
+  and excerpts disappear and no empty thinking-only container is left; turn it
+  back on and confirm the completed rows return. Turn `Don't collapse commands`
+  off and confirm the run rows fold into their groups while the turn still
+  renders exactly one disclosure, then turn it on and confirm the standalone rows
+  return. Confirm the header reads running, finished, stopped, or failed for each
+  case, names compaction and recovery while those stages are live, omits the
+  duration when none was recorded, and never repeats the current command. Review
+  the nested path, including independent group/item toggles, a singleton segment,
+  literal-final-item leaf selection, failure/denial/recovery, retained-pane
+  remounts, run rows keeping their details closed until opened, and a legacy search
+  reveal.
+- **Expected:** A turn renders exactly one process disclosure containing every
+  pre-answer row, leaving the final answer, assistant errors, stopped trailing
+  text and pending actions outside it. The active group starts open; untouched
+  groups collapse at completion, while explicit user choices persist and are
+  restored when the enclosing disclosure is reopened. These group defaults do not
+  depend on the `Show thinking` preference. With `Don't collapse commands` on,
+  run aliases render as their own rows beside the groups, adjacent rows stay
+  separate and a row's detail stays closed until opened; with it off they fold
+  into their groups. Neither value changes the disclosure count. The header
+  reports running, finished, stopped, or failed with failure and stop outranking
+  a normal finish, reads `Thinking` while the live step is reasoning, names
+  compaction and recovery while those stages are live, omits a duration the
+  transcript did not record, and never repeats the current command. Nested group
+  headers and run rows share the turn header's left edge.
+  When `Show thinking` is off, the live thinking indicator stays visible,
   completed reasoning rows and excerpts are hidden, and empty thinking-only
   containers are omitted; turning it back on restores them. Singletons have no
   group. No item payload opens itself: a tool/search row stays closed until the user
   opens it, while a final thinking item keeps its own leaf default.
   Parent/child/sibling states remain independent, pane-owned user choices survive
   updates, preference changes and remounts, and renderer restart reapplies defaults.
-  Search reveals the process segment and activity group that own the named message
+  Search reveals the turn process and activity group that own the named message
   once per request; item-level targeting is not part of this change, and reasoning
   hidden by the preference stays hidden until the user turns `Show thinking` on.
   Saved `showThinking` survives restart; an absent value falls back to the legacy
@@ -18374,7 +18400,7 @@ host-created files. The full app's file-preview viewer is covered separately.
   offer answers `{ shown: false, reason }` and shows nothing. No transcript row,
   toast, or overlay appears, and the plugin's call is audited.
 - **Specs linked**: `07-plugins/03-plugin-api.md`,
-  `07-plugins/13-plugin-permissions-matrix.md`, ADR 0332.
+  `07-plugins/13-plugin-permissions-matrix.md`, ADR 0333.
 - **Acceptance**: A (Composer entry path), Security (permission-gated, never
   sent by the plugin).
 - **Milestone**: M6+

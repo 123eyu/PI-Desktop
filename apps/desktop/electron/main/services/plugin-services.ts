@@ -639,7 +639,7 @@ export function createPluginServices({
     announce: broadcastSessionEvent,
   });
   /**
-   * `pi.composer.suggest` (ADR 0332): the main process refuses a suggestion
+   * `pi.composer.suggest` (ADR 0333): the main process refuses a suggestion
    * that names another session or an overtaken turn, and the shell answers
    * whether the composer can take it. The composer owns its own state, so this
    * only ever relays — nothing here writes the draft.

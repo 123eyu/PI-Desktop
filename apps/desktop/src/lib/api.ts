@@ -424,6 +424,7 @@ export function normalizeSettings(settings: AppSettings): AppSettings {
     sidebarRunningIndicators: settings.sidebarRunningIndicators !== false,
     sidebarRunningBadge: settings.sidebarRunningBadge !== false,
     sidebarRunningRail: settings.sidebarRunningRail === true,
+    keepCommandsExpanded: settings.keepCommandsExpanded !== false,
     defaultMode: normalizeMode((settings as { defaultMode?: unknown }).defaultMode),
     infiniteProviderRetry:
       (settings as { infiniteProviderRetry?: unknown }).infiniteProviderRetry === true,
@@ -545,6 +546,7 @@ export function validateSettingsWrite(settings: AppSettings): AppSettings {
     "sidebarRunningRail",
     "sidebarSessionTime",
     "macosWindowTranslucency",
+    "keepCommandsExpanded",
   ] as const) {
     if (
       Object.prototype.hasOwnProperty.call(value, key) &&
@@ -1781,7 +1783,7 @@ export const api = {
   },
   /**
    * A plugin offered one line for the composer, or the main process ordered
-   * whatever is on screen dropped (`pi.composer.suggest`, ADR 0332).
+   * whatever is on screen dropped (`pi.composer.suggest`, ADR 0333).
    *
    * The shell answers every offer over `pluginComposerSuggestionResult`, because
    * only the renderer knows whether the draft can take it. A malformed message

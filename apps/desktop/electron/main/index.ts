@@ -642,7 +642,7 @@ const sessionCoordination = createSessionCoordination({
   onTurnStarted: (sessionId: string, turnId: string) => {
     pluginServices.pluginSession.noteTurnStarted(sessionId, turnId);
     // A new turn owns the composer now, so a suggestion about the previous one
-    // stops being shown and stops being showable (ADR 0332).
+    // stops being shown and stops being showable (ADR 0333).
     pluginServices.composerSuggestion.noteTurnStarted(sessionId, turnId);
   },
 });

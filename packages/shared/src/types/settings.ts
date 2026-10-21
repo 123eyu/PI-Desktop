@@ -107,6 +107,16 @@ export type AppSettings = {
    */
   showThinking?: boolean;
   /**
+   * Keep shell calls (`Bash`, `exec`, `shell`, …) as their own rows instead of
+   * folding them into the surrounding tool group. Absent means `true`, so an
+   * existing install keeps today's scannable command rows.
+   *
+   * The turn's process disclosure itself is not affected: both values render
+   * exactly one top-level disclosure per turn. This preference only decides
+   * whether a run row sits inside a group or beside it.
+   */
+  keepCommandsExpanded?: boolean;
+  /**
    * @deprecated Retained for persisted-settings compatibility. New writes use
    * `showThinking`; this field is read only as a fallback when `showThinking`
    * is absent. An explicit `compact` hides reasoning; `detailed`, an unknown

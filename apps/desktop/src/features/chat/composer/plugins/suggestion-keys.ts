@@ -1,5 +1,5 @@
 /**
- * Which key, if any, acts on the composer's plugin suggestion (ADR 0332).
+ * Which key, if any, acts on the composer's plugin suggestion (ADR 0333).
  *
  * The composer already has owners for both keys and they keep them: a `@` / `/`
  * completion list takes `Tab` (and `Enter`), and its own `Escape` closes it
