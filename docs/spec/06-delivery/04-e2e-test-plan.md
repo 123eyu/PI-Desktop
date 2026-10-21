@@ -8,6 +8,41 @@
 
 ## 1. Goals
 
+### E2E-PI-130-kernel-upgrade
+
+- **Preconditions:** Exact Pi 1.3.0 pins and migrated patches in a dedicated
+  worktree, isolated fixture state, and no real provider credentials.
+- **Steps:** Submit a Desktop turn that receives malformed final tool JSON,
+  then a corrected Write call and a final answer. Repeat with a literal invalid
+  Unicode escape in the tool input. Resume DeepSeek history using the same and
+  a different provider/model identity. Run two turns with extensions that guard
+  `before_agent_start` by `messageType === "user"`. Exercise hosted search,
+  native Pi continuation, and MCP with existing offline suites.
+  Expand a slash template with an empty quoted argument followed by two values;
+  exercise strict-tool downgrade, thinking-off, error images, mixed reasoning/text
+  stream chunks, and native tool restoration under `noTools: "all"`.
+- **Expected:** Malformed calls never reach Host execution; raw input reaches
+  the next model request as a tool error, and only the corrected call executes.
+  Unicode escapes retain all fields. Same-model thinking replays as reasoning;
+  foreign thinking is omitted without altering visible history. Prompt additions
+  remain ordered and do not accumulate. Host permissions, persistence, native
+  tool restrictions, search replay, and cancellation remain unchanged.
+  Empty quoted template arguments retain their positions and activate defaults;
+  strict `require` remains strict, hosted search survives downgrade, and native
+  historical tool activation cannot bypass Desktop's explicit no-tools setting.
+- **Coverage:** `pi-upstream-1.3-contract.test.ts`, `flash-transcript.test.ts`,
+  `hosted-search-consumers.test.ts`, `provider-stream-frame-fields.test.ts`,
+  `extensions/prompt-chain.test.ts`, `native-pi-session.test.ts`,
+  `pi-anthropic-strict-fallback.test.ts`, `pi-1.3-adapter-features.test.ts`,
+  `prompt-templates.test.ts`, and the
+  existing `test:e2e`, `test:e2e:hosted-search`, `test:e2e:provider-api-style`,
+  and `test:e2e:trusted-extensions` commands.
+- **Specs:** [Pi dependency boundary](../02-architecture/06-pi-runtime-dependency-boundary.md),
+  [trusted extensions](../07-plugins/16-trusted-extensions.md).
+- **Acceptance:** Offline runtime/contract and isolated process validation.
+- **Milestone:** Maintenance.
+- **Status:** Candidate validation recorded in `docs/project/pi-130-adoption.md`.
+
 ### E2E-QUEUE-send-now-wakes-subagents
 
 - **Preconditions:** Dedicated request worktree with built workspace packages,
@@ -3332,37 +3367,51 @@ identify the platform validation still needed.
 - **Steps**: 1) Stream progress paragraph A, a multi-item search segment,
   progress paragraph B, and a multi-item command segment with adjacent Bash rows.
   2) Inspect the open active group; manually close it while more output arrives.
-  3) Complete the turn and inspect untouched versus user-owned groups, and confirm
-  the Bash rows stay visible with every group collapsed. 4) Open one completed
-  group and one item, copy its output, close and reopen the group, then open a
-  sibling group independently. 5) Repeat with a singleton item and with the last
-  activity group's literal final item set to a tool/search, thinking, failed tool,
-  and denied tool. 6) Toggle `Show thinking` off and on and inspect the
-  active-thinking, failure/recovery and completed states. 7) Remount rows within
+  3) Complete the turn and confirm exactly one process disclosure owns every
+  pre-answer row; close it and confirm the groups and run rows close with it, then
+  reopen and confirm the group choice returns. 4) Open one completed group and one
+  item, copy its output, close and reopen the group, then open a sibling group
+  independently. 5) Switch `Transcript display` across Flat, Commands first, and
+  Fully folded and inspect the grouping, group boundaries, where the run rows
+  render, and the disclosure count. 6) Repeat with a singleton item and with the
+  last activity group's literal final item set to a tool/search, thinking, failed
+  tool, and denied tool. 7) Toggle `Show thinking` off and on and inspect the
+  active-thinking, failure/recovery and completed states. 8) Remount rows within
   the retained pane, then reload the renderer and reopen the session.
-- **Expected**: Chronological collapsible process segments keep the trailing answer
-  outside them. The active group opens, then closes on completion only if
-  untouched; completed groups otherwise start closed. Bash/run aliases are excluded
-  from every process disclosure and stay visible even when every group is collapsed.
-  A singleton has no group wrapper. No item payload opens itself: a tool/search row
-  stays a header until the user opens it, while a final thinking item keeps its own
-  leaf default and never selects an earlier tool. When `Show thinking` is off, the
-  live thinking indicator stays visible while completed reasoning text and excerpts
-  are hidden and empty thinking-only containers are omitted; turning it back on
-  restores them. Parent, child and sibling choices are independent;
-  closing/reopening a parent preserves descendants, and streaming/completion does
-  not override user-owned choices. Retained-pane remounts preserve choices;
-  renderer restart reapplies defaults while tool names, arguments, results and
-  statuses remain restored. Group headers show bounded running and issue summaries
-  without marking the whole turn failed.
+- **Expected**: A turn renders exactly one process disclosure containing every
+  pre-answer row, the `Bash`/run rows included; the trailing answer, assistant
+  errors and stopped trailing text stay outside it, as do pending actions. The
+  active group opens, then closes on completion only if untouched; completed
+  groups otherwise start closed. Closing the turn's disclosure closes the groups
+  and run rows under it, and reopening restores the user's group choices. In
+  Fully folded (the default), run rows stay inside their groups and only ordinary
+  assistant progress text splits a group. In Commands first, run rows render as
+  their own rows beside the groups, adjacent calls stay separate, a row's detail
+  stays closed until opened, and a normal assistant progress message or a command
+  ends a group. In Flat, no nested group renders and the rows keep transcript
+  order inside the outer disclosure. Every mode keeps the disclosure count at one.
+  A singleton has no group wrapper. No item payload opens itself except the
+  display mode's Thinking default: a tool/search row stays a header until the user
+  opens it, while a final thinking item never selects an earlier tool. The header
+  reports `Running`, `Finished`, `Stopped`, or `Failed` with failure and stop
+  outranking a normal finish, reads `Thinking` while the live step is reasoning,
+  never repeats the current command, and omits the duration when none was
+  recorded. When `Show thinking` is off, no completed reasoning row renders; only
+  the live TextShimmer `Thinking` indicator remains while reasoning streams, and
+  turning it back on restores the completed rows. Parent, child and sibling
+  choices are independent; closing/reopening a parent preserves descendants, and
+  streaming/completion does not override user-owned choices. Retained-pane
+  remounts preserve choices; renderer restart reapplies defaults while tool names,
+  arguments, results and statuses remain restored. Group headers show bounded
+  running and issue summaries without marking the whole turn failed.
 - **Specs linked**: `04-ux/01-ui-ia.md`,
   `04-ux/07-ui-design-system.md`, `04-ux/08-component-spec.md`,
   `04-ux/09-interaction-patterns.md`
 - **Acceptance**: C (chat stream), E (tools), F (persistence)
 - **Milestone**: M3
-- **Status**: Draft. For the 2026-09-20 nested-disclosure change, this scenario is
-  intended behavior for static source/design review only; no unit, component,
-  integration, browser, Electron or E2E test is added or run by that scoped task.
+- **Status**: Draft. Unit and style checks cover the display modes, Thinking
+  defaults and header rules; this scenario remains the intended manual
+  transcript-reload behavior.
 
 #### E2E-041: Conversation minimap navigates long transcripts
 
@@ -10163,6 +10212,7 @@ must keep splitting are covered by `markdown-blocks.test.mjs`.
 | Quality (sidebar menu placement) | E2E-021c |
 | Quality (project ordering) | E2E-253 |
 | Quality (work-panel tab close visibility) | E2E-WORK-PANEL-active-tab-close-visibility |
+| C / E / G / Quality — Pi kernel upgrade | E2E-PI-130-kernel-upgrade |
 | C — Conversation & stream (IME slash alias) | E2E-255 |
 | E — Tools & permissions (Skill residency) | E2E-254 |
 | Quality (Skill residency and IME slash alias) | E2E-254, E2E-255 |
@@ -17132,46 +17182,86 @@ plugin-form fixtures in an isolated temporary directory at runtime.
 
 - **Preconditions:** A turn with progress paragraph A, multiple searches plus
   thinking, progress paragraph B, multiple commands plus thinking, and a final
-  answer; the `Show thinking` preference on and off; legacy message-level
-  transcript search targets.
+  answer; the `Show thinking` preference on and off; the `Transcript display`
+  preference at Flat, Commands first, and Fully folded; a restart with saved
+  settings; legacy message-level transcript search targets.
 - **Steps:** Confirm a live active group starts open, let that same turn finish
-  without interacting, and confirm the group collapses. On a second turn, explicitly
-  open a completed group and confirm the choice survives subsequent updates. Turn
-  `Show thinking` off and confirm the live thinking indicator remains while
-  completed reasoning rows and excerpts disappear and no empty thinking-only
-  container is left; turn it back on and confirm the completed rows return. Collapse
-  every group and confirm the Bash/run rows stay visible. Review the nested path,
-  including independent group/item toggles, parent close/reopen, a singleton
-  segment, literal-final-item leaf selection, failure/denial/recovery, retained-pane
-  remounts, Bash rows staying standalone (including adjacent Bash rows) with their
-  details closed until opened, and a legacy search reveal.
-- **Expected:** Chronological collapsible process segments leave the final answer,
-  assistant errors, stopped trailing text and pending actions outside them. The
-  active group starts open; untouched groups collapse at completion, while explicit
-  user choices persist. These group defaults do not depend on the `Show thinking`
-  preference. Bash/run aliases are excluded from every process disclosure and stay
-  standalone rows visible even when every group is collapsed; adjacent Bash rows
-  each remain standalone and a Bash row's detail stays closed until the user opens
-  it. When `Show thinking` is off, the live thinking indicator stays visible,
-  completed reasoning rows and excerpts are hidden, and empty thinking-only
-  containers are omitted; turning it back on restores them. Singletons have no
-  group. No item payload opens itself: a tool/search row stays closed until the user
-  opens it, while a final thinking item keeps its own leaf default.
+  without interacting, and confirm the process closes so only the final answer
+  (and any error or pending-action surface) remains. On a second turn, explicitly
+  open a completed group and confirm the choice survives subsequent updates; then
+  close the turn's disclosure and confirm the group closes with it, and reopen to
+  confirm the group choice is restored. In Fully folded, confirm run rows stay
+  inside their activity groups and that only ordinary assistant progress text
+  splits a group. In Commands first, confirm `Bash`/run rows render as standalone
+  rows beside the groups, that a normal assistant progress message or a command
+  ends the current group, adjacent calls stay separate, and Thinking rows default
+  expanded. In Flat, confirm no nested activity group renders, the outer
+  disclosure lists tools, commands, thinking and progress in transcript order,
+  and tool details stay collapsed. In every mode confirm the turn renders exactly
+  one outer disclosure and that closing it hides, then reopening restores, the
+  rows under it. Turn `Show thinking` off and confirm no completed reasoning row
+  remains and only a live whole-run TextShimmer `Thinking` indicator appears
+  while reasoning streams, with no spinner, pulsing dot or per-character
+  animation and a static presentation under reduced motion; turn it back on and
+  confirm the completed rows return. Select each `Transcript display` value,
+  restart, and confirm it persists; remove the saved value and confirm it
+  defaults to Fully folded. Confirm the header reads running, finished, stopped,
+  or failed for each case, names compaction and recovery while those stages are
+  live, omits the duration when none was recorded, and never repeats the current
+  command. Review the nested path, including independent group/item toggles, a
+  singleton segment, literal-final-item leaf selection, failure/denial/recovery,
+  retained-pane remounts, run rows keeping their details closed until opened, and
+  a legacy search reveal.
+- **Expected:** A turn renders exactly one process disclosure containing every
+  pre-answer row, leaving the final answer, assistant errors, stopped trailing
+  text and pending actions outside it; when no final answer text exists, the
+  process header and those error or pending-action surfaces remain. An untouched
+  process closes at completion. In Flat there are no nested activity groups, and
+  active tools, commands, thinking and progress rows follow transcript order with
+  tool details collapsed. In Commands first, `Bash`/run rows are standalone
+  beside the groups, adjacent calls stay separate, and a normal assistant
+  progress message or a command ends a group, so the middle progress paragraph
+  and each command start a new group. In Fully folded (the default), run rows
+  stay inside their groups and only ordinary assistant progress text splits a
+  group, so the middle progress paragraph ends the preceding group and the
+  following activity starts a new one. A group appears only with at least two
+  visible items; a singleton has no group. Thinking rows default expanded in
+  Flat and Commands first, while Fully folded keeps the released exception:
+  earlier rows stay collapsed and only the last active row opens while it is
+  live, then completed rows collapse.
+  Explicit user choices persist and are restored when the enclosing disclosure is
+  reopened; these group defaults do not depend on `Show thinking`. The header
+  reports running, finished, stopped, or failed with failure and stop outranking
+  a normal finish, reads `Thinking` while the live step is reasoning, names
+  compaction and recovery while those stages are live, omits a duration the
+  transcript did not record, and never repeats the current command. Nested group
+  headers and run rows share the turn header's left edge. When `Show thinking` is
+  off, no completed reasoning row renders, and only the live whole-run TextShimmer
+  `Thinking` indicator remains while reasoning streams; turning it back on
+  restores the rows. No item payload opens itself except the display mode's
+  Thinking default: a tool/search row stays closed until the user opens it.
   Parent/child/sibling states remain independent, pane-owned user choices survive
-  updates, preference changes and remounts, and renderer restart reapplies defaults.
-  Search reveals the process segment and activity group that own the named message
-  once per request; item-level targeting is not part of this change, and reasoning
-  hidden by the preference stays hidden until the user turns `Show thinking` on.
-  Saved `showThinking` survives restart; an absent value falls back to the legacy
+  updates, preference changes and remounts, and renderer restart reapplies
+  defaults. Search reveals the turn process and, where one exists, the activity
+  group that own the named message once per request; item-level targeting is not
+  part of this change, and reasoning hidden by the preference stays hidden until
+  the user turns `Show thinking` on. A saved `transcriptDisplayMode` survives
+  restart and an absent or unknown value resolves to Fully folded; saved
+  `showThinking` survives restart, and an absent value falls back to the legacy
   `thinkingDisplayMode` (`compact` hides, `detailed`/unknown/absent shows).
 - **Validation scope for the 2026-09-20 change:** Nested disclosure and activity
   group presentation only; precise item-level transcript search targeting is out
   of scope and keeps the existing message-level search behavior.
-- **Automation:** `pnpm test:e2e:transcript` covers default and active-to-completed
-  process disclosure behavior; `pnpm test:e2e:transcript-disclosure` verifies
-  manual-open retention and viewport anchoring; `apps/desktop/test/turn-process.test.mjs`
-  covers process defaults and `apps/desktop/test/thinking-visibility.test.mjs`
-  covers the `showThinking`/legacy resolver precedence.
+- **Automation:** `pnpm test:e2e:transcript` covers the command-first and
+  fully-folded layouts and active-to-completed process disclosure behavior;
+  `pnpm test:e2e:transcript-disclosure` verifies manual-open retention and
+  viewport anchoring; `apps/desktop/test/turn-process.test.mjs` covers mode
+  segmentation, `apps/desktop/test/transcript-display-modes-ui.test.mjs` covers
+  the renderer's mode wiring, Thinking defaults and TextShimmer,
+  `apps/desktop/test/transcript-display-mode-settings.test.mjs` covers the
+  Settings row and search indexing, and
+  `apps/desktop/test/settings-roundtrip.test.mjs` covers normalization, write
+  validation and the fully-folded default.
 - **Specs:** 04-ux/06-settings-ia, 04-ux/08-component-spec,
   04-ux/09-interaction-patterns; ADR turn-process-and-thinking-display.
 
@@ -18320,3 +18410,29 @@ host-created files. The full app's file-preview viewer is covered separately.
 - **Milestone:** Maintenance.
 - **Status:** Automated fixture; record the tested head/base and execution
   result in the delivery report.
+
+#### E2E-1175: A plugin suggestion rides in the Composer placeholder and is taken with Tab
+
+- **Preconditions**: A plugin that declares `composer.suggest` is installed,
+  enabled, and granted the permission, and it offers one line on
+  `session:turnEnded` after its own completion.
+- **Steps:** 1) Run an Agent turn in a session and let it complete while that
+  session is on screen and its Composer is empty. 2) Observe the placeholder
+  layer. 3) Press Tab. 4) Repeat, then press Esc. 5) Repeat, then type one
+  character. 6) Repeat, then switch session before the offer arrives.
+- **Expected**: The suggestion appears in the placeholder layer of an empty
+  draft, brighter than the shell placeholder and on one line with an ellipsis,
+  with a `Tab` / `Esc` hint and one polite announcement. Tab writes the exact
+  text into the draft with the caret at the end and the input focused, keeping
+  any staged attachment; Esc drops it; a first character drops it; a missed
+  offer answers `{ shown: false, reason }` and shows nothing. No transcript row,
+  toast, or overlay appears, and the plugin's call is audited.
+- **Specs linked**: `07-plugins/03-plugin-api.md`,
+  `07-plugins/13-plugin-permissions-matrix.md`, ADR 0333.
+- **Acceptance**: A (Composer entry path), Security (permission-gated, never
+  sent by the plugin).
+- **Milestone**: M6+
+- **Status**: Unit/source-contract-covered by
+  `composer-suggestion-state.test.mjs`, `composer-suggestion-relay.test.mjs`,
+  and `plugin-composer-suggestion.test.mjs`; the rendered journey remains a
+  manual/Electron check when this surface changes.
