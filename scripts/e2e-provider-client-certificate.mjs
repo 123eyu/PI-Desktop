@@ -8,6 +8,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { resolveElectronBinary } from "./e2e/boot.mjs";
+import { waitForChildExitWithEscalation } from "./e2e/wait-for-child-exit.mjs";
 
 const root = fileURLToPath(new URL("..", import.meta.url));
 const { build } = createRequire(join(root, "packages/agent-runtime/package.json"))("esbuild");
@@ -34,29 +35,12 @@ try {
   // mid-init, and the `close` event then never arrives, so the step waits out
   // the job's 30-minute budget and is cancelled with no failing step to read
   // (#1751 hit exactly this). Escalate to SIGKILL after a short grace period.
-  let killedBy = null;
-  const termTimer = setTimeout(() => {
-    killedBy = "SIGTERM";
-    child.kill("SIGTERM");
-  }, 60_000);
-  const killTimer = setTimeout(() => {
-    killedBy = "SIGKILL";
-    child.kill("SIGKILL");
-  }, 65_000);
-  try {
-    const code = await new Promise((resolve, reject) => {
-      child.once("error", reject);
-      child.once("close", resolve);
-    });
-    assert.equal(
-      killedBy,
-      null,
-      `provider client certificate E2E hung and was killed by ${killedBy} after ${killedBy === "SIGKILL" ? 65 : 60}s: ${output}`,
-    );
-    assert.equal(code, 0, output);
-    assert.match(output, /provider client certificate E2E passed/);
-  } finally {
-    clearTimeout(termTimer);
-    clearTimeout(killTimer);
-  }
+  const { code, killedBy } = await waitForChildExitWithEscalation(child);
+  assert.equal(
+    killedBy,
+    null,
+    `provider client certificate E2E hung and was killed by ${killedBy} after ${killedBy === "SIGKILL" ? 65 : 60}s: ${output}`,
+  );
+  assert.equal(code, 0, output);
+  assert.match(output, /provider client certificate E2E passed/);
 } finally { await rm(temp, { recursive: true, force: true }); }
