@@ -3,6 +3,7 @@ import { createServer, type Server } from "node:http";
 import type { AddressInfo } from "node:net";
 import {
   isUserSuppliedHostname,
+  type McpOAuthLoginErrorCode,
   type McpOAuthLoginEvent,
   type McpServerRecord,
   type McpServerStatus,
@@ -41,6 +42,18 @@ export type McpOAuthDeps = {
   onAuthorized?: (serverId: string, record?: McpServerRecord) => Promise<McpServerStatus>;
   newId?: () => string;
 };
+
+class McpOAuthError extends Error {
+  readonly errorCode: McpOAuthLoginErrorCode;
+
+  constructor(
+    errorCode: McpOAuthLoginErrorCode,
+    message: string,
+  ) {
+    super(message);
+    this.errorCode = errorCode;
+  }
+}
 
 export function secretRefForMcpOAuth(serverId: string): string {
   return `secret:mcp:${serverId}:oauth`;
@@ -686,8 +699,9 @@ export class McpOAuthManager {
               // Fail here, before opening anything, saying what is missing.
               // The message must not promise a settings field that does not
               // exist yet: it names the two real ways forward.
-              throw new Error(
-                `MCP server "${session.serverId}" does not support Dynamic Client Registration, and PI-Desktop has no client id registered with ${metadata.authorizationEndpoint}. Ask the server operator for a client id, or use a server that supports DCR.`,
+              throw new McpOAuthError(
+                "MCP_OAUTH_DCR_UNAVAILABLE",
+                `MCP server "${session.serverId}" has no registered client id and does not support Dynamic Client Registration.`,
               );
             }
 
@@ -775,6 +789,7 @@ export class McpOAuthManager {
           serverId: session.serverId,
           kind: "error",
           message,
+          ...(error instanceof McpOAuthError ? { errorCode: error.errorCode } : {}),
         });
       }
     } finally {

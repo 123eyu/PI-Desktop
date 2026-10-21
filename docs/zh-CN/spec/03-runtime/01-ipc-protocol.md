@@ -1321,10 +1321,12 @@ type McpOAuthLoginEvent = {
   | { kind: "authUrl"; url: string; instructions?: string; opened: boolean }
   | { kind: "progress"; message: string }
   | { kind: "done"; status: McpServerStatus }
-  | { kind: "error"; message: string }
+  | { kind: "error"; message: string; errorCode?: "MCP_OAUTH_DCR_UNAVAILABLE" }
   | { kind: "cancelled" }
 );
 ```
+
+如果授权服务器元数据没有 `registration_endpoint`，且没有可复用的客户端，登录会在打开外部浏览器前失败。错误事件携带 `MCP_OAUTH_DCR_UNAVAILABLE`，渲染层显示本地化的恢复指引。主进程错误消息用于诊断，不应包含发现到的授权端点 URL。
 
 #### 状态与凭证存储
 - `McpServerStatus` 包含：

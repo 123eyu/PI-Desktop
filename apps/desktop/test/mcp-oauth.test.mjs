@@ -995,6 +995,7 @@ test("McpOAuthManager: a server without DCR fails loudly instead of opening a de
   const { mockFetch } = createMockFetch({ withoutRegistration: true });
   const { mockCreateServer } = createMockServerFactory();
   const opened = [];
+  const events = [];
   const manager = new McpOAuthManager({
     call: host.call,
     fetchImpl: mockFetch,
@@ -1002,7 +1003,7 @@ test("McpOAuthManager: a server without DCR fails loudly instead of opening a de
       opened.push(url);
     },
     createServer: mockCreateServer,
-    emit: () => {},
+    emit: (event) => events.push(event),
   });
   t.after(() => manager.disposeAll());
 
@@ -1013,7 +1014,8 @@ test("McpOAuthManager: a server without DCR fails loudly instead of opening a de
       // forward; a bare "failed" leaves the user where the 404 did.
       assert.match(error.message, /Dynamic Client Registration/);
       assert.match(error.message, /client id/);
-      assert.match(error.message, /https:\/\/notion\.test\/authorize/);
+      assert.equal(error.errorCode, "MCP_OAUTH_DCR_UNAVAILABLE");
+      assert.doesNotMatch(error.message, /https:\/\/notion\.test\/authorize/);
       return true;
     },
   );
@@ -1021,4 +1023,7 @@ test("McpOAuthManager: a server without DCR fails loudly instead of opening a de
   // The whole point: no browser tab, so no dead authorization page. Before
   // this change the app opened `?client_id=pi-desktop` and the user saw a 404.
   assert.deepEqual(opened, [], "no authorization URL may be opened without a usable client id");
+  assert.ok(events.some((event) =>
+    event.kind === "error" && event.errorCode === "MCP_OAUTH_DCR_UNAVAILABLE",
+  ));
 });
