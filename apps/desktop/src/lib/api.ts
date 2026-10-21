@@ -418,6 +418,12 @@ export type SessionHistoryReadOptions = {
   contentLimit?: number;
 };
 
+type TranscriptDisplayMode = NonNullable<AppSettings["transcriptDisplayMode"]>;
+
+function isTranscriptDisplayModeValue(value: unknown): value is TranscriptDisplayMode {
+  return value === "flat" || value === "command-first" || value === "fully-folded";
+}
+
 export function normalizeSettings(settings: AppSettings): AppSettings {
   return {
     ...settings,
@@ -425,6 +431,9 @@ export function normalizeSettings(settings: AppSettings): AppSettings {
     sidebarRunningBadge: settings.sidebarRunningBadge !== false,
     sidebarRunningRail: settings.sidebarRunningRail === true,
     keepCommandsExpanded: settings.keepCommandsExpanded !== false,
+    transcriptDisplayMode: isTranscriptDisplayModeValue(settings.transcriptDisplayMode)
+      ? settings.transcriptDisplayMode
+      : "fully-folded",
     defaultMode: normalizeMode((settings as { defaultMode?: unknown }).defaultMode),
     infiniteProviderRetry:
       (settings as { infiniteProviderRetry?: unknown }).infiniteProviderRetry === true,
@@ -463,6 +472,14 @@ export function validateSettingsWrite(settings: AppSettings): AppSettings {
     typeof settings.showThinking !== "boolean"
   ) {
     throw Object.assign(new Error("showThinking is invalid"), {
+      errorCode: "INVALID_PARAMS",
+    });
+  }
+  if (
+    Object.prototype.hasOwnProperty.call(settings, "transcriptDisplayMode") &&
+    !isTranscriptDisplayModeValue(settings.transcriptDisplayMode)
+  ) {
+    throw Object.assign(new Error("transcriptDisplayMode is invalid"), {
       errorCode: "INVALID_PARAMS",
     });
   }
