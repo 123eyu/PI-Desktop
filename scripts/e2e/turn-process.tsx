@@ -512,9 +512,16 @@ export async function turnProcessProbe() {
       Boolean(container.querySelector(".tool-row.thinking")),
       "turning show thinking back on restores the completed reasoning row",
     );
+    click(processHeaders()[0] ?? null);
+    const restoredThinking = container.querySelector<HTMLElement>(
+      ".tool-row.thinking .tool-row-header",
+    );
+    if (restoredThinking?.getAttribute("aria-expanded") !== "true") {
+      click(restoredThinking);
+    }
     check(
       container.textContent?.includes("Reasoning before the answer"),
-      "the restored row shows the retained reasoning text",
+      "the restored row shows the retained reasoning text when opened",
     );
 
     // Search reveal opens the process chunk that owns the named message.
