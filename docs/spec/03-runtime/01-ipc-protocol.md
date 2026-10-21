@@ -1926,7 +1926,10 @@ Renderer IPC kept for the Plan-safe preview facade and URL fallback:
   so the extensionless blob has a media association without copying its bytes.
 - `fs/resolveRef({ref, sessionId?})` → `FsChatRefResolveResult`
   (for isolated sessions, lookup and file reads use `worktree.location` rather
-  than the parent project checkout)
+  than the parent project checkout; an absolute reference under the parent
+  checkout is rebased onto the same relative path in the worktree when that
+  file exists, so the branch copy opens instead of reporting
+  `outside-allowed-roots`)
   (`{ match: FsChatRefMatch | null, reason?: "outside-allowed-roots" }`, the match naming the answering `root`
   (`workspace` / `scratch` / `attachments`), the `relativePath` relative to that
   root, optional `sessionScratch: true` for the current session's own scratch
