@@ -75,24 +75,30 @@ void app.whenReady().then(async () => {
     assert.ok(address && typeof address !== "string" && proxyAddress && typeof proxyAddress !== "string");
     const baseUrl = `https://localhost:${address.port}/v1`;
     await applyNetworkProxy({ mode: "direct" });
-    const baselineController = new AbortController();
-    const baselineAbortTimer = setTimeout(() => baselineController.abort(), 8_000);
-    try {
-      await assert.rejects(
-        net.fetch(`${baseUrl}/models`, { signal: baselineController.signal }),
-        (error: unknown) => {
-          const isCertificateError = error instanceof Error &&
-            error.message.includes("ERR_SSL_CLIENT_AUTH_CERT_NEEDED");
-          const isPlatformHang = error instanceof Error && error.name === "AbortError";
-          assert.ok(isCertificateError || isPlatformHang, `unexpected baseline error: ${String(error)}`);
-          return true;
-        },
+    let baselineTimer: ReturnType<typeof setTimeout> | undefined;
+    const baselineTimeout = new Promise<{ kind: "timeout" }>((resolve) => {
+      baselineTimer = setTimeout(() => resolve({ kind: "timeout" }), 8_000);
+    });
+    const baselineOutcome = await Promise.race([
+      net.fetch(`${baseUrl}/models`).then(
+        () => ({ kind: "response" as const }),
+        (error: unknown) => ({ kind: "error" as const, error }),
+      ),
+      baselineTimeout,
+    ]);
+    if (baselineTimer !== undefined) clearTimeout(baselineTimer);
+    if (baselineOutcome.kind === "response") {
+      assert.fail("client certificate was unexpectedly omitted and the request succeeded");
+    }
+    if (baselineOutcome.kind === "error") {
+      assert.ok(
+        baselineOutcome.error instanceof Error &&
+          baselineOutcome.error.message.includes("ERR_SSL_CLIENT_AUTH_CERT_NEEDED"),
+        `unexpected baseline error: ${String(baselineOutcome.error)}`,
       );
-    } finally {
-      clearTimeout(baselineAbortTimer);
     }
     assert.equal(requests, 0, "the original Electron 43 failure precedes HTTP");
-    console.log("baseline: Electron 43 net.fetch failed or stalled before HTTP");
+    console.log(`baseline: Electron 43 net.fetch ${baselineOutcome.kind === "timeout" ? "stalled" : "failed"} before HTTP`);
     const options = { baseUrl, apiKey: "fixture", signal: AbortSignal.timeout(8_000) };
     assert.deepEqual((await probeModelList(options)).models, [{ modelId: "fixture-model", displayName: "fixture-model" }]);
     assert.equal((await probeProviderEndpoint(options)).status, 200);
