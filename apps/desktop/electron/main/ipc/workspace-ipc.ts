@@ -41,7 +41,7 @@ import {
 import { openableMp4Path } from "../open-attachment-video";
 import { isChatRefOutsideRoots, resolveChatFileRef } from "../chat-ref-resolve";
 import { rebaseWorktreeRef, type WorktreeRefContext } from "../worktree-ref";
-import { getWorkspaceFileIndex } from "../fs-index";
+import { getWorkspaceFileIndex, searchWorkspaceFiles } from "../fs-index";
 import {
   projectFolderPaths,
   refreshProjectGroups,
@@ -1014,6 +1014,15 @@ export function registerWorkspaceIpc({
     const root = await optionalWorkspaceRoot(input.sessionId);
     if (!root) return { entries: [], truncated: false };
     return getWorkspaceFileIndex(root);
+  });
+
+  handle(IPC.invoke.fsSearch, async (input: { sessionId?: string; query?: string } = {}) => {
+    // The remote file protocol has no search operation, so a remote session
+    // keeps answering from its truncated snapshot.
+    if (await remoteFileWorkspace(input.sessionId)) return { entries: [], truncated: true };
+    const root = await optionalWorkspaceRoot(input.sessionId);
+    if (!root) return { entries: [], truncated: false };
+    return searchWorkspaceFiles(root, String(input.query ?? ""));
   });
 
   /**

@@ -1618,7 +1618,7 @@ Electron 报告的右侧角）改变的是面板目标。Main 通过
 ## 13c. Composer 输入 API（D123/D124/D197、ADR 0024/0059）
 
 仅电子通道支持输入框自动完成和剪贴板文件
-参考。 `composer/commands` 和 `fs/index` 是只读且软故障；
+参考。 `composer/commands`、`fs/index` 和 `fs/search` 是只读且软故障；
 `composer/pasteFiles` 仅写入原始会话的 Electron 拥有的
 暂存目录。 None 添加主机 RPC 方法或更改主机协议
 版本。
@@ -1664,7 +1664,23 @@ type FsIndexEntry = { path: string; kind: "file" | "dir" };
 --exclude-standard`快速路径，忽略设置递归行走回退，
 从文件路径派生的目录，8000 个条目上限，`truncated: true`，
 每个根的短 TTL 缓存。无法关闭到空列表而没有
-工作区。模糊过滤发生在渲染器端。
+工作区。模糊过滤发生在渲染器端；被截断的索引只保留最浅的条目，因此针对它的
+查询还会发给 `fs/search`。
+
+### fs/search
+
+```ts
+fs/search({ sessionId?, query }) -> { entries: FsIndexEntry[]; truncated: boolean }
+```
+
+只有当 `fs/index` 快照被截断且查询非空时，`@` 菜单才会在输入短暂停顿后调用它，
+并把结果与自己的匹配合并（D669）。主进程用与渲染器相同的模糊打分，在该根目录的
+完整清单上排序，返回最好的 50 个条目。清单就是索引背后的 `git ls-files` 列表；
+若索引来自目录遍历，则改为一次更深的遍历（遵守同一忽略集，最多 200,000 个条目或
+2 秒）。清单与索引共用 TTL 缓存，过期即释放。`truncated: true` 表示搜索本身被截断。
+查询会去掉首尾空白并限制在 256 个字符内；空查询不返回条目。远程会话直接返回
+`{ entries: [], truncated: true }`，不联系远程主机——远程文件协议没有搜索操作——
+菜单继续只在远程快照里过滤。
 
 ### composer/pickFiles 和 composer/pickPhotos
 
