@@ -2219,7 +2219,7 @@ fs/search({ sessionId?, query }) -> { entries: FsIndexEntry[]; truncated: boolea
 
 The `@` menu calls this only while its `fs/index` snapshot is truncated and
 the query is non-empty, after a short typing pause, then merges the answer
-with its own matches (D665). Main ranks the query with the renderer's fuzzy
+with its own matches (D669). Main ranks the query with the renderer's fuzzy
 scorer over the root's full listing and returns the best 50 entries. The
 listing is the `git ls-files` list behind the index, or — when the index came
 from the walk — a deeper ignore-set walk of at most 200,000 entries or two

@@ -17,7 +17,7 @@ import { isIgnoredName } from "./workspace-files.js";
  * prefers `git ls-files` for exact gitignore semantics and falls back to a
  * bounded walk over the panel's ignore set. The renderer fuzzy-filters the
  * snapshot itself; when the snapshot is truncated, a query is also answered
- * here from the full listing (D665).
+ * here from the full listing (D669).
  */
 
 export const FS_INDEX_MAX_ENTRIES = 8000;

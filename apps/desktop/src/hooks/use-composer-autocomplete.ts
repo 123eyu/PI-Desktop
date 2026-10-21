@@ -25,7 +25,7 @@ import { useAppStore } from "../stores/app-store";
 /**
  * Composer autocomplete state machine (D123–D125): trigger detection over
  * draft+cursor, lazily fetched command/file sources, local fuzzy filtering
- * (with a main-process search past a truncated file index, D665), and
+ * (with a main-process search past a truncated file index, D669), and
  * insert-on-accept. IME freezing and key routing live in the Composer;
  * this hook only refuses to update while `composing` is true.
  */
@@ -265,7 +265,7 @@ export function useComposerAutocomplete({
 
   // A truncated index keeps only the shallowest entries, so a deep file of a
   // large tree matches nothing in it. Once typing pauses, the query also
-  // searches the main process's full listing (D665); the answer belongs to
+  // searches the main process's full listing (D669); the answer belongs to
   // this `@` token and its rows merge with the index's.
   const fileQuery =
     trigger?.mode === "file" && !dismissed && files?.truncated ? trigger.query : "";
