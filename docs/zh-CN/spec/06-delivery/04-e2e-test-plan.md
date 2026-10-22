@@ -9370,6 +9370,15 @@ Follow the [current S3 acceptance scenario](/spec/06-delivery/04-e2e-test-plan#e
   会拿到两条输出」这一机制。
 - **状态：** 单元测试覆盖；没有端到端驱动从「循环追加过的上下文」构建新回合的请求。
 
+### E2E-OUTPUT-CAP-716：保持模型请求在发布上下文窗口内
+
+- **先决条件：** 确定性 provider 夹具公布上下文窗口，支持父级和子代理请求并记录请求负载；不使用真实凭据。
+- **步骤：** 配置大于已发布窗口的用户上下文覆盖；发送包含 CJK 文本的父级提示、调用子代理并运行一次性补全，再以 `thinkingLevel: "omit"` 重复父级请求。随后恢复一个包含许多大型系统指令更新的长会话，并通过不支持对话中途系统消息的 Responses 网关继续；再运行一个最后一次用量报告之后才追加多次系统指令更新的子代理。
+- **预期：** 每个请求都有不超过估算剩余窗口的明确输出预算；运行时按已发布安全上限压缩，且 `input + output` 不超过上限。能容纳时，小型 ASCII 请求保留配置的预算；恢复会话和子代理仅发送一条折叠后的指令消息，并保留配置预算，而不是降至 provider 最小值。
+- **关联规格：** `03-runtime/02-agent-runtime.md`、`03-runtime/13-model-catalog-and-selection.md`。
+- **自动化：** `packages/agent-runtime/src/output-cap-request.test.ts` 通过 loopback Responses 网关驱动恢复会话和子代理请求。
+- **状态：** 折叠指令步骤由 loopback 网关覆盖；其余确定性 provider 夹具待补充。
+
 ### E2E-MCP-HTTP-ACK — HTTP acknowledgement and authorization status
 
 - **Preconditions**: A local mock Streamable HTTP server returns JSON for

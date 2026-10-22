@@ -307,6 +307,10 @@ pi-agent-core 提供 Agent 循环及稳定的 agent/event/tool 类型，pi-ai �
 仅作为 AGPL-3.0 行为参考，不是链接或复制的依赖关系。详细依赖边界见
 [pi 运行时依赖边界](../02-architecture/06-pi-runtime-dependency-boundary.md)。
 
+输出预算按适配器实际发送的转录估算。若绑定模型不支持对话中途的系统消息，后续系统更新会
+折叠为一条携带当前指令和工具的前置消息；父运行时和子代理也把折叠后的转录交给 pi-ai，
+使两层输出上限估算一致，避免重复的旧指令快照耗尽输出预算。
+
 压缩遵循 Codex 的机制 (ADR 0064)：它总是内联发生在
 回合边界，模型可以通过`new_context`请求，每次compaction
 添加一个转录本行并提出一个警告 toast，并且没有
