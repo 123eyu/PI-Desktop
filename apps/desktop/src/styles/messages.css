@@ -3472,7 +3472,6 @@
  * band. Hover only strengthens the ink; no background fill is involved.
  */
 .turn-process > .tool-activity-header {
-  gap: 6px;
   margin: 0;
   border-radius: 0;
   border-bottom: 1px solid var(--ds-border-subtle);
