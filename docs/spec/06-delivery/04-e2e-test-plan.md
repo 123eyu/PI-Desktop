@@ -572,6 +572,21 @@
   actions, and measures the multi-block question layout. Runtime boundary
   validation is covered by `packages/agent-runtime/src/runtime.test.ts`.
 
+### E2E-ASKTOOL-draft-survives-session-switch
+
+- **Preconditions:** No live provider is required; the fixture stubs
+  `api.resolveAskTool` and seeds one two-question ask through the real store
+  slice.
+- **Steps:** Mount the production `AskToolCard`, select the second option on
+  question one, advance to question two, unmount the card (the session switch
+  the dock performs), and remount it with the same `requestId`. Then click the
+  first step indicator to return to question one.
+- **Expected:** The remounted card opens on question two with the earlier
+  selection still marked, and question one still shows the selected option.
+  Resolving or dismissing the ask clears the stored draft.
+- **Status:** Automated in `pnpm test:e2e:asktool-card` as the
+  `E2E-ASKTOOL-draft-survives-session-switch` flow.
+
 ### E2E-POWER-keep-awake-setting
 
 - **Preconditions:** An isolated desktop profile with the setting absent; no
