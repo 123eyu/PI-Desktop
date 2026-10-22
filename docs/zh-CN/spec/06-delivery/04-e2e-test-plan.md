@@ -37,6 +37,27 @@
   `TranscribeModel.dispose()` 会向操作系统归还内存，且现有延迟加载路径可重新加载。
 - **规格：** [实时语音](../03-runtime/live-voice.md)。
 
+### E2E-LIVE-VOICE-gemini-work-schema
+
+- **Preconditions:** Production Gemini adapter with a deterministic transport
+  fixture and a bound work profile; no credentials or hardware devices.
+- **Steps:** Start the call with a work target, accept a valid setup, unmute and
+  send PCM. Reject another setup with close 1007 and a UTF-8 reason. Repeat
+  with a transport error followed by close; cancel and close the adapter.
+- **Expected:** Gemini sends the supported Schema subset and connects; OpenAI's
+  schema and Host argument validation remain strict. Setup rejection settles
+  immediately as `LIVE_PROTOCOL_ERROR`, transport errors remain network errors,
+  and only one failure is reported. The raw reason reaches only the provider
+  log; even the connect rejection crossing IPC contains only the public code.
+  Cancellation suppresses terminal noise and close removes socket observers.
+- **Specs:** `03-runtime/live-voice.md`, `09-logging-and-observability.md`.
+- **Acceptance:** C, E, Security, Quality.
+- **Milestone:** Maintenance, issue #1812.
+- **Automation:** `live-voice-gemini-adapter.test.mjs`,
+  `live-voice-service-lifecycle.test.mjs`, and voice-runtime `live/protocol.test.ts`.
+- **Status:** Adapter/service contract-covered; full Electron/Gemini account and
+  physical microphone acceptance remain separate and are not certified here.
+
 ### E2E-LIVE-VOICE-public-settings-and-reconnect
 
 - **前提：** 生产 Renderer 构建、真实 Electron/Main/Host、隔离数据和测试项目、关闭开发者模式、本地 TLS Realtime fixture 及合成麦克风。仅在测试子进程中信任 fixture CA，不关闭 TLS、sender、沙盒或麦克风权限校验。
@@ -5792,6 +5813,7 @@ eleven-tool-round desktop paths are verified by
 ## 8. 可追溯性矩阵
 | 验收 | 应用场景 |
 |---|---|
+| C / E / Security / Quality — Gemini work setup | E2E-LIVE-VOICE-gemini-work-schema |
 | B / Security / Quality — Optional provider client certificate requests | E2E-PROVIDER-optional-client-certificate |
 | C / E / F / Quality / Security — Session Todo checklist | E2E-CHAT-session-todo-checklist |
 | C / E / Security / Quality — Live Voice 四阶段交互 | E2E-LIVE-VOICE-four-stage-ui |
@@ -9310,6 +9332,15 @@ Follow the [current S3 acceptance scenario](/spec/06-delivery/04-e2e-test-plan#e
   （同一对象、无日志）。
 
 - **状态：** 单元测试覆盖；没有端到端驱动对重复转录发出真实提供商请求。
+
+- **Reused-id regression (#1815):** Run two actual tool executions whose
+  provider responses reuse the same id, then inspect the next request. Both
+  results must remain, with distinct paired ids and no synthetic placeholder.
+  Repeat after context trimming and restored history, and verify cancellation,
+  metadata and replayed pending snapshots retain their semantics.
+  `runtime.test.ts` covers the parent prompt path; `subagent-fallback.test.ts`
+  drives the real Pi adapter over local HTTP with two executions and three
+  requests; `tool-call-identity.test.ts` covers retained identities after trim.
 
 ### E2E-RUNTIME-system-update-during-tool-call-restore
 

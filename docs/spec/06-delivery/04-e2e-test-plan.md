@@ -166,6 +166,27 @@
   returns memory to the OS and that the existing lazy-load path reloads it.
 - **Specs:** [Live Voice](../03-runtime/live-voice.md).
 
+### E2E-LIVE-VOICE-gemini-work-schema
+
+- **Preconditions:** Production Gemini adapter with a deterministic transport
+  fixture and a bound work profile; no credentials or hardware devices.
+- **Steps:** Start the call with a work target, accept a valid setup, unmute and
+  send PCM. Reject another setup with close 1007 and a UTF-8 reason. Repeat
+  with a transport error followed by close; cancel and close the adapter.
+- **Expected:** Gemini sends the supported Schema subset and connects; OpenAI's
+  schema and Host argument validation remain strict. Setup rejection settles
+  immediately as `LIVE_PROTOCOL_ERROR`, transport errors remain network errors,
+  and only one failure is reported. The raw reason reaches only the provider
+  log; even the connect rejection crossing IPC contains only the public code.
+  Cancellation suppresses terminal noise and close removes socket observers.
+- **Specs:** `03-runtime/live-voice.md`, `09-logging-and-observability.md`.
+- **Acceptance:** C, E, Security, Quality.
+- **Milestone:** Maintenance, issue #1812.
+- **Automation:** `live-voice-gemini-adapter.test.mjs`,
+  `live-voice-service-lifecycle.test.mjs`, and voice-runtime `live/protocol.test.ts`.
+- **Status:** Adapter/service contract-covered; full Electron/Gemini account and
+  physical microphone acceptance remain separate and are not certified here.
+
 ### E2E-LIVE-VOICE-public-settings-and-reconnect
 
 - **Preconditions:** A built production Renderer and real Electron/Main/Host,
@@ -10209,6 +10230,7 @@ must keep splitting are covered by `markdown-blocks.test.mjs`.
 
 | Acceptance | Scenarios |
 |---|---|
+| C / E / Security / Quality — Gemini work setup | E2E-LIVE-VOICE-gemini-work-schema |
 | B / Security / Quality — Optional provider client certificate requests | E2E-PROVIDER-optional-client-certificate |
 | C / E / F / Quality / Security — Session Todo checklist | E2E-CHAT-session-todo-checklist |
 | C / E / Security / Quality — Live Voice four-stage interaction | E2E-LIVE-VOICE-four-stage-ui |
@@ -17604,6 +17626,15 @@ the latest destination. These assertions measure work counts, not device FPS.
 
 - **Status:** Unit-covered; no end-to-end driver issues a real provider request
   against a duplicated transcript.
+
+- **Reused-id regression (#1815):** Run two actual tool executions whose
+  provider responses reuse the same id, then inspect the next request. Both
+  results must remain, with distinct paired ids and no synthetic placeholder.
+  Repeat after context trimming and restored history, and verify cancellation,
+  metadata and replayed pending snapshots retain their semantics.
+  `runtime.test.ts` covers the parent prompt path; `subagent-fallback.test.ts`
+  drives the real Pi adapter over local HTTP with two executions and three
+  requests; `tool-call-identity.test.ts` covers retained identities after trim.
 
 ### E2E-RUNTIME-system-update-during-tool-call-restore
 
