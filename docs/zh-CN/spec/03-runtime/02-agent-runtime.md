@@ -1249,7 +1249,8 @@ provider/model 目录发现超出当前有线路径。
 ### Provider certificate trust（issue #714）
 
 桌面 sidecar 使用 Node 的 `--use-system-ca` 启动，同时保留内置根证书和继承的
-`NODE_EXTRA_CA_CERTS`。它使用操作系统信任库，但不会关闭证书链或主机名校验。
+`NODE_EXTRA_CA_CERTS`，并排除操作系统信任库中已过期的证书，因为平台证书库可能保留
+过期条目。内置根证书和 `NODE_EXTRA_CA_CERTS` 不受影响，也不会关闭证书链或主机名校验。
 更新本地信任库或额外 CA 启动环境后，需要重启桌面应用。无头 pi-host 启动行为以及
 System/Direct/Custom 代理路由保持不变。
 
