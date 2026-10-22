@@ -10563,6 +10563,15 @@ This test plan spec is accepted when:
 - On macOS with Stage Manager, shrink or unfocus the PI window until width < 800 or height < 560.
 - Expect the shell to re-assert a Codex-like footprint (~1200×800, min 800×560 capped to the display work area) and keep restoring while still collapsed (not only during the first 20s after launch).
 - The recovery watchdog is macOS-only (D447). On Windows/Linux it must not run at all: the app must never re-layer or re-raise its own window unprompted. Focus another window, then confirm PI-Desktop stays behind it instead of jumping back to the top of the stack, and that a stacking check (`xprop -root _NET_CLIENT_LIST_STACKING`) never shows it returning to the top periodically.
+- Windows regression: trigger tiny-bounds recovery through show, focus, or
+  restore, then Alt+Tab to another app. PI-Desktop must stay behind that app
+  immediately and after four seconds. Ordinary focus must not resize or raise it;
+  hidden/minimized windows keep their state. Recovery must never enable
+  always-on-top off macOS.
+- Automated lifecycle coverage: `window-topmost-lifecycle.test.mjs` executes the
+  production recovery handlers and watchdog with controlled time, including the
+  unchanged macOS temporary pin and release. Native Alt+Tab validation remains
+  a separate platform check.
 
 ### US-UI-20 Dark floating composer box
 - Switch to dark theme on chat home.
