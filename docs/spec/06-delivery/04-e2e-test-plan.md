@@ -17533,16 +17533,24 @@ the latest destination. These assertions measure work counts, not device FPS.
   window, supports parent and subagent requests, and records request payloads.
 - **Steps:** Configure a user context override larger than the published window;
   send a CJK-heavy parent prompt, invoke a subagent, and run a one-shot
-  completion. Repeat the parent request with `thinkingLevel: "omit"`.
+  completion. Repeat the parent request with `thinkingLevel: "omit"`. Restore a
+  session whose transcript holds many large instruction updates on a Responses
+  gateway without mid-conversation system support, then continue it and run a
+  subagent whose updates follow its last usage report.
 - **Expected:** Each request carries a concrete output budget no larger than the
   remaining published window after input estimation and safety reserve. The
   runtime compacts against the published safety ceiling, and no request is sent
   with `input + output` beyond that ceiling. Small ASCII requests retain the
-  configured budget when it fits.
+  configured budget when it fits. The restored session and the subagent send one
+  folded instruction message and keep the configured output budget instead of
+  the provider's minimum.
 - **Specs linked:** `03-runtime/02-agent-runtime.md`,
   `03-runtime/13-model-catalog-and-selection.md`
 - **Acceptance:** F (runtime provider requests), C (chat and stream)
-- **Status:** Unit-covered; deterministic provider fixture pending
+- **Automation:** `packages/agent-runtime/src/output-cap-request.test.ts` drives
+  the restored-session and subagent steps through a loopback Responses gateway.
+- **Status:** Unit-covered; folded-instruction steps covered by a loopback
+  gateway; remaining deterministic provider fixture pending
 
 ### E2E-PROVIDER-certificate-trust-and-terminal-errors
 

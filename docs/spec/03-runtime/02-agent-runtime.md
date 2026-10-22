@@ -577,7 +577,13 @@ the pi-ai chars/4 baseline plus a CJK correction, then reserves the larger of
 4,096 tokens or 1% of the effective window. The effective window is the smaller
 of the configured value and the published catalog window when both are known;
 this prevents an oversized user override from bypassing compaction and output
-protection. Unknown windows preserve the configured output budget.
+protection. Unknown windows preserve the configured output budget. The estimate
+measures the transcript the adapter sends: unless the bound model declares
+mid-conversation system support, later system-transcript updates are folded
+into one leading message carrying the current instructions and tools, and the
+parent and subagent paths hand that folded transcript to pi-ai as well, so its
+own `streamSimple` clamp agrees. Superseded instruction snapshots are never
+charged against the output budget.
 
 The incoming user prompt participates in budgeting before the first provider
 request. The automatic summary request retries transient provider failures
