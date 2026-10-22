@@ -11,6 +11,13 @@ import { app, net, session } from "electron";
 import { applyNetworkProxy, disposeSystemProxyRelay } from "../../apps/desktop/electron/main/network-proxy";
 import { probeModelList, probeProviderEndpoint } from "../../apps/desktop/electron/main/model-discovery";
 
+// Assertions in server callbacks run outside the scenario's try/catch.
+// Report them instead of blocking CI in Electron's default error dialog.
+process.on("uncaughtException", (error) => {
+  console.error(error);
+  app.exit(1);
+});
+
 app.setPath("userData", process.argv[2]);
 app.commandLine.appendSwitch("ozone-platform", "headless");
 app.disableHardwareAcceleration();
