@@ -377,6 +377,9 @@ describe("custom system prompt files (issue #542)", () => {
     // Operational rules from the default prompt must survive the replacement.
     expect(prompt).toContain("Complete the requested work and relevant checks");
     expect(prompt).toContain("Before each tool batch, briefly state its purpose");
+    expect(prompt).toContain("File references: when citing a real local file, use a Markdown link");
+    expect(prompt).toContain("do not use ranges or GitHub #L anchors");
+    expect(prompt).toContain("Do not wrap links in backticks or use file://, vscode://, or https://");
     expect(prompt).toContain("Editing workflow: inside the advertised workspace");
     expect(prompt).toContain("You are operating in Agent mode.");
 
@@ -423,6 +426,7 @@ describe("custom system prompt files (issue #542)", () => {
     const prompt = promptOf(runtime);
 
     expect(prompt).toContain("You are PI-Desktop");
+    expect(prompt).toContain("File references: when citing a real local file, use a Markdown link");
     expect(prompt).not.toContain("MARKER-XYZ-123");
 
     await runtime.dispose();
