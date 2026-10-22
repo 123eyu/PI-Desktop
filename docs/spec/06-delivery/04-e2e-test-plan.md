@@ -16688,14 +16688,21 @@ plugin-form fixtures in an isolated temporary directory at runtime.
 
 - **Preconditions**: Rendered Skill Market and MCP Market panels with the
   market APIs stubbed at the IPC boundary. Each API returns a total failure,
-  then a result with one failed source, then a complete result.
+  then a result with one failed source, then a complete result. A second run
+  loads a result first, fails afterwards, and recovers on retry; a third run
+  changes the query after a success so the failure carries a snapshot taken
+  for another query; a fourth run fails with nothing loaded.
 - **Steps**: Open each market; click Retry after the total failure; confirm the
   loading announcement and recovered entry; click Retry again after the
-  partial failure.
+  partial failure. Then load a list, fail the next query, retry, and change
+  the query before failing once more.
 - **Expected**: Both markets repeat the current search, show loading while the
   request runs, retain a Retry action for partial failures, and clear the failed
-  source after recovery. The test makes no live network request and does not
-  change the main-process network policy.
+  source after recovery. After a successful load, a later failure keeps that
+  list on screen, says when it was taken, and still offers Retry; the retained
+  list disappears once a retry succeeds, and it never stands in for a
+  different query or for a failure with nothing loaded. The test makes no live
+  network request and does not change the main-process network policy.
 - **Specs linked**: `04-ux/06-settings-ia.md`, ADR 0177, ADR 0272
 - **Acceptance**: Quality
 - **Milestone**: M6+
