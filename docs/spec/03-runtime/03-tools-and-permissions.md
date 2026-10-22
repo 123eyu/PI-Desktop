@@ -118,6 +118,18 @@ result. Options may be plain strings or `{ label, description? }` objects; the
 selected label remains the answer value. Stopping the turn resolves outstanding
 questions as skipped.
 
+A stop ends the turn even when the running tool cannot be cancelled (ADR
+tool-abort-abandons-host-call). `Bash` and `GenerateImages` are cancelled through
+`tools.abort`, and the runtime waits a bounded 10s grace window for the host to
+return the output it collected before the kill. Every other tool has no
+host-side cancellation: the runtime stops waiting the moment the signal fires,
+returns `TOOL_ABORTED`, and leaves the host call to settle on its own with its
+result discarded. Abandoned calls keep consuming host resources until they
+finish, and a retry must carry a fresh tool call id. The stop releases the
+in-flight tools directly as well, so it still ends the turn when a tool's own
+abort signal never fires; the stop RPC must return even in that case, because
+the renderer waits for it before it leaves the running state.
+
 `JevClassify` is an external provider operation rather than a workspace
 execution tool. It validates its structured request, observes cancellation,
 uses a bounded provider timeout, and returns typed classifier results; it has
