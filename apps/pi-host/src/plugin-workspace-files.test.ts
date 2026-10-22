@@ -55,6 +55,17 @@ it("enforces scope on both the requested and canonical file", { timeout: 60_000 
   expect(await read("list", "docs", [])).toMatchObject({ entries: [] });
 });
 
+it("caps a remote directory listing at the plugin SDK limit", { timeout: 60_000 }, async () => {
+  const { root, read } = await fixture();
+  await Promise.all(Array.from({ length: 1005 }, (_, index) =>
+    writeFile(join(root, `item-${String(index).padStart(4, "0")}.txt`), ""),
+  ));
+  const result = await read("list", "", ["**"]);
+  expect(result).toMatchObject({ kind: "list" });
+  if (result.kind !== "list") throw new Error("expected a directory listing");
+  expect(result.entries).toHaveLength(1000);
+});
+
 it("refuses credentials, escaped links, protected Host data and browse-root escapes", { timeout: 60_000 }, async () => {
   const { home, root, data, read } = await fixture();
   await symlink(join(root, ".env"), join(root, "docs", "credential.txt"));

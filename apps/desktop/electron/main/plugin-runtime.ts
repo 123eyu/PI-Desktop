@@ -29,6 +29,7 @@ import {
   normalizeFsPath,
   parseNetDomains,
   parseSkillFrontmatter,
+  PLUGIN_FS_LIST_MAX_ENTRIES,
   pluginMcpToolKey,
   pluginSkillId,
   pluginThemeId,
@@ -801,8 +802,6 @@ export const MAX_COMPLETE_SYSTEM_CHARS = 32 * 1024;
 export const MAX_COMPLETE_MESSAGE_CHARS = 200_000;
 /** Kept from the pre-scope implementation: a listing is not a search index. */
 const MAX_GLOB_MATCHES = 500;
-/** Entries returned for one directory. A tree is walked lazily, not dumped. */
-const MAX_LIST_ENTRIES = 1000;
 /** Maximum bytes one plugin range call may cross the broker with. */
 const MAX_FS_READ_RANGE_BYTES = 8 * 1024 * 1024;
 /**
@@ -6064,7 +6063,7 @@ export class PluginRuntime {
             mtimeMs?: number;
           }> = [];
           for (const name of names.sort()) {
-            if (entries.length >= MAX_LIST_ENTRIES) break;
+            if (entries.length >= PLUGIN_FS_LIST_MAX_ENTRIES) break;
             const childRel = rel ? `${rel}/${name}` : name;
             const full = join(dir, name);
             if (isDeniedFsPath(childRel)) continue;
