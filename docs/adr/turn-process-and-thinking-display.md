@@ -2,7 +2,7 @@
 
 - Status: Accepted
 - Date: 2026-09-17
-- Amended: 2026-10-21
+- Amended: 2026-10-22
 - Issues: #510, #461
 - Amends: D071, [ADR 0242](0242-delta-only-streaming-updates.md)
 
@@ -70,18 +70,24 @@ Other completed groups start closed. An untouched active group containing any
 recorded failed or denied tool stays open through later recovery and closes on
 turn completion if still untouched.
 
-The turn's disclosure header states the turn's outcome and never echoes the item
-it is working on, because a shell command or search query can be arbitrarily
-long. It reads `failed`, `stopped`, `running`, or finished, in that precedence:
-a recorded failure outranks a stop, because the turn produced no answer and a
-normal-looking header hid that. A stop is read from an aborted message, the only
-signal the runtime records — the turn result distinguishes completed from failed
-only. Aborted activity rows also record a stop while a tool or reasoning step is
-in flight; delegated child rows do not determine the parent turn's outcome.
-While running, stages a reader can sit in front of (compaction, recovery)
-name themselves; a live reasoning step reads `Thinking`, and momentary stages
-read as plain running. Durations are dropped when the transcript recorded no
-timing rather than shown as zero, and issue counts sit beside the label.
+The turn's disclosure header states the turn's outcome and carries only its
+bounded metadata: status, recorded duration and direct tool/search count. It
+never echoes the item it is working on, because a shell command or search query
+can be arbitrarily long. It reads `failed`, `stopped`, `running`, or finished, in
+that precedence: a recorded failure outranks a stop, because the turn produced no
+answer and a normal-looking header hid that. A stop is read from an aborted
+message, the only signal the runtime records — the turn result distinguishes
+completed from failed only. Aborted activity rows also record a stop while a tool
+or reasoning step is in flight; delegated child rows do not determine the parent
+turn's outcome. While running, stages a reader can sit in front of (compaction,
+recovery) name themselves; a live reasoning step reads `Thinking`, and momentary
+stages read as plain running. Durations are dropped when the transcript recorded
+no timing rather than shown as zero. Issue counts are not repeated here: a
+failure is already named by the status itself. The header is a full-width row
+separated by a hairline; status, duration, tool count and the disclosure caret
+form one left-aligned run, so the caret trails the metadata instead of sitting at
+the far edge of the band. Hovering strengthens the text colour only and never
+paints a background.
 
 The disclosure and its group headers share one left edge. A nested activity
 group keeps the released v0.20.1 hierarchy below that header: its body indents
@@ -145,9 +151,10 @@ read for rendering. These preferences change presentation only; they do not
 alter provider thinking levels, runtime/model context, stored reasoning, export,
 permissions, execution, or copy payloads, and the thinking preference does not
 control turn-process or activity-group folding. Process headers use recorded
-timing, direct tool/search counts, running state, and issue counts; they do not
-double-count delegated child work or treat a failed child as a failed assistant
-turn.
+timing, direct tool/search counts, and running state; they do not double-count
+delegated child work or treat a failed child as a failed assistant turn. The
+top-level fold does not repeat issue counts; activity-group headers keep their
+own bounded issue summaries.
 
 ## Consequences
 
@@ -170,9 +177,11 @@ turn.
   messages.
 - With `showThinking` on, Thinking rows default expanded in `flat` and
   `command-first`; `fully-folded` keeps the live-only auto-open exception.
-- The header answers "how did this turn end up" in one short line. Echoing the
-  current command was removed: it pushed the counts off the row and duplicated
-  what opening the item already shows.
+- The header answers "how did this turn end up" in one short line and carries
+  only status, recorded duration and direct tool/search count. A hairline
+  underlines the row, the caret trails the metadata, and hover changes ink only.
+  Echoing the current command was removed: it pushed the counts off the row and
+  duplicated what opening the item already shows.
 - Disclosure memory is pane-owned presentation state with stable turn, group,
   and item identities; it is neither a persisted transcript contract nor a
   central workflow-store concern.
@@ -205,3 +214,12 @@ Settings row label and search indexing, and
 `apps/desktop/test/settings-roundtrip.test.mjs` covers normalization, write
 validation and the `fully-folded` default. See
 E2E-CHAT-turn-process-and-thinking-display for the synchronized scenario text.
+For the 2026-10-22 amendment,
+`apps/desktop/test/turn-process-header.test.mjs` renders the top-level header and
+covers status, duration, tool count, inline-caret order and the absence of issue
+counts in both completed and failed turns;
+`apps/desktop/test/turn-process-header-style.test.mjs` covers the hairline,
+text-only hover and the inline caret position, while `turn-process.test.mjs` and
+`transcript-style.test.mjs` continue to cover phase precedence and the shared
+header geometry. See E2E-CHAT-turn-process-and-thinking-display for the
+synchronized scenario text.

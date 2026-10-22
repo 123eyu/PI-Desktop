@@ -905,19 +905,24 @@ untouched. These group defaults are unified across modes and do not depend on th
 thinking preference. Group headers summarize count, running state and issue count
 without treating a failed child as a failed turn.
 
-The turn disclosure header states the turn's outcome and never echoes the item it
-is working on, because a shell command or search query can be arbitrarily long. It
-reads `Failed`, `Stopped`, `Running`, or `Finished`, with failure outranking stop,
-stop outranking completion, and a live turn reporting running. While running,
-stages a reader can sit in front of (compaction, recovery) name themselves; a
-live reasoning step reads `Thinking`, and momentary stages read as plain running.
-Elapsed time is omitted when the
-transcript recorded no timing rather than shown as zero, and issue counts sit
-beside the label. The disclosure and its group headers share one left edge; a
-nested activity group keeps the released v0.20.1 hierarchy below that header,
-indenting its child rows by 12px and keeping the group's collapse rail in that
-gutter. The rail stays invisible at rest, shows a 2px bar on hover or focus, and
-collapses the group when clicked. The outer turn fold adds no extra hierarchy.
+The turn disclosure header states the turn's outcome and carries only its bounded
+metadata: status, recorded duration and direct tool/search count. It never echoes
+the item it is working on, because a shell command or search query can be
+arbitrarily long. It reads `Failed`, `Stopped`, `Running`, or `Finished`, with
+failure outranking stop, stop outranking completion, and a live turn reporting
+running. While running, stages a reader can sit in front of (compaction, recovery)
+name themselves; a live reasoning step reads `Thinking`, and momentary stages read
+as plain running. Elapsed time is omitted when the transcript recorded no timing
+rather than shown as zero. Issue counts are not repeated at this level: a failed
+turn is already named by its status. The header is a full-width row separated by
+a 1px hairline; status, duration, tool count and the disclosure caret form one
+left-aligned run, so the caret trails the metadata. Hovering strengthens the text
+colour only and never paints a background. The disclosure and its group headers
+share one left edge; a nested activity group keeps the released v0.20.1 hierarchy
+below that header, indenting its child rows by 12px and keeping the group's
+collapse rail in that gutter. The rail stays invisible at rest, shows a 2px bar on
+hover or focus, and collapses the group when clicked. The outer turn fold adds no
+extra hierarchy.
 
 Except for the display mode's Thinking default, no item payload opens itself: a
 tool, hosted-search or plan call stays a header row until the user opens its
