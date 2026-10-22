@@ -9240,7 +9240,8 @@ Follow the [current S3 acceptance scenario](/spec/06-delivery/04-e2e-test-plan#e
 - **步骤：** 运行 `node scripts/e2e-provider-certificates.mjs`。启动真实桌面
   sidecar，使用不受信任的 localhost 证书提交聊天提示。再将其 CA 放入
   `NODE_EXTRA_CA_CERTS` 后重启，并通过 SAN 中不存在的主机名请求同一证书。
-- **预期：** 子进程默认 CA 集合包含系统根证书和额外 CA。首次请求只失败一次，
+- **预期：** 子进程默认 CA 集合包含所有未过期的系统根证书和额外 CA，排除系统证书库中
+  已过期的条目。首次请求只失败一次，
   返回不可重试的证书错误且没有重试状态；信任 CA 后请求返回文本；主机名不匹配
   仍只失败一次。TLS 和主机名校验始终保持启用。
 - **UI：** 运行 `node scripts/e2e-provider-certificate-ui.mjs`，在隔离 Chromium

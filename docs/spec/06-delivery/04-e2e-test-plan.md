@@ -17561,7 +17561,9 @@ the latest destination. These assertions measure work counts, not device FPS.
   desktop sidecar and submit a chat prompt against an untrusted localhost
   certificate. Relaunch with its CA in `NODE_EXTRA_CA_CERTS`, then request the
   same certificate through a hostname absent from its SAN.
-- **Expected:** The child's default CA set includes system roots and extra CAs.
+- **Expected:** The child's default CA set includes every non-expired system
+  root and extra CAs, while expired system-store entries are omitted. Bundled
+  roots and inherited extra CAs remain available.
   The first request fails once with a non-retriable certificate error and no
   retry status; the trusted request returns text; the hostname mismatch still
   fails once. TLS and hostname verification remain enabled.

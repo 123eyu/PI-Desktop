@@ -1857,9 +1857,11 @@ browseable.
 ### Provider certificate trust (issue #714)
 
 The desktop sidecar's effective trust set is the union of Node's bundled
-roots, the inherited `NODE_EXTRA_CA_CERTS` set, and the OS trust store, with
-chain and hostname validation on. On Windows and Linux the launcher passes
-Node's `--use-system-ca` to obtain the system roots. On macOS the Electron
+roots, the inherited `NODE_EXTRA_CA_CERTS` set, and non-expired entries from
+the OS trust store, with chain and hostname validation on. Expired entries in
+the OS store are omitted because platform stores may retain stale certificates;
+bundled and `NODE_EXTRA_CA_CERTS` entries are unchanged. On Windows and Linux
+the launcher passes Node's `--use-system-ca` to obtain the system roots. On macOS the Electron
 build applies that flag by replacing the bundled roots instead of adding them
 and its system enumeration misses public anchors (issue #1187), so the
 launcher omits the flag and the sidecar merges the three sets into the default
