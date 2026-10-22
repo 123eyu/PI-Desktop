@@ -287,7 +287,7 @@ test("the offered default and the saved default use one order", () => {
 });
 
 test("model settings let the user allow Fast mode per model on Responses wires", () => {
-  // ADR 0332: the opt-in lives on the binding; `/fast` is the per-session switch.
+  // ADR 0334: the opt-in lives on the binding; `/fast` is the per-session switch.
   assert.match(pickerSource, /const fastModeBilling = fastModeBillingOn\(apiStyle\);/);
   assert.match(pickerSource, /checked=\{binding\.fastModeAllowed === true\}/);
   assert.match(pickerSource, /disabled=\{!fastModeBilling\}/);

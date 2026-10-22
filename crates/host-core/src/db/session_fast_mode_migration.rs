@@ -1,7 +1,7 @@
 use super::{create_migration_backup, Connection, Context, Path, Result};
 use rusqlite::Transaction;
 
-/// v25 stores the per-session `/fast` switch (ADR 0332). Every existing
+/// v25 stores the per-session `/fast` switch (ADR 0334). Every existing
 /// session keeps the default service tier.
 fn migrate_v24_to_v25_tx(tx: &Transaction<'_>) -> Result<()> {
     let has_fast_mode: bool = tx.query_row(

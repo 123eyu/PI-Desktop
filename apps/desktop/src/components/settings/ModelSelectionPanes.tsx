@@ -309,7 +309,7 @@ export function ModelSelectionPanes({
   // means this connection is not integrated, not that the vendor cannot search.
   const nativeWebSearchWireCapable = nativeWebSearchSupportedOn(apiStyle, lookupContext?.baseUrl);
   // Fast mode rides the Responses `service_tier` field; the hint names what
-  // the priority tier costs on this wire (ADR 0332).
+  // the priority tier costs on this wire (ADR 0334).
   const fastModeBilling = fastModeBillingOn(apiStyle);
   const fastModeHint = fastModeBilling === "subscription"
     ? "settings.fastModeAllowedSubscriptionHint"

@@ -256,7 +256,7 @@ export type ModelBinding = {
   nativeWebSearch?: boolean;
   /**
    * Opt-in that lets the session `/fast` switch ask OpenAI for the priority
-   * service tier on this model (ADR 0332). Absent/false keeps the default
+   * service tier on this model (ADR 0334). Absent/false keeps the default
    * tier; only Responses wires carry it (`fastModeSupportedOn`).
    */
   fastModeAllowed?: boolean;

@@ -9,7 +9,7 @@ const { api } = await import("../src/lib/api.ts");
 const { runPaletteCommand } = await import("../src/lib/commands.ts");
 const { sessionFastModeActive } = await import("../src/lib/fast-mode-command.ts");
 
-// ADR 0332: `/fast` is a per-session switch, and model settings decide which
+// ADR 0334: `/fast` is a per-session switch, and model settings decide which
 // models may use it.
 
 await i18n.init({ lng: "en", keySeparator: false, resources: { en: { translation: flatten(en) } } });

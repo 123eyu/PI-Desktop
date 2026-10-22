@@ -27,7 +27,7 @@ builtin command contracts.
 | `builtin.mode.agent` | Switch to Agent | mode, agent | Session | low | set the idle session mode to Agent |
 | `builtin.mode.plan` | Switch to Plan | mode, plan, planning | Session | low | set the idle session mode to Plan |
 | `builtin.mode.goal` | Switch to Goal | mode, goal, objective, autonomous | Session | low | set the idle session mode to Goal |
-| `builtin.session.fast` | Toggle Fast mode | fast, speed, priority, service tier | Session | medium | toggle the session's OpenAI priority service tier (ADR 0332) |
+| `builtin.session.fast` | Toggle Fast mode | fast, speed, priority, service tier | Session | medium | toggle the session's OpenAI priority service tier (ADR 0334) |
 
 ## 4. Visibility and execution rules
 
@@ -46,7 +46,7 @@ builtin command contracts.
   session, they update the persisted default for the next session; a running
   session or pending approval is not changed.
 - `Toggle Fast mode` flips the session's persisted `fastMode` through the same
-  configuration path (ADR 0332). With no active session it records the switch on
+  configuration path (ADR 0334). With no active session it records the switch on
   the new-task draft, and the created session starts with it. The selected
   model must allow Fast mode in Settings → Models → Advanced on a Responses
   wire (Codex subscription or OpenAI Responses); otherwise, in either
@@ -108,6 +108,11 @@ The prompt body remains the visible user turn; a failed dispatch does not clear
 the composer draft. Former builtin aliases are no longer resolved and are
 handled as ordinary unknown slash text unless supplied by another command
 source.
+
+Prompt-template arguments preserve explicitly quoted empty strings (`""` or
+`''`) as positional arguments. An empty first argument can activate a template
+default without shifting later `$2` / slice substitutions. Ordinary quoting,
+literal argument content, and the stored original slash command are unchanged.
 
 When a command completes, it clears only the submitted draft if that draft has
 not been edited since submission. Any newer edit remains—even if the user

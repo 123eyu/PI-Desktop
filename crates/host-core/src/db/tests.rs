@@ -294,7 +294,7 @@ fn worktree_registry_enforces_one_row_per_owner_and_unique_ports() {
 /// `sessions` stamps nor the `session_todo` table, so the upgrade must add
 /// both, keep the v20 rows, leave a readable pre-migration backup, and stay
 /// idempotent when a fixture downgrades the same file in place.
-/// v25 adds the per-session `/fast` column (ADR 0332). Existing sessions keep
+/// v25 adds the per-session `/fast` column (ADR 0334). Existing sessions keep
 /// their configuration, default to the normal tier, and a backup remains.
 #[test]
 fn v24_database_gains_session_fast_mode_defaulting_off() {

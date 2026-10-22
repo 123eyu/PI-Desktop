@@ -15,7 +15,7 @@ export type ComposerModelPickerProps = {
   modelLabel: string;
   thinkingLabel: string;
   thinkingLevel: string;
-  /** The selected model asks for OpenAI's priority tier (ADR 0332). */
+  /** The selected model asks for OpenAI's priority tier (ADR 0334). */
   fastMode?: boolean;
   selectedProviderId?: string;
   selectedModelId?: string;

@@ -362,7 +362,7 @@ CREATE TABLE sessions (
                                           'high', 'xhigh', 'max', 'omit')),
   permission_mode TEXT NOT NULL DEFAULT 'inherit' -- D115: inherit follows settings
                 CHECK (permission_mode IN ('inherit', 'ask', 'accept-edits', 'auto')),
-  fast_mode   INTEGER NOT NULL DEFAULT 0       -- ADR 0332: session /fast switch
+  fast_mode   INTEGER NOT NULL DEFAULT 0       -- ADR 0334: session /fast switch
                CHECK (fast_mode IN (0, 1)),
   source      TEXT,                            -- import origin: claude-code | codex | opencode | pi
   deleted_at  INTEGER,                         -- plugin trash marker; null means active
@@ -1188,7 +1188,7 @@ outbox 排空。渲染器侧的停止绝不重写已有已开始回复的转录
   因此 v15 文件可以在一次启动中走完两个步骤。
 - **架构 v24 是增量的。** 它为隔离会话增加 `worktrees` 登记表和
   `projects.worktree_setup_command`（ADR 0329）。迁移前保留 v23 备份。
-- **架构 v25 是增量的。** 它增加 `sessions.fast_mode`（ADR 0332），即会话的 `/fast`
+- **架构 v25 是增量的。** 它增加 `sessions.fast_mode`（ADR 0334），即会话的 `/fast`
   开关，所有已有会话默认为 `0`。fork 会复制该值；定时任务运行和委托子会话从 `0` 开始。
   迁移前保留 v24 备份。
 - **架构 v7 首先到达 v8，然后使用受保护的路径。** v7→v8
@@ -1239,7 +1239,13 @@ outbox 排空。渲染器侧的停止绝不重写已有已开始回复的转录
 应用设置 JSON 还可选存储布尔值 `showThinking`，用于转录中的推理可见性。它是可移植的
 应用偏好，会像旧字段一样跨设备同步。缺失值回退到旧版 `thinkingDisplayMode` 字段
 （`compact` 隐藏，`detailed`／未知／缺失显示）；该旧字段仅为持久化设置兼容性保留，
-并作为该回退来源。这些新增展示偏好既不重写已存推理，也不改变数据库 schema。
+并作为该回退来源。应用设置 JSON 还可选存储 `transcriptDisplayMode`
+（`flat` | `command-first` | `fully-folded`），用于转录中的过程分组：`flat` 不渲染
+嵌套活动组，`command-first` 将 `Bash`／run 行作为活动组旁的独立行，`fully-folded`
+让每条命令留在其周围的组内。缺失或未知值在渲染层与主进程设置规范化中都归一化为
+`fully-folded`。它是可移植的应用偏好，只改变展示。已弃用的 `keepCommandsExpanded`
+布尔值仅为持久化设置兼容性保留；它不再在设置中暴露，也不再参与渲染读取。这些新增展示
+偏好既不重写已存推理，也不改变数据库 schema。
 
 应用设置 JSON 可能仍包含旧版本写入的提示词增强键。为支持回退和降级，宿主保留这些值，
 但不会再把它们作为有效偏好读取或写入。用户安装并授权独立的

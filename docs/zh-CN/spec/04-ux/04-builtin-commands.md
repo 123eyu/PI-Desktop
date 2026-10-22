@@ -26,7 +26,7 @@ builtin.<domain>.<action>
 | `builtin.mode.agent` | 切换到 Agent | mode、agent | Session | 低 | 将空闲会话模式设为 Agent |
 | `builtin.mode.plan` | 切换到 Plan | mode、plan、planning | Session | 低 | 将空闲会话模式设为 Plan |
 | `builtin.mode.goal` | 切换到 Goal | mode、goal、objective、autonomous | Session | 低 | 将空闲会话模式设为 Goal |
-| `builtin.session.fast` | 切换 Fast 模式 | fast、speed、priority、service tier | Session | 中 | 切换会话的 OpenAI 优先服务档位（ADR 0332） |
+| `builtin.session.fast` | 切换 Fast 模式 | fast、speed、priority、service tier | Session | 中 | 切换会话的 OpenAI 优先服务档位（ADR 0334） |
 
 ## 4. 可见性与执行规则
 
@@ -39,7 +39,7 @@ builtin.<domain>.<action>
 - 模式命令使用与 Composer Agent/Plan/Goal 芯片相同的活动会话配置路径，立即更新
   空闲会话。没有活动会话时，它们更新下一个会话使用的持久化默认值；正在运行的会话
   或待审批会话不会被修改。
-- `Toggle Fast mode` 通过同一条配置路径翻转会话持久化的 `fastMode`（ADR 0332）。
+- `Toggle Fast mode` 通过同一条配置路径翻转会话持久化的 `fastMode`（ADR 0334）。
   没有活动会话时，它记录在新任务草稿上，创建出的会话会带上该开关。所选模型必须在
   「设置 → 模型 → 高级」中允许 Fast 模式，且走 Responses 协议（Codex 订阅或 OpenAI
   Responses）；否则无论开启还是关闭，都只弹出警告指向该设置，不保存任何状态。未配置

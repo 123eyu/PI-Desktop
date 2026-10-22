@@ -1,5 +1,5 @@
 /**
- * OpenAI Fast mode (ADR 0332): the Responses body field
+ * OpenAI Fast mode (ADR 0334): the Responses body field
  * `service_tier: "priority"`. A request asks for it only when the model
  * binding's `fastModeAllowed` and the session `/fast` switch are both on.
  */

@@ -719,7 +719,7 @@ fn plugin_session_rpc_err(error: impl ToString) -> JsonRpcError {
     rpc_err(rpc_code, message, &code)
 }
 
-/// Optional session `/fast` switch (ADR 0332). Absent or null leaves the
+/// Optional session `/fast` switch (ADR 0334). Absent or null leaves the
 /// stored value; anything but a boolean is rejected rather than coerced.
 fn fast_mode_param(params: &Value) -> Result<Option<bool>, JsonRpcError> {
     match params.get("fastMode") {
@@ -6700,7 +6700,7 @@ mod tests {
         );
     }
 
-    /// ADR 0332: `fastMode` is an optional boolean on create and configure;
+    /// ADR 0334: `fastMode` is an optional boolean on create and configure;
     /// an absent value keeps the stored switch and a non-boolean is rejected.
     #[tokio::test]
     async fn session_fast_mode_rpc_is_optional_boolean_and_preserved() {

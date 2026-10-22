@@ -6,7 +6,7 @@ import { isRemoteSession } from "./remote-session-safety";
 import { inheritedSessionModelBinding } from "./session-model";
 
 /**
- * The `/fast` builtin (ADR 0332): a per-session switch for OpenAI's priority
+ * The `/fast` builtin (ADR 0334): a per-session switch for OpenAI's priority
  * service tier. Model settings decide which models may use it.
  */
 

@@ -296,7 +296,7 @@ to later refresh and inference; the vendor picker does not collect them.
   `inheritPermissionFromSessionId`; when present, the host copies the existing
   session's persisted permission mode atomically, while omission preserves the
   existing `inherit` default. Missing/null thinking level defaults to `off`.
-  Optional boolean `fastMode` (ADR 0332) stores the session `/fast` switch;
+  Optional boolean `fastMode` (ADR 0334) stores the session `/fast` switch;
   missing/null means `false` and a non-boolean returns `INVALID_PARAMS`.
   Optional `isolated: true` (ADR 0329) also requires `projectPath` and gives
   the new session its own git worktree before it returns; if the worktree
@@ -355,7 +355,7 @@ to later refresh and inference; the vendor picker does not collect them.
   and optional `thinkingLevel` (`off|minimal|low|medium|high|xhigh|max|omit`)
   for the next pi turn; omitting/null
   `thinkingLevel` preserves the current value; optional boolean `fastMode`
-  (ADR 0332) follows the same rule, and a non-boolean is `INVALID_PARAMS`;
+  (ADR 0334) follows the same rule, and a non-boolean is `INVALID_PARAMS`;
   invalid modes or levels return
   `INVALID_PARAMS`; mode is `plan | goal | agent` and changing any session
   configuration is allowed only while idle and without a pending/queued/running

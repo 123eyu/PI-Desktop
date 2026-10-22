@@ -1,5 +1,5 @@
 /**
- * OpenAI Fast mode (ADR 0332). The launcher has already combined the session
+ * OpenAI Fast mode (ADR 0334). The launcher has already combined the session
  * `/fast` switch with the model binding's opt-in; pi-ai's Responses adapters
  * send `serviceTier` as `service_tier` and price the tier the response reports.
  */

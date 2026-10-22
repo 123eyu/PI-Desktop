@@ -114,7 +114,7 @@ export type DraftSessionConfiguration = {
   providerId?: string;
   modelId?: string;
   permissionMode?: PermissionMode;
-  /** Session `/fast` switch carried into the created session (ADR 0332). */
+  /** Session `/fast` switch carried into the created session (ADR 0334). */
   fastMode?: boolean;
 };
 

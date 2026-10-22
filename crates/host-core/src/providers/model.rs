@@ -171,7 +171,7 @@ pub struct ModelBinding {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub native_web_search: Option<bool>,
     /// Opt-in that lets the session `/fast` switch request OpenAI's priority
-    /// service tier for this model (ADR 0332). None/false keeps the default.
+    /// service tier for this model (ADR 0334). None/false keeps the default.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub fast_mode_allowed: Option<bool>,
 }

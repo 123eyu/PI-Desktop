@@ -9,7 +9,7 @@ import { repositoryRoot } from "../../../scripts/e2e/boot.mjs";
 const root = repositoryRoot();
 const { build } = createRequire(join(root, "packages/agent-runtime/package.json"))("esbuild");
 
-test("session launch sends Fast mode only for a model the user allowed it on (ADR 0332)", async () => {
+test("session launch sends Fast mode only for a model the user allowed it on (ADR 0334)", async () => {
   const temp = await mkdtemp(join(root, "apps/desktop/.fast-mode-launch-test-"));
   const priorHome = process.env.HOME;
   process.env.HOME = temp;

@@ -1,4 +1,4 @@
-# ADR 0332: OpenAI Fast mode as a per-session switch gated by model settings
+# ADR 0334: OpenAI Fast mode as a per-session switch gated by model settings
 
 - Status: Accepted
 - Date: 2026-10-17

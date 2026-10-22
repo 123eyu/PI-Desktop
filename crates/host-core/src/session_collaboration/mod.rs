@@ -167,7 +167,7 @@ fn spawn(db: &Database, input: &Value) -> Result<Value> {
             project_path: parent.summary.project_path,
             thinking_level: Some(parent.summary.thinking_level),
             permission_mode: Some(parent.summary.permission_mode),
-            // Delegated workers keep the default tier (ADR 0332).
+            // Delegated workers keep the default tier (ADR 0334).
             fast_mode: false,
         },
     )?;

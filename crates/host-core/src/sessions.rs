@@ -128,7 +128,7 @@ pub struct SessionSummary {
     pub thinking_level: String,
     #[serde(default = "default_permission_mode")]
     pub permission_mode: String,
-    /// The `/fast` switch for this session's main turns (ADR 0332). Requests
+    /// The `/fast` switch for this session's main turns (ADR 0334). Requests
     /// use the priority tier only when the model binding also allows it.
     #[serde(default)]
     pub fast_mode: bool,
@@ -346,29 +346,39 @@ pub struct SearchHit {
 /// The renderer creates a session with its localized `chat.untitledTask` label
 /// and also recognizes `nav.newChat`, so host-core has to recognize the same
 /// values: it owns title eligibility and cannot read the renderer catalog when
-/// it decides whether a title may still be replaced. German, Spanish, and
-/// French fall back to the English label. Keep this in sync with the migration
-/// list in `db/session_title_source_migration.rs` and `LEGACY_DEFAULT_TITLES`
-/// in the renderer.
-const PLACEHOLDER_TITLES: [&str; 13] = [
+/// it decides whether a title may still be replaced. Every entry is stored
+/// lowercased and compared through `to_lowercase`, because both localized
+/// keys the renderer writes — `chat.untitledTask` and `nav.newChat` — have
+/// their own label per locale, and a non-ASCII uppercase letter (a future
+/// "Ñö..." entry) would slip past ASCII-case-insensitive matching (#1755).
+/// Keep this in sync with the migration list in
+/// `db/session_title_source_migration.rs` and `LEGACY_DEFAULT_TITLES` in the
+/// renderer.
+const PLACEHOLDER_TITLES: [&str; 19] = [
     "",
-    "New task",
-    "New chat",
+    "new task",
+    "new chat",
     "新建任务",
     "新对话",
     "新建任務",
     "新對話",
     "새 작업",
     "새 채팅",
-    "Tarefa sem título",
-    "Nova conversa",
-    "Yeni görev",
-    "Yeni sohbet",
+    "tarefa sem título",
+    "nova conversa",
+    "yeni görev",
+    "yeni sohbet",
+    "neue aufgabe",
+    "nouvelle tâche",
+    "nueva tarea",
+    "neuer chat",
+    "nuevo chat",
+    "nouvelle discussion",
 ];
 
 fn is_default_title(title: &str) -> bool {
-    let t = title.trim();
-    PLACEHOLDER_TITLES.iter().any(|p| p.eq_ignore_ascii_case(t))
+    let t = title.trim().to_lowercase();
+    PLACEHOLDER_TITLES.iter().any(|p| *p == t)
 }
 
 // ---- UiMessage ⇄ transcript record mapping -----------------------------------
@@ -1371,7 +1381,7 @@ pub struct SessionCreateOptions {
     pub project_path: Option<String>,
     pub thinking_level: Option<String>,
     pub permission_mode: Option<String>,
-    /// The `/fast` switch (ADR 0332); false keeps the default service tier.
+    /// The `/fast` switch (ADR 0334); false keeps the default service tier.
     pub fast_mode: bool,
 }
 
@@ -1897,7 +1907,7 @@ pub fn configure_session_with_thinking(
 }
 
 /// Full configurator. Every `None` preserves the persisted value, including
-/// the `/fast` switch (ADR 0332).
+/// the `/fast` switch (ADR 0334).
 #[allow(clippy::too_many_arguments)]
 pub fn configure_session_with_fast_mode(
     db: &Database,
@@ -4310,6 +4320,19 @@ pub fn get_token_usage_history(
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn default_title_matches_the_german_french_and_spanish_placeholders() {
+        // The renderer lowercases `chat.untitledTask` before persisting (#1755);
+        // the nav.newChat labels resolve through the same to_lowercase path.
+        assert!(is_default_title("neue aufgabe"));
+        assert!(is_default_title("Nouvelle tâche"));
+        assert!(is_default_title("nueva tarea"));
+        assert!(is_default_title("Neuer Chat"));
+        assert!(is_default_title("nuevo chat"));
+        assert!(is_default_title("Nouvelle discussion"));
+        assert!(!is_default_title("real session name"));
+    }
     use crate::workspace::simple_canonicalize;
 
     fn test_db() -> Database {
@@ -4787,7 +4810,7 @@ mod tests {
         assert_eq!(omitted.thinking_level, "omit");
     }
 
-    /// ADR 0332: `/fast` is stored per session, survives configures that do
+    /// ADR 0334: `/fast` is stored per session, survives configures that do
     /// not mention it, and is copied by a fork.
     #[test]
     fn session_fast_mode_is_persisted_preserved_and_forked() {
