@@ -1247,7 +1247,7 @@ Full component contract and usage rules: [08-component-spec.md §17](08-componen
 
 | Property | Value |
 |---|---|
-| Position | top-center viewport, 16px from the top edge, `width: min(360px, 100vw − 32px)` |
+| Position | 16px from the top edge; centered in the main-content safe area when the in-flow shell is visible, falling back to the viewport when no main-content anchor exists; `width: min(360px, safe area − 32px)` |
 | Surface | `bg-elevated-opaque` + 1px `border-subtle` + `shadow-dialog` (same family as floating menus) |
 | Radius | radius-md-plus |
 | Font | text-md, leading-compact-plus |

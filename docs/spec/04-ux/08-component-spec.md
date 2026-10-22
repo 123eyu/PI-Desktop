@@ -3870,7 +3870,7 @@ Transient, non-blocking feedback for completed actions and failures that have no
 ### 17.2 Anatomy
 
 ```text
-                        ┌  toast-viewport (fixed top-center, z-toast) ┐
+                        ┌  toast-viewport (fixed safe-area top-center, z-toast) ┐
                         │  ┌──────────────────────────────────────┐ │
    newest, at anchor →  │  │ (✓)  Provider saved               ✕  │ │
                         │  ├──────────────────────────────────────┤ │
@@ -3882,6 +3882,11 @@ Transient, non-blocking feedback for completed actions and failures that have no
 - `ToastHost` (in `components/Toast.tsx`) renders the stack; mounted once per shell branch in `App.tsx`
 - Each card: 16px variant icon (semantic tint) · message · X dismiss button
 - Surface: `bg-elevated-opaque` + 1px `border-subtle` + `shadow-dialog`, radius-md-plus — same floating family as menus; metrics in [07-ui-design-system.md §11.8](07-ui-design-system.md#118-toast)
+- The host remains portaled to `document.body` for global stacking, but AppShell
+  anchors its horizontal center and width to the live `.main-pane` bounds. A
+  docked or resized work panel and a reopened sidebar therefore cannot be
+  covered by the toast stack. Settings and any shell without a main-content
+  anchor retain viewport-centered fallback placement.
 
 ### 17.3 API
 
@@ -3911,7 +3916,7 @@ dismissToast(id: number); // ToastHost internal / tests
 
 - Auto-dismiss 4s (error 8s, `duration: 0` sticky); hovering a card pauses its timer, leaving resumes with remaining time
 - Stack caps at 4 — oldest drops first; re-raising an identical message+variant restarts the existing toast instead of stacking a twin
-- Newest toast enters at the top-center anchor (slide-down 200ms ease-out) pushing older cards down; exit is a 150ms ease-in fade
+- Newest toast enters at the main-content safe area's top-center anchor (slide-down 200ms ease-out) pushing older cards down; exit is a 150ms ease-in fade
 - Dismiss X always available; every card is an explicit non-drag pointer target
   so hover pause and dismissal remain interactive where the top-center stack
   overlaps frameless titlebar drag chrome
