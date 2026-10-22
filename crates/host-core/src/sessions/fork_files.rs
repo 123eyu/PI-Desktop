@@ -6,8 +6,8 @@ use std::path::{Path, PathBuf};
 use anyhow::{anyhow, Context, Result};
 use serde_json::Value;
 
-use crate::scratch;
 use crate::transcripts::{CompactionRecord, MessageRecord};
+use crate::{scratch, visualizations};
 
 /// Roll back copied inputs if transcript/index publication fails.
 pub(super) struct ForkFiles {
@@ -170,33 +170,97 @@ pub(super) fn preserve(
         if !entry.file_type()?.is_file() {
             return Err(anyhow!("referenced fork input is not a regular file"));
         }
-        let mut options = OpenOptions::new();
-        options.read(true);
-        #[cfg(unix)]
-        {
-            use std::os::unix::fs::OpenOptionsExt;
-            options.custom_flags(libc::O_NOFOLLOW | libc::O_NONBLOCK);
-        }
-        #[cfg(windows)]
-        {
-            use std::os::windows::fs::OpenOptionsExt;
-            options.custom_flags(
-                windows_sys::Win32::Storage::FileSystem::FILE_FLAG_OPEN_REPARSE_POINT,
-            );
-        }
-        let mut input = options.open(&path).context("open fork input")?;
-        let metadata = input.metadata()?;
-        if !metadata.is_file() || metadata.file_type().is_symlink() {
-            return Err(anyhow!("referenced fork input is not a regular file"));
-        }
         fs::create_dir_all(guard.destination.join("pasted"))?;
-        let mut output = OpenOptions::new()
-            .write(true)
-            .create_new(true)
-            .open(&target)
-            .context("create fork input copy")?;
-        std::io::copy(&mut input, &mut output).context("copy fork input")?;
-        output.sync_all()?;
+        copy_regular_file(&path, &target)?;
+    }
+    Ok(guard)
+}
+
+/// Copy one regular file without following a symlink at the source and
+/// without overwriting anything at the target.
+fn copy_regular_file(path: &Path, target: &Path) -> Result<()> {
+    let mut options = OpenOptions::new();
+    options.read(true);
+    #[cfg(unix)]
+    {
+        use std::os::unix::fs::OpenOptionsExt;
+        options.custom_flags(libc::O_NOFOLLOW | libc::O_NONBLOCK);
+    }
+    #[cfg(windows)]
+    {
+        use std::os::windows::fs::OpenOptionsExt;
+        options.custom_flags(windows_sys::Win32::Storage::FileSystem::FILE_FLAG_OPEN_REPARSE_POINT);
+    }
+    let mut input = options.open(path).context("open fork input")?;
+    let metadata = input.metadata()?;
+    if !metadata.is_file() || metadata.file_type().is_symlink() {
+        return Err(anyhow!("referenced fork input is not a regular file"));
+    }
+    let mut output = OpenOptions::new()
+        .write(true)
+        .create_new(true)
+        .open(target)
+        .context("create fork input copy")?;
+    std::io::copy(&mut input, &mut output).context("copy fork input")?;
+    output.sync_all()?;
+    Ok(())
+}
+
+/// Give a fork its own copies of the visualization fragments its transcript
+/// references (D671), so deleting the source session cannot break the
+/// child's cards. Unreferenced fragments stay behind.
+pub(super) fn preserve_visualizations(
+    data_dir: &Path,
+    source_id: &str,
+    child_id: &str,
+    records: &mut [MessageRecord],
+    compactions: &mut [CompactionRecord],
+) -> Result<ForkFiles> {
+    let source = visualizations::session_dir(data_dir, source_id)
+        .ok_or_else(|| anyhow!("invalid source session id"))?;
+    let destination = visualizations::session_dir(data_dir, child_id)
+        .ok_or_else(|| anyhow!("invalid child session id"))?;
+    if destination.try_exists()? {
+        return Err(anyhow!("fork visualization directory already exists"));
+    }
+    let guard = ForkFiles {
+        destination,
+        committed: false,
+    };
+    // Visualizations are disposable like scratch: a missing directory does
+    // not prevent branching, and a symlinked one is never followed.
+    for directory in [visualizations::base_dir(data_dir), source.clone()] {
+        match fs::symlink_metadata(&directory) {
+            Ok(metadata) if metadata.is_dir() && !metadata.file_type().is_symlink() => {}
+            Ok(_) => return Ok(guard),
+            Err(error) if error.kind() == std::io::ErrorKind::NotFound => return Ok(guard),
+            Err(error) => return Err(error.into()),
+        }
+    }
+    for entry in fs::read_dir(&source)? {
+        let entry = entry?;
+        let path = entry.path();
+        if !entry.file_type()?.is_file() || !visualizations::is_fragment_path(&path) {
+            continue;
+        }
+        let target = guard.destination.join(entry.file_name());
+        let source_path = path.to_string_lossy();
+        let target_path = target.to_string_lossy();
+        let referenced = rewrite(records, compactions, &source_path, &target_path);
+        // Renderer path references may use forward slashes on Windows.
+        #[cfg(windows)]
+        let referenced = referenced
+            | rewrite(
+                records,
+                compactions,
+                &source_path.replace('\\', "/"),
+                &target_path.replace('\\', "/"),
+            );
+        if !referenced {
+            continue;
+        }
+        fs::create_dir_all(&guard.destination)?;
+        copy_regular_file(&path, &target)?;
     }
     Ok(guard)
 }
