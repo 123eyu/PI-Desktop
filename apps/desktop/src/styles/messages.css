@@ -676,6 +676,33 @@
 /* Running labels stay readable; the small marker carries the live feedback
    so long tool names never flash between two text colours. */
 .tool-activity-label.running,
+.tool-row-name.running {
+  color: var(--ds-text-secondary);
+}
+
+.tool-activity-label.running::after,
+.tool-row-name.running::after {
+  display: inline-block;
+  width: 4px;
+  height: 4px;
+  margin-inline-start: 6px;
+  vertical-align: middle;
+  border-radius: var(--radius-round);
+  background: var(--ds-text-secondary);
+  content: "";
+  animation: activity-marker-pulse 1s var(--motion-ease-standard) infinite;
+}
+
+@keyframes activity-marker-pulse {
+  0%,
+  100% {
+    opacity: 0.35;
+  }
+  50% {
+    opacity: 1;
+  }
+}
+
 .text-shimmer {
   display: inline-grid;
   min-width: 0;
@@ -730,33 +757,6 @@
   }
   .text-shimmer-base {
     opacity: 1 !important;
-  }
-}
-
-.tool-row-name.running {
-  color: var(--ds-text-secondary);
-}
-
-.tool-activity-label.running::after,
-.tool-row-name.running::after {
-  display: inline-block;
-  width: 4px;
-  height: 4px;
-  margin-inline-start: 6px;
-  vertical-align: middle;
-  border-radius: var(--radius-round);
-  background: var(--ds-text-secondary);
-  content: "";
-  animation: activity-marker-pulse 1s var(--motion-ease-standard) infinite;
-}
-
-@keyframes activity-marker-pulse {
-  0%,
-  100% {
-    opacity: 0.35;
-  }
-  50% {
-    opacity: 1;
   }
 }
 
