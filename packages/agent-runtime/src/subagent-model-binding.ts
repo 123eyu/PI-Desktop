@@ -1,3 +1,4 @@
+import { createToolCallIdentity } from "./tool-call-dedupe.js";
 import { accountModelStream, type UsageObserver } from "./request-usage.js";
 import {
   buildProviderModel,
@@ -38,6 +39,7 @@ export function subagentModelBinding(opts: {
   sessionId: string;
   maxTokens?: number;
   onUsage?: UsageObserver;
+  uniqueToolCalls?: ReturnType<typeof createToolCallIdentity>;
 }, retry: SubagentProviderRetryState) {
   // A definition may cap the delegate's own output (issue #171). The
   // catalog's published limit keeps applying otherwise, so this is an
@@ -58,6 +60,7 @@ export function subagentModelBinding(opts: {
   // provider receives no synthesized reasoning setting at all.
   const omitThinkingModel = omitThinking ? withOmittedThinking(model) : model;
   const requestKey = providerRequestKey(opts.provider);
+  const uniqueToolCalls = opts.uniqueToolCalls ?? createToolCallIdentity();
   return {
     model,
     agentThinkingLevel,
@@ -109,7 +112,7 @@ export function subagentModelBinding(opts: {
         baseUrl: m.baseUrl,
         sessionId: opts.sessionId,
       });
-      return createProviderRetryStream(
+      return uniqueToolCalls(createProviderRetryStream(
         m,
         context,
         sessionOptions,
@@ -127,7 +130,7 @@ export function subagentModelBinding(opts: {
           status: () => retry.status,
           failure: () => retry.failure,
         },
-      );
+      ), context.messages);
     },
     getApiKey: async () => requestKey || undefined,
   } satisfies Pick<AgentOptions, "streamFn" | "getApiKey"> & {

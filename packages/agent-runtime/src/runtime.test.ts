@@ -11132,7 +11132,7 @@ describe("DesktopAgentRuntime loop context ownership (D620)", () => {
   function scriptCallRounds(
     runtime: DesktopAgentRuntime,
     requests: AgentMessage[][],
-    options: { stopAfterRound?: number } = {},
+    options: { stopAfterRound?: number; reuseCallId?: boolean } = {},
   ): void {
     let round = 0;
     (runtime as any).models = {
@@ -11150,9 +11150,9 @@ describe("DesktopAgentRuntime loop context ownership (D620)", () => {
                 { type: "text", text: `round ${current}` },
                 {
                   type: "toolCall",
-                  id: `call-${current}`,
-                  name: "plugin_demo_probe",
-                  arguments: {},
+                  id: options.reuseCallId ? "call-reused" : `call-${current}`,
+                  name: options.reuseCallId ? "Bash" : "plugin_demo_probe",
+                  arguments: options.reuseCallId ? { command: "printf probe" } : {},
                 },
               ]
             : [{ type: "text", text: `round ${current}` }],
@@ -11175,7 +11175,7 @@ describe("DesktopAgentRuntime loop context ownership (D620)", () => {
 
   function probeRuntime(
     requests: AgentMessage[][],
-    options: { stopAfterRound?: number } = {},
+    options: { stopAfterRound?: number; reuseCallId?: boolean } = {},
   ): DesktopAgentRuntime {
     const runtime = createRuntime({
       host: {
@@ -11260,6 +11260,27 @@ describe("DesktopAgentRuntime loop context ownership (D620)", () => {
       ).toBe(true);
     }
   }
+
+  it("keeps both executed results in the next request when the provider reuses a call id", async () => {
+    const requests: AgentMessage[][] = [];
+    const runtime = probeRuntime(requests, { reuseCallId: true });
+    try {
+      await runtime.prompt("run the probe twice", "user-1", "turn-1");
+
+      expect(requests).toHaveLength(3);
+      expect(resultIds(requests[1]!)).toHaveLength(1);
+      const finalRequest = requests[2]!;
+      const ids = toolCallIds(finalRequest);
+      expect(ids).toHaveLength(2);
+      expect(new Set(ids).size).toBe(2);
+      expect(resultIds(finalRequest)).toEqual(ids);
+      expect(finalRequest.filter((m) => m.role === "toolResult").map((m) => m.content))
+        .toEqual([[{ type: "text", text: "probe ok" }], [{ type: "text", text: "probe ok" }]]);
+      expectResultsFollowTheirCalls(finalRequest);
+    } finally {
+      await runtime.dispose();
+    }
+  });
 
   it("stores one copy of every message the loop appends", async () => {
     const stderr = vi.spyOn(process.stderr, "write").mockImplementation(() => true);
