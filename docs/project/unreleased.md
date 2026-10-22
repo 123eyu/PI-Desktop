@@ -4,3 +4,8 @@
   1.1.0 to 1.3.0. Preserve Desktop compatibility patches, omit foreign-model
   thinking from replay, reject malformed final tool JSON before execution, and
   expose the user-run discriminator to trusted extension startup handlers.
+- Render inline interactive visualizations in the transcript. Local sessions
+  get a builtin `visualize` skill; the model writes an HTML fragment to the
+  session's visualization directory and references it with a `::visualize`
+  line, which the transcript shows as a sandboxed, theme-aware card with an
+  expanded view.

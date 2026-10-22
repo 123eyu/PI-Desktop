@@ -18604,3 +18604,29 @@ host-created files. The full app's file-preview viewer is covered separately.
   `composer-suggestion-state.test.mjs`, `composer-suggestion-relay.test.mjs`,
   and `plugin-composer-suggestion.test.mjs`; the rendered journey remains a
   manual/Electron check when this surface changes.
+
+### E2E-GENUI-inline-visualization-card: a visualization renders inline and stays sandboxed
+
+- **Preconditions**: The app is running with a local Agent session and the
+  builtin `pi-desktop/visualize` skill enabled. A second session uses a remote
+  workspace.
+- **Steps**: 1) Ask for an interactive chart (for example "show a slider that
+  changes a sine wave's frequency"). 2) Wait for the turn to finish, then drag
+  the slider. 3) Switch the app theme between light and dark. 4) Press the
+  card's expand button, then Esc. 5) Ask the model to write a non-`.html` file
+  into the visualization directory, and to write a fragment that calls
+  `fetch("https://example.com")`. 6) Fork the session, then delete the source
+  session. 7) Repeat step 1 in the remote session.
+- **Expected**:
+  - No permission card appears for the fragment write. While streaming, the
+    reply shows plain text; after completion the `::visualize` line is
+    replaced by a card whose height fits the content (at most 2000 px).
+  - The slider works; theme changes recolor the card without a reload.
+  - Expand opens a large modal copy; Esc closes it and the inline card keeps
+    its state.
+  - The non-`.html` write fails with a tool error; the network call fails and
+    nothing leaves the machine; the frame cannot open popups or navigate.
+  - The fork shows the same card until the source session is deleted, then an
+    "unavailable" card. The source's `visualizations/<sessionId>/` directory is
+    removed with it.
+  - The remote session gets no visualization directory or skill.

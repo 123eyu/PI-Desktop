@@ -287,6 +287,41 @@ as binary content.
 - A session lookup/storage error fails the tool request; it must never be
   treated as a missing legacy session or redirected to the selected workspace.
 
+## 4b.1 Session visualization directory (D671)
+
+Inline visualizations (ADR `gen-ui-inline-visualization`) are HTML fragments the
+model writes for the transcript to render. They live in a third host-owned
+root, separate from scratch so that scratch keeps its 7-day sweep while a
+visualization lives as long as its session:
+
+```text
+<data_dir>/visualizations/<sessionId>/
+```
+
+- **Availability.** Local sessions only. A remote-workspace session gets no
+  directory, no prompt line, and no `pi-desktop/visualize` skill.
+- **Addressing.** Absolute paths only; the path is advertised in the system
+  prompt next to the scratch directory. Relative paths never resolve here.
+- **Containment.** `resolve_tool_path` checks the workspace, scratch, and
+  visualization roots in that order with the same lexical + symlink defense.
+- **Content.** `Write`/`Edit` accept only a single-component file name ending in
+  `.html`; anything else in this root fails with a tool error. `Read` is
+  allowed.
+- **Permissions.** `Write`/`Edit` inside the root auto-allow without a card,
+  under the same conditions as scratch. Plan and Goal expose no Write/Edit, so
+  contract modes cannot write here. Results carry `root: "visualization"`, are
+  not recorded as artifacts, and are not review-snapshotted.
+- **Lifecycle.** Created lazily on the first write. Deleted with
+  `session.delete`. The startup sweep removes only directories whose session
+  no longer exists; it never removes by age.
+- **Rendering.** A standalone `::visualize{"path":"<absolute path>","title":"…"}`
+  line outside code blocks renders as an inline card after the turn completes.
+  The renderer derives `pi-genui://session/<sessionId>/<file>` from the path
+  suffix and never sends the absolute path to Main. Main serves only regular,
+  non-symlink fragments up to 2 MB below the current data directory, rejects
+  full documents, and wraps the fragment in a host shell with a strict CSP
+  (no network, frames, or forms); the frame is `sandbox="allow-scripts"`.
+
 ## 4c. Message-owned review snapshots and rollback
 
 `Write` and `Edit` are the structured review boundary. For a successful
