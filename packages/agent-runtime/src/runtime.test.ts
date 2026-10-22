@@ -1749,6 +1749,7 @@ describe("DesktopAgentRuntime configuration matching", () => {
       expect(host.call).toHaveBeenCalledWith("tools.abort", {
         sessionId: "session-1",
         toolCallId: "bash-progress",
+        toolName: "Bash",
       });
       expect(listeners.size).toBe(0);
       finishExecution({
@@ -1847,6 +1848,154 @@ describe("DesktopAgentRuntime configuration matching", () => {
     controller.abort();
     finishExecution({ ok: false, content: { code: "TOOL_ABORTED" } });
       await expect(pending).rejects.toThrow("tools.abort protocol failure");
+    await runtime.dispose();
+  });
+
+  // #1767: a blocking read-only host call must not keep the user turn open.
+  it("ends the turn when a stop lands while a read-only core tool is still running", async () => {
+    let finishExecution!: (value: { ok: boolean; content: unknown }) => void;
+    const execution = new Promise<{ ok: boolean; content: unknown }>((resolve) => {
+      finishExecution = resolve;
+    });
+    const host = {
+      call: vi.fn((method: string) =>
+        method === "tools.execute"
+          ? execution
+          : method === "tools.abort"
+            ? Promise.resolve({ ok: true, found: true })
+            : Promise.resolve({ ok: true, content: "done" }),
+      ),
+      onNotification: vi.fn(() => () => undefined),
+    };
+    const runtime = createRuntime({ host });
+    const grep = runtimeTool(runtime, "Grep");
+    const controller = new AbortController();
+    const pending = grep.execute("grep-stop", { query: "needle" }, controller.signal);
+    await new Promise<void>((resolve) => setImmediate(resolve));
+
+    controller.abort();
+
+    // The Grep is still running in host-core; only this turn stops waiting.
+    await expect(pending).rejects.toMatchObject({ errorCode: "TOOL_ABORTED" });
+    expect(host.call).toHaveBeenCalledWith("tools.abort", {
+      sessionId: "session-1",
+      toolCallId: "grep-stop",
+      toolName: "Grep",
+    });
+    // The orphaned call settling later must not resurface as an unhandled
+    // rejection or a second tool result.
+    finishExecution({ ok: true, content: "late result" });
+    await runtime.dispose();
+  });
+
+  it("stops waiting for a Bash call that ignores tools.abort once the grace window closes", async () => {
+    vi.useFakeTimers();
+    try {
+      const host = {
+        call: vi.fn((method: string) =>
+          method === "tools.execute"
+            ? new Promise<never>(() => undefined)
+            : Promise.resolve({ ok: true, content: "abort requested" }),
+        ),
+        onNotification: vi.fn(() => () => undefined),
+      };
+      const runtime = createRuntime({ host });
+      const bash = runtimeTool(runtime, "Bash");
+      const controller = new AbortController();
+      const pending = bash.execute(
+        "bash-hung",
+        { command: "sleep 600" },
+        controller.signal,
+      );
+      await vi.advanceTimersByTimeAsync(0);
+
+      controller.abort();
+      const assertion = expect(pending).rejects.toMatchObject({
+        errorCode: "TOOL_ABORTED",
+      });
+      await vi.advanceTimersByTimeAsync(10_000);
+      await assertion;
+      expect(host.call).toHaveBeenCalledWith("tools.abort", {
+        sessionId: "session-1",
+        toolCallId: "bash-hung",
+        toolName: "Bash",
+      });
+
+      await runtime.dispose();
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it("releases an in-flight tool when the stop lands without the tool signal firing", async () => {
+    const host = {
+      call: vi.fn((method: string) =>
+        method === "tools.execute"
+          ? new Promise<never>(() => undefined)
+          : Promise.resolve({ ok: true, content: "abort requested" }),
+      ),
+      onNotification: vi.fn(() => () => undefined),
+    };
+    const runtime = createRuntime({ host });
+    const grep = runtimeTool(runtime, "Grep");
+    // A signal that never fires stands in for the field case: the stop reached
+    // the runtime but not the tool, so the executor kept awaiting a host call
+    // that would not return and the abort RPC never came back.
+    const silent = new AbortController();
+    const pending = grep.execute("grep-silent", { query: "needle" }, silent.signal);
+    await new Promise<void>((resolve) => setImmediate(resolve));
+
+    await runtime.abort();
+
+    await expect(pending).rejects.toMatchObject({ errorCode: "TOOL_ABORTED" });
+    expect(silent.signal.aborted).toBe(false);
+    await runtime.dispose();
+  });
+
+  it("waits for an in-flight Write result after requesting host cancellation", async () => {
+    let finishExecution!: (value: { ok: boolean; content: unknown }) => void;
+    const execution = new Promise<{ ok: boolean; content: unknown }>((resolve) => {
+      finishExecution = resolve;
+    });
+    let beginExecution!: () => void;
+    const executionStarted = new Promise<void>((resolve) => {
+      beginExecution = resolve;
+    });
+    const host = {
+      call: vi.fn((method: string) =>
+        method === "tools.execute"
+          ? (beginExecution(), execution)
+          : method === "project.instructions.resolve"
+            ? Promise.resolve(undefined)
+          : Promise.resolve({ ok: true, found: true }),
+      ),
+      onNotification: vi.fn(() => () => undefined),
+    };
+    const runtime = createRuntime({ host });
+    const write = runtimeTool(runtime, "Write");
+    const controller = new AbortController();
+    let settled = false;
+    const pending = write
+      .execute("write-stop", { path: "file.txt", content: "value" }, controller.signal)
+      .then(
+        () => { settled = true; },
+        () => { settled = true; },
+      );
+    await executionStarted;
+
+    controller.abort();
+    await new Promise<void>((resolve) => setImmediate(resolve));
+
+    expect(host.call).toHaveBeenCalledWith("tools.abort", {
+      sessionId: "session-1",
+      toolCallId: "write-stop",
+      toolName: "Write",
+    });
+    expect(settled).toBe(false);
+
+    finishExecution({ ok: true, content: { path: "file.txt" } });
+    await pending;
+    expect(settled).toBe(true);
     await runtime.dispose();
   });
 });
