@@ -9909,8 +9909,12 @@ host-created files. The full app's file-preview viewer is covered separately.
 
 ### E2E-REMOTE-FILE-MANAGER：受限的插件远程读取
 
-运行 `node scripts/e2e-remote-file-manager.mjs <built-file-manager-directory>`。
-目录需包含配套插件修复和重新构建的 `views/`，也可使用官方 PluginPack 产物的解包目录。
+运行 `node scripts/e2e-remote-file-manager.mjs`，验证实际内置的
+`apps/desktop/resources/plugins/pi.file-manager`。这是发布验收路径：单独的开发插件
+通过不代表内置插件已修复。脚本会输出实际加载的目录。
+可选参数 `<built-file-manager-directory>` 可选择配套插件重新构建的 `views/` 或官方
+PluginPack 产物的解包目录，仅用于开发验证。验收 #1711 前需更新内置正式版本、
+上游标签与提交及各文件校验值，再对更新后的 PR 集成候选运行默认路径。
 `PI_FILE_MANAGER_QA_DIR` 可指向已有、提供 Playwright 的插件 `tests/electron` 环境；
 `PI_ELECTRON_BINARY` 选择兼容的已有 Electron；`PI_E2E_ARTIFACTS` 可保留截图。
 

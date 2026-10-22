@@ -11,8 +11,8 @@ import { fileURLToPath } from "node:url";
 import { resolveElectronBinary } from "./e2e/boot.mjs";
 
 const root = resolve(dirname(fileURLToPath(import.meta.url)), "..");
-const pluginDir = process.argv[2] && resolve(process.argv[2]);
-assert(pluginDir, "Usage: node scripts/e2e-remote-file-manager.mjs <built upstream plugin directory>");
+const pluginDir = resolve(process.argv[2] || join(root, "apps/desktop/resources/plugins/pi.file-manager"));
+console.log("REMOTE_FILE_MANAGER_PLUGIN " + JSON.stringify({ pluginDir }));
 const qa = createRequire(join(process.env.PI_FILE_MANAGER_QA_DIR || join(pluginDir, "tests/electron"), "package.json"));
 const { _electron } = qa("playwright");
 const temp = await mkdtemp(join(tmpdir(), "pi-remote-manager-e2e-"));
@@ -191,7 +191,7 @@ app.whenReady().then(async()=>{
     await mkdir(process.env.PI_E2E_ARTIFACTS, { recursive: true });
     await page.screenshot({ path: join(process.env.PI_E2E_ARTIFACTS, "remote-files-local-control.png") });
   }
-  console.log("REMOTE_FILE_MANAGER_E2E " + JSON.stringify({ ok: true, checks, remoteRequests: calls.length }));
+  console.log("REMOTE_FILE_MANAGER_E2E " + JSON.stringify({ ok: true, pluginDir, checks, remoteRequests: calls.length }));
 } catch (error) {
   if (application && process.env.PI_E2E_ARTIFACTS) {
     await mkdir(process.env.PI_E2E_ARTIFACTS, { recursive: true });
