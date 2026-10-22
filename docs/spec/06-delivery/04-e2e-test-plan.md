@@ -13535,10 +13535,9 @@ are withdrawn with ADR 0165.
   - Clicking `openimage.js` opens the project's `img/openimage.js`, although the
     scratch store holds a file with that same leaf name: the project is
     searched to exhaustion before the scratch store is considered at all.
-  - `dir/a.ts` opens `src/dir/a.ts`: an exact path beats a shorthand, a longer
-    matching tail beats a bare leaf name, and the shallowest candidate wins a
-    tail-length tie, so the deeper `packages/app/dir/a.ts` is never the one
-    that opens.
+  - `dir/a.ts` matches both `src/dir/a.ts` and
+    `packages/app/dir/a.ts`, so the shorthand is ambiguous and opens nothing.
+    The exact reference `src/dir/a.ts` opens that path.
   - A reference the project cannot answer resolves in the session scratch
     store; one that neither answers resolves in the attachment store, and an
     `attachments/<sha256>` ref opens that stored blob.
@@ -18134,18 +18133,19 @@ renderer's durable transcript reads. No real model or provider is contacted.
   closure behavior. Covered by the parameterized runtime overflow user-path test.
 
 
-#### E2E-262: Transcript path:line opens and scrolls the host file viewer
+#### E2E-262: Transcript positioned file references open and scroll the host file viewer
 
 - **Preconditions:** Isolated Electron/Chromium, an active workspace and session,
   the bundled file-manager view available, and deterministic filesystem IPC
   fixtures.
-- **Steps:** Render a real transcript `path:line:column` reference followed by
+- **Steps:** Render a real transcript `path:line-range` reference followed by
   sentence punctuation; click its verified file chip and wait for the host file
-  viewer to load.
+  viewer to load. Unit coverage also exercises `path:line:column` and GitHub
+  `path#Lline[-Lend]` references.
 - **Expected:** Despite the bundled file-manager view being available, the
   positioned reference opens in the host's read-only file tab. The file request
-  retains its line and column, and the viewer scrolls the requested line into
-  the visible center area. The path and file contents remain the same as the
+  retains the range's starting line, and the viewer scrolls that line into the
+  visible center area. The path and file contents remain the same as the
   reference target.
 - **Specs:** `04-ux/08` §11.8; ADR 0262.
 - **Status:** `node scripts/e2e-file-ref-line-scroll.mjs` mounts production

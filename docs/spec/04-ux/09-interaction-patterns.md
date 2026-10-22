@@ -1400,9 +1400,11 @@ Project drag/drop follows these patterns:
   No project is required to open a scratch artifact. Missing workspace state
   is normalized consistently across asynchronous session-change guards.
   Local `file:` Markdown URLs are converted to file references before
-  sanitization, not admitted as native links. `path:line[:column]` retains
-  source navigation in plain text, inline code and Markdown links, including
-  HTML; unavailable browser views report an error without auto-enabling.
+  sanitization, not admitted as native links. `path:line[:column]`,
+  `path:line-range` and GitHub `path#Lline[-Lend]` retain source navigation
+  from plain text, inline code and Markdown links, including HTML; ranges open
+  at their starting line. Ambiguous shorthand paths do not resolve. Unavailable
+  browser views report an error without auto-enabling.
   The address handed to
   the work panel follows the folder that answered: a file of the primary folder
   travels as a project-relative path, a file of a sibling folder of the same
