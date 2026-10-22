@@ -680,16 +680,16 @@
   color: var(--ds-text-secondary);
 }
 
-.tool-activity-label.running::after,
-.tool-row-name.running::after {
-  display: inline-block;
+/* The live marker is a real flex sibling of the label. A generated inline box
+   had to be aligned by hand and drifted off the row centre inside the label's
+   ellipsis box; as a flex item it is centred by the header's own alignment and
+   spaced by its gap. */
+.activity-marker {
+  flex: none;
   width: 4px;
   height: 4px;
-  margin-inline-start: 6px;
-  vertical-align: middle;
   border-radius: var(--radius-round);
   background: var(--ds-text-secondary);
-  content: "";
   animation: activity-marker-pulse 1s var(--motion-ease-standard) infinite;
 }
 
