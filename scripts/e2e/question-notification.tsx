@@ -233,6 +233,9 @@ globalThis.questionNotificationProbe = async () => {
   const originalClearTimeout = browser.clearTimeout;
   const timers = new Map<number, TimerHandler>();
   let timerId = -1;
+  const activeElementDescriptor = Object.getOwnPropertyDescriptor(document, "activeElement");
+  let activeElement = document.activeElement;
+  Object.defineProperty(document, "activeElement", { configurable: true, get: () => activeElement });
   browser.setTimeout = (handler) => { timers.set(--timerId, handler); return timerId; };
   browser.clearTimeout = (id) => {
     if (id === undefined || !timers.delete(id)) originalClearTimeout(id);
@@ -241,17 +244,23 @@ globalThis.questionNotificationProbe = async () => {
     flushSync(() => useAppStore.getState().showToast("Focus timer", { sessionId: "B", sound: false }));
     assert(Array.from(timers).length === 1, "Toast should own one countdown");
     const focused = action("B");
-    flushSync(() => focused.focus());
+    // Control DOM focus events here; the OS may keep the isolated Electron
+    // window behind another app. Return and Space still use native input below.
+    activeElement = focused;
+    flushSync(() => focused.dispatchEvent(new FocusEvent("focusin", { bubbles: true, relatedTarget: document.body })));
     assert(Array.from(timers).length === 0, "Focus did not pause the countdown");
     focused.dispatchEvent(new MouseEvent("mouseout", { bubbles: true, relatedTarget: document.body }));
     assert(Array.from(timers).length === 0, "Mouse leave restarted a keyboard-focused countdown");
-    flushSync(() => focused.blur());
+    activeElement = document.body;
+    flushSync(() => focused.dispatchEvent(new FocusEvent("focusout", { bubbles: true, relatedTarget: document.body })));
     assert(Array.from(timers).length === 1, "Blur did not resume the countdown");
     reset();
     assert(Array.from(timers).length === 0, "Unmount left a countdown behind");
   } finally {
     browser.setTimeout = originalSetTimeout;
     browser.clearTimeout = originalClearTimeout;
+    if (activeElementDescriptor) Object.defineProperty(document, "activeElement", activeElementDescriptor);
+    else Reflect.deleteProperty(document, "activeElement");
   }
 
   reset();
