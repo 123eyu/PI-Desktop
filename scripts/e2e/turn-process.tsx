@@ -257,11 +257,13 @@ export async function turnProcessProbe() {
         nearLeft(leftOf(nestedLabel), leftOf(bashLabel)),
       "turn, group and run titles share one text line",
     );
+    const topProcess = topHeader?.parentElement ?? null;
     check(
       topHeader !== null &&
+        topProcess !== null &&
         Math.abs(
           topHeader.getBoundingClientRect().width -
-            container.getBoundingClientRect().width,
+            topProcess.getBoundingClientRect().width,
         ) < 1,
       "the turn header hairline spans the transcript band",
     );
