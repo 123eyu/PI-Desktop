@@ -119,7 +119,10 @@ Outer frame that positions Topbar, Sidebar, MainChat, and WorkPanel. Owns resize
   layout box and its scroll offset — and are `aria-hidden` and non-interactive.
   Eviction releases the DOM, not the renderer-lifetime reading bookmark. On
   return, restore the bookmarked message and its viewport offset, loading a
-  bounded historical range when necessary without search focus/highlighting.
+  bounded historical range when necessary without search focus/highlighting. If
+  the message is already loaded but outside the mounted row window, first restore
+  the saved absolute scroll offset; the bounded window can then grow as the user
+  scrolls toward the anchor.
   Explicit disclosure choices and the mounted-window budget survive eviction;
   bookmarks do not persist across renderer/app restarts.
 - A pane renders the store's live `messages` while its session is the active one

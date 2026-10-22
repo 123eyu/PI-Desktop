@@ -88,15 +88,14 @@ export function restoreTranscriptReadingPosition(
     }
   }
   // The anchored row is not mounted. A reveal mounts only a trailing slice of
-  // history (lib/transcript-window.ts:23-28), so an older bookmark routinely
-  // points at a row that is not in the DOM yet — and waiting for it to arrive
-  // cannot work, because a pending restore makes `useTranscriptScroll` discard
-  // every scroll event, so the reader can never travel up to mount it.
+  // history (lib/transcript-window.ts:23-28), so an older bookmark can point
+  // at a row that is not in the DOM yet. The restore hook waits for the history
+  // lookup to finish before applying this fallback; otherwise its alignment
+  // deadline could abort a slow lookup.
   //
   // The bookmark already recorded the absolute offset it was taken at, so fall
-  // back to it: an approximation of the same place beats a pane that cannot be
-  // scrolled and does not restore. `false` is reserved for a bookmark with no
-  // usable offset at all, which only a never-laid-out pane produces.
+  // back to it for an approximate position. `false` is reserved for a bookmark
+  // with no usable offset at all, which only a never-laid-out pane produces.
   if (!Number.isFinite(position.scrollTop) || position.scrollTop < 0) return false;
   scroller.scrollTop = position.scrollTop;
   return true;

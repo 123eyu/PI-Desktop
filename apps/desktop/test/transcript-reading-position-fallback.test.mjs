@@ -17,9 +17,9 @@ const { restoreTranscriptReadingPosition } = await import(
   A reveal mounts only a trailing slice of history
   (lib/transcript-window.ts:23-28: TRANSCRIPT_INITIAL_MOUNT 15, then
   TRANSCRIPT_WINDOW_MIN 60), so an older bookmark routinely names a row that is
-  not in the DOM. While a restore is pending `useTranscriptScroll` discards
-  every scroll event, so the reader cannot travel up to mount that row either —
-  the two together used to deadlock: no restore, no scrolling, ever.
+  not in the DOM. Without a fallback, the restore loop did not move to the
+  saved position. Real scroll gestures can cancel the pending restore, but
+  without such a gesture the session returned at its initial position.
 
   The bookmark already carries the absolute offset it was taken at, so a
   missing row now falls back to that offset instead of reporting failure.
@@ -73,7 +73,7 @@ test("a bookmark whose row is above the mounted window falls back to its offset"
   assert.equal(
     restoreTranscriptReadingPosition(scroller, content, bookmark({ scrollTop: 480 })),
     true,
-    "a missing row must not report failure: that is what stalled the pane",
+    "a missing row with a usable offset must still restore",
   );
   assert.equal(scroller.scrollTop, 480);
 });
