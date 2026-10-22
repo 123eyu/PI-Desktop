@@ -104,6 +104,7 @@ app.whenReady().then(async () => {
   for (const result of results) {
     console.log(
       `${result.stage}: strip [${result.stripLeft.toFixed(1)}, ${result.stripRight.toFixed(1)}] ` +
+        `clientWidth=${result.stripClientWidth} ` +
         `close [${result.closeLeft.toFixed(1)}, ${result.closeRight.toFixed(1)}] ` +
         `inside=${result.insideStrip} hit=${result.hitIsClose || result.hitIsDescendant}`,
     );

@@ -22,6 +22,7 @@ type CloseGeometry = {
   tabId: string;
   stripLeft: number;
   stripRight: number;
+  stripClientWidth: number;
   closeLeft: number;
   closeRight: number;
   insideStrip: boolean;
@@ -62,7 +63,11 @@ async function rendered() {
 
 function renderPanel(containerWidth: number) {
   // The panel's own width comes from the store; `containerWidth` is the shell
-  // budget. Resize the host so the strip's box actually changes.
+  // budget. Resize the host so the strip's box actually changes. Each probe
+  // stage starts from the stylesheet width, even when React reuses the strip.
+  const existingStrip = host.querySelector<HTMLElement>(".work-panel-tab-strip");
+  existingStrip?.style.removeProperty("flex");
+  existingStrip?.style.removeProperty("width");
   host.style.width = `${containerWidth}px`;
   flushSync(() => {
     useAppStore.setState({
@@ -114,6 +119,7 @@ function measure(stage: string): CloseGeometry {
     tabId,
     stripLeft: stripRect.left,
     stripRight: stripRect.right,
+    stripClientWidth: strip.clientWidth,
     closeLeft: closeRect.left,
     closeRight: closeRect.right,
     // The control must be fully inside the strip's client box. A sub-pixel
@@ -147,11 +153,19 @@ globalThis.tabCloseProbe = async (stage) => {
     const before = measure("before-resize");
     assert(before.insideStrip, "fixture invalid: close control clipped before the resize");
 
-    // Narrow enough to clip the strip but wide enough that the panel is not
-    // auto-collapsed: MAIN_PANE_MIN_WIDTH is 450 and the panel floor is 244.
-    renderPanel(760);
+    // Resize the strip's actual scrollport while leaving the active tab and tab
+    // count untouched. The wide fixture above confirms that the close control
+    // fits before this resize; 80px forces it out of view until the observer
+    // reveals the same active tab again.
+    const strip = element(".work-panel-tab-strip");
+    strip.style.flex = "0 0 80px";
+    strip.style.width = "80px";
     await rendered();
     const after = measure(stage);
+    assert(
+      after.stripClientWidth < before.stripClientWidth,
+      "fixture invalid: the tab strip scrollport did not narrow",
+    );
     return after;
   }
 
@@ -205,6 +219,7 @@ globalThis.tabCloseProbe = async (stage) => {
       tabId: firstId!,
       stripLeft: stripRect.left,
       stripRight: stripRect.right,
+      stripClientWidth: strip.clientWidth,
       closeLeft: rect.left,
       closeRight: rect.right,
       insideStrip: rect.left >= stripRect.left - 0.5 && rect.right <= stripRect.right + 0.5,

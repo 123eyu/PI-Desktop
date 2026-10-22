@@ -16326,24 +16326,24 @@ plugin-form fixtures in an isolated temporary directory at runtime.
 
 ### E2E-WORK-PANEL-active-tab-close-visibility
 
-- **Preconditions**: Open a desktop session on Windows with the work panel at
-  its narrow supported width and create a long-named file or plugin tab so the
-  tab wrapper is wider than the visible horizontal strip.
-- **Steps**: Activate the overflowing tab, then inspect the tab wrapper and
-  its `.work-panel-tab-close` rectangle against the strip's client viewport.
-  Repeat after switching between two overflowing tabs and after scrolling the
-  strip toward either end.
-- **Expected**: Activating a tab scrolls the whole tab wrapper and then its
-  close button into the visible strip. The close button is visible and hit
-  testable without requiring a middle click, keyboard shortcut, or widening
-  the panel.
+- **Preconditions**: Render the work panel with enough long-named tabs to
+  overflow the horizontal strip.
+- **Steps**: Activate an overflowing tab in the narrow layout and inspect its
+  close-button rectangle and `elementFromPoint` hit target. Resize the layout
+  while keeping the same tab active and repeat. Then partially scroll the strip
+  to an inactive tab, hover it, and inspect its close button the same way.
+- **Expected**: The active close button stays fully inside the strip after
+  activation and resize. Hovering a partially visible inactive tab scrolls its
+  close button into the viewport too. In all three states the button is visible
+  and hit testable without requiring a middle click, keyboard shortcut, or
+  widening the panel.
 - **Specs linked**: `04-ux/07-ui-design-system.md` §10, issue #1762
 - **Acceptance**: Quality
 - **Milestone**: Post-M6 desktop shell maintenance
-- **Status**: Renderer source-contract regression covered by
-  `apps/desktop/test/work-panel.test.mjs`; the Windows probe in
-  `scripts/e2e-work-panel-drag.mjs` also checks the active close-button
-  rectangle before its native hit-test stages.
+- **Status**: Electron geometry and hit-target coverage runs in
+  `scripts/e2e-work-panel-tab-close.mjs`; `apps/desktop/test/work-panel.test.mjs`
+  also covers the reveal contract. The Windows probe in
+  `scripts/e2e-work-panel-drag.mjs` checks native hit testing separately.
 
 #### E2E-LAYOUT-sidebar-project-group-fold
 
