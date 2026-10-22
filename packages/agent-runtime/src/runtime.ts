@@ -167,6 +167,7 @@ import {
 } from "./system-transcript.js";
 import {
   dedupeToolCallMessages,
+  createToolCallIdentity,
   reportDuplicateToolCallDrop,
 } from "./tool-call-dedupe.js";
 import {
@@ -1974,6 +1975,7 @@ export class DesktopAgentRuntime {
   private terminatingToolCalls = new Set<string>();
   private delegateMutationTerminations = new Map<string, { code: string; message: string }>();
   private fullEntries: MessageEntry[];
+  private readonly uniqueToolCalls: ReturnType<typeof createToolCallIdentity>;
   private readonly systemJournal = new SystemTranscriptJournal();
   private composedSections: Record<string, string> = {};
   private activeCompaction?: ContextCompactionRecord;
@@ -2065,6 +2067,7 @@ export class DesktopAgentRuntime {
 
     this.transcriptHistory = [...(opts.history ?? [])];
     this.fullEntries = this.historyToEntries(this.transcriptHistory);
+    this.uniqueToolCalls = createToolCallIdentity(this.fullEntries.map((entry) => entry.message));
     this.activeCompaction = opts.compaction;
     this.delegationChains.hydrate(
       rebuildChainsFromTranscript(this.transcriptHistory),
@@ -2247,8 +2250,9 @@ Do not invent objections or turn speculative risks into blockers. Stop when the 
         // configured budget ends as a STREAM_FAILED error and re-enters the
         // shared transient retry path instead of hanging the turn on a
         // connection the provider never closes.
-        return withStreamIdleTimeout(retryStream, m, streamIdleTimeoutMs(), () =>
-          stallAbort.abort(),
+        return this.uniqueToolCalls(
+          withStreamIdleTimeout(retryStream, m, streamIdleTimeoutMs(), () => stallAbort.abort()),
+          context.messages,
         );
       },
       // A vendor account has no long-lived key. Leaving it unset keeps pi-ai
@@ -3161,11 +3165,11 @@ Do not invent objections or turn speculative risks into blockers. Stop when the 
    * The transcript is append-only and tolerates a retried append, so the same
    * call can reach the request twice: under the same row id (which the host's
    * keep-last dedupe already collapses) or a new one (which it cannot). The
-   * first occurrence wins, and a later call *or* a later result for that id is
-   * dropped, so the pair the provider validates stays well-formed — one call,
-   * one result. What was dropped is logged with its ids, because the next
-   * report of this should name the writer instead of only the provider's
-   * sentence.
+   * first pending occurrence wins; a later completed pair is retained under
+   * a fresh request id. New streamed executions are normalized before they
+   * reach this guard or the journal. What was dropped is logged with its ids,
+   * because the next report should name the writer instead of only the
+   * provider's sentence.
    */
   private dropDuplicateToolCalls(messages: AgentMessage[]): AgentMessage[] {
     const drop = dedupeToolCallMessages(messages);
