@@ -18483,3 +18483,23 @@ host-created files. The full app's file-preview viewer is covered separately.
   `composer-suggestion-state.test.mjs`, `composer-suggestion-relay.test.mjs`,
   and `plugin-composer-suggestion.test.mjs`; the rendered journey remains a
   manual/Electron check when this surface changes.
+
+
+### E2E-REMOTE-FILE-MANAGER: Scoped remote plugin reads
+
+Run `node scripts/e2e-remote-file-manager.mjs <built-file-manager-directory>`.
+The directory must contain the companion upstream plugin fix and its rebuilt
+`views/` (or the unpacked official PluginPack artifact).
+`PI_FILE_MANAGER_QA_DIR` may point to an existing plugin `tests/electron`
+installation providing Playwright; `PI_ELECTRON_BINARY` selects an existing
+compatible Electron runtime. `PI_E2E_ARTIFACTS` optionally preserves screenshots.
+
+The isolated production plugin process and `file://` view use Desktop's actual
+SDK broker, durable-binding reader, loopback RACP transport and Host filesystem
+service. Only the fixture's project-record lookup and authentication bootstrap
+are supplied by the harness. Verify nested listings, text/image bytes, hidden
+credentials, read-only editor/save/menu controls, visible disconnect errors and
+refresh recovery, rejected late previews and ancestor opens after a project
+switch, and restored local editing/Browser/editor detection. No model, user
+profile or external SSH server participates. Real SSH transport and native
+Windows/Linux behavior require their separate platform acceptance.
