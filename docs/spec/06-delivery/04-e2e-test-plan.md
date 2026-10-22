@@ -3402,9 +3402,11 @@ identify the platform validation still needed.
 - **Expected**: A turn renders exactly one process disclosure containing every
   pre-answer row, the `Bash`/run rows included; the trailing answer, assistant
   errors and stopped trailing text stay outside it, as do pending actions. The
-  active group opens, then closes on completion only if untouched; completed
-  groups otherwise start closed. Closing the turn's disclosure closes the groups
-  and run rows under it, and reopening restores the user's group choices. In
+  active group stays open while the turn runs. After completion, ordinary groups
+  with at most four visible items and Task topology groups remain open; larger
+  ordinary groups start closed. Closing the turn's disclosure hides groups and
+  run rows under it, and reopening restores their defaults and explicit user
+  choices. In
   Fully folded (the default), run rows stay inside their groups and only ordinary
   assistant progress text splits a group. In Commands first, run rows render as
   their own rows beside the groups, adjacent calls stay separate, a row's detail
@@ -17259,7 +17261,11 @@ plugin-form fixtures in an isolated temporary directory at runtime.
   settings; legacy message-level transcript search targets.
 - **Steps:** Confirm a live active group starts open, let that same turn finish
   without interacting, and confirm the process closes so only the final answer
-  (and any error or pending-action surface) remains. On a second turn, explicitly
+  (and any error or pending-action surface) remains. Reopen it and confirm a
+  group with at most four visible items and any Task topology group stay open,
+  while a larger ordinary group is closed. Confirm tool and search payloads stay
+  closed, and Fully folded keeps each visible reasoning row open when
+  `Show thinking` is on. On a second turn, explicitly
   open a completed group and confirm the choice survives subsequent updates; then
   close the turn's disclosure and confirm the group closes with it, and reopen to
   confirm the group choice is restored. In Fully folded, confirm run rows stay
@@ -17300,12 +17306,12 @@ plugin-form fixtures in an isolated temporary directory at runtime.
   stay inside their groups and only ordinary assistant progress text splits a
   group, so the middle progress paragraph ends the preceding group and the
   following activity starts a new one. A group appears only with at least two
-  visible items; a singleton has no group. Thinking rows default expanded in
-  Flat and Commands first, while Fully folded keeps the released exception:
-  earlier rows stay collapsed and only the last active row opens while it is
-  live, then completed rows collapse.
+  visible items; a singleton has no group. Active groups stay open while the turn
+  runs; after completion, groups with at most four visible items and Task topology
+  groups remain open, while larger ordinary groups start closed. Thinking rows
+  default expanded in every mode when `Show thinking` is on.
   Explicit user choices persist and are restored when the enclosing disclosure is
-  reopened; these group defaults do not depend on `Show thinking`. The header
+  reopened; group defaults do not depend on `Show thinking`. The header
   reports running, finished, stopped, or failed with failure and stop outranking
   a normal finish, reads `Thinking` while the live step is reasoning, names
   compaction and recovery while those stages are live, omits a duration the
