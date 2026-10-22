@@ -203,6 +203,7 @@ import {
   clampOutputToContext,
   effectiveModelContextWindow,
   estimateOutputCapInputTokens,
+  requestTranscript,
 } from "./output-cap.js";
 import {
   composeSubagentSystemPrompt,
@@ -2205,6 +2206,9 @@ Do not invent objections or turn speculative risks into blockers. Stop when the 
         // with pi's own run signal (Stop must keep working): the adapter refuses
         // to start an attempt on an aborted signal, and its backoff sleep rejects.
         const stallAbort = new AbortController();
+        // Both output clamps, ours and pi-ai's inside `streamSimple`, must see
+        // the instructions the adapter sends, not every superseded snapshot.
+        const requestContext = requestTranscript(m, context);
         const attemptOptions: SimpleStreamOptions = {
           ...hookedOptions,
           // Cap the output budget at the pi-desktop layer so the estimate
@@ -2212,7 +2216,7 @@ Do not invent objections or turn speculative risks into blockers. Stop when the 
           // max_tokens, but the low-level `stream` path used by
           // `thinkingLevel: "omit"` would otherwise send it untouched, and
           // both consume an estimate that under-counts CJK text (issue B).
-          maxTokens: clampOutputToContext(m, context, hookedOptions.maxTokens),
+          maxTokens: clampOutputToContext(m, requestContext, hookedOptions.maxTokens),
           signal: AbortSignal.any([
             ...(hookedOptions.signal ? [hookedOptions.signal] : []),
             stallAbort.signal,
@@ -2221,12 +2225,12 @@ Do not invent objections or turn speculative risks into blockers. Stop when the 
         const usageTurnId = this.turnId;
         const retryStream = createProviderRetryStream(
           m,
-          context,
+          requestContext,
           attemptOptions,
           (retryOptions) => accountModelStream(m, () =>
             this.thinkingLevel === "omit"
-              ? this.models.stream(omitThinkingModel(m), context, retryOptions)
-              : this.models.streamSimple(m, context, retryOptions), {
+              ? this.models.stream(omitThinkingModel(m), requestContext, retryOptions)
+              : this.models.streamSimple(m, requestContext, retryOptions), {
                 providerId: this.provider.id,
                 nativeCost: this.provider.modelConfig?.nativeCost,
                 onUsage: (usage) => this.emit({ type: "usage", usage }, usageTurnId),

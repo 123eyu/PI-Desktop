@@ -147,7 +147,7 @@ describe("SubagentRun event forwarding", () => {
 
     expect(run.agent.state.thinkingLevel).toBe("off");
     expect(run.agent.streamFunction.toString()).toContain(
-      "models.stream(omitThinkingModel, context, retryOptions)",
+      "models.stream(omitThinkingModel, requestContext, retryOptions)",
     );
   });
   it("retains completed same-id rounds in a resumed subagent request", () => {

@@ -572,6 +572,21 @@
   actions, and measures the multi-block question layout. Runtime boundary
   validation is covered by `packages/agent-runtime/src/runtime.test.ts`.
 
+### E2E-ASKTOOL-draft-survives-session-switch
+
+- **Preconditions:** No live provider is required; the fixture stubs
+  `api.resolveAskTool` and seeds one two-question ask through the real store
+  slice.
+- **Steps:** Mount the production `AskToolCard`, select the second option on
+  question one, advance to question two, unmount the card (the session switch
+  the dock performs), and remount it with the same `requestId`. Then click the
+  first step indicator to return to question one.
+- **Expected:** The remounted card opens on question two with the earlier
+  selection still marked, and question one still shows the selected option.
+  Resolving or dismissing the ask clears the stored draft.
+- **Status:** Automated in `pnpm test:e2e:asktool-card` as the
+  `E2E-ASKTOOL-draft-survives-session-switch` flow.
+
 ### E2E-POWER-keep-awake-setting
 
 - **Preconditions:** An isolated desktop profile with the setting absent; no
@@ -6080,7 +6095,9 @@ must keep splitting are covered by `markdown-blocks.test.mjs`.
   paints the retained frame and offset immediately. Returning to an evicted
   session restores the message and viewport offset recorded before eviction,
   including explicit expanded content, using a bounded historical read if the
-  latest page no longer contains the anchor. The cold selection's progress track
+  latest page no longer contains the anchor. If the anchor is already loaded but
+  outside the mounted window, the saved absolute scroll offset is restored while
+  the row window remains bounded. The cold selection's progress track
   and composer fence remain unchanged. No search highlight is introduced, live
   model-input messages are unchanged, and real input or a new turn cancels
   automatic alignment. First visits and pinned revisits still follow latest. Nothing is
@@ -17531,16 +17548,24 @@ the latest destination. These assertions measure work counts, not device FPS.
   window, supports parent and subagent requests, and records request payloads.
 - **Steps:** Configure a user context override larger than the published window;
   send a CJK-heavy parent prompt, invoke a subagent, and run a one-shot
-  completion. Repeat the parent request with `thinkingLevel: "omit"`.
+  completion. Repeat the parent request with `thinkingLevel: "omit"`. Restore a
+  session whose transcript holds many large instruction updates on a Responses
+  gateway without mid-conversation system support, then continue it and run a
+  subagent whose updates follow its last usage report.
 - **Expected:** Each request carries a concrete output budget no larger than the
   remaining published window after input estimation and safety reserve. The
   runtime compacts against the published safety ceiling, and no request is sent
   with `input + output` beyond that ceiling. Small ASCII requests retain the
-  configured budget when it fits.
+  configured budget when it fits. The restored session and the subagent send one
+  folded instruction message and keep the configured output budget instead of
+  the provider's minimum.
 - **Specs linked:** `03-runtime/02-agent-runtime.md`,
   `03-runtime/13-model-catalog-and-selection.md`
 - **Acceptance:** F (runtime provider requests), C (chat and stream)
-- **Status:** Unit-covered; deterministic provider fixture pending
+- **Automation:** `packages/agent-runtime/src/output-cap-request.test.ts` drives
+  the restored-session and subagent steps through a loopback Responses gateway.
+- **Status:** Unit-covered; folded-instruction steps covered by a loopback
+  gateway; remaining deterministic provider fixture pending
 
 ### E2E-PROVIDER-certificate-trust-and-terminal-errors
 
@@ -17551,7 +17576,9 @@ the latest destination. These assertions measure work counts, not device FPS.
   desktop sidecar and submit a chat prompt against an untrusted localhost
   certificate. Relaunch with its CA in `NODE_EXTRA_CA_CERTS`, then request the
   same certificate through a hostname absent from its SAN.
-- **Expected:** The child's default CA set includes system roots and extra CAs.
+- **Expected:** The child's default CA set includes every non-expired system
+  root and extra CAs, while expired system-store entries are omitted. Bundled
+  roots and inherited extra CAs remain available.
   The first request fails once with a non-retriable certificate error and no
   retry status; the trusted request returns text; the hostname mismatch still
   fails once. TLS and hostname verification remain enabled.

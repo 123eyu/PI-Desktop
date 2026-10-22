@@ -307,6 +307,10 @@ pi-agent-core 提供 Agent 循环及稳定的 agent/event/tool 类型，pi-ai �
 仅作为 AGPL-3.0 行为参考，不是链接或复制的依赖关系。详细依赖边界见
 [pi 运行时依赖边界](../02-architecture/06-pi-runtime-dependency-boundary.md)。
 
+输出预算按适配器实际发送的转录估算。若绑定模型不支持对话中途的系统消息，后续系统更新会
+折叠为一条携带当前指令和工具的前置消息；父运行时和子代理也把折叠后的转录交给 pi-ai，
+使两层输出上限估算一致，避免重复的旧指令快照耗尽输出预算。
+
 压缩遵循 Codex 的机制 (ADR 0064)：它总是内联发生在
 回合边界，模型可以通过`new_context`请求，每次compaction
 添加一个转录本行并提出一个警告 toast，并且没有
@@ -1249,7 +1253,8 @@ provider/model 目录发现超出当前有线路径。
 ### Provider certificate trust（issue #714）
 
 桌面 sidecar 使用 Node 的 `--use-system-ca` 启动，同时保留内置根证书和继承的
-`NODE_EXTRA_CA_CERTS`。它使用操作系统信任库，但不会关闭证书链或主机名校验。
+`NODE_EXTRA_CA_CERTS`，并排除操作系统信任库中已过期的证书，因为平台证书库可能保留
+过期条目。内置根证书和 `NODE_EXTRA_CA_CERTS` 不受影响，也不会关闭证书链或主机名校验。
 更新本地信任库或额外 CA 启动环境后，需要重启桌面应用。无头 pi-host 启动行为以及
 System/Direct/Custom 代理路由保持不变。
 

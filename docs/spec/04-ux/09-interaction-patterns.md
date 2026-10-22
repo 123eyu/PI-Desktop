@@ -350,7 +350,9 @@ may be retained while exactly one workspace supplies the visible shell context.
   Reading bookmarks outlive DOM eviction and project switches, but not a
   renderer/app restart; deleting the session releases them. If the bookmarked
   message is outside the loaded page, read a bounded range around it using the
-  existing history API, without search focus or highlighting. Revalidation must
+  existing history API, without search focus or highlighting. If it is loaded
+  but outside the mounted row window, first restore the saved absolute scroll
+  offset; the user can grow the window to reach the anchor. Revalidation must
   not replace that reading range with the latest page. Real scroll input, search
   navigation, return-to-latest, and send/retry/regenerate take priority over
   restoration; obsolete reads cannot reclaim the viewport. A missing anchor
