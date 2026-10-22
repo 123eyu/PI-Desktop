@@ -25,11 +25,14 @@ function fixture() {
     getMainWindow: () => null,
     getViewingSessionId: () => null,
   });
+  coordination.recordTurnStart(SESSION, TURN);
   const enqueued = [];
   const steeringReplies = new Set();
+  const completionNoticeTurns = new Set();
   const persistence = createEventPersistence({
     runtimeState: { host: null },
     steeringReplies,
+    completionNoticeTurns,
     activeTurns,
     activeToolCalls: new Map(),
     activeToolCallKey: coordination.activeToolCallKey,
@@ -73,7 +76,31 @@ function fixture() {
         },
       },
     });
-  return { enqueued, steeringReplies, persistAssistant };
+  const persistSteering = () =>
+    persistence.persistAgentEvent({
+      sessionId: SESSION,
+      turnId: TURN,
+      ts: 1,
+      event: {
+        type: "message_end",
+        message: {
+          id: "steer-1",
+          role: "user",
+          content: "continue",
+          createdAt: "2026-10-20T00:00:00.000Z",
+          status: "complete",
+          steering: true,
+        },
+      },
+    });
+  const persistAgentEnd = () =>
+    persistence.persistAgentEvent({
+      sessionId: SESSION,
+      turnId: TURN,
+      ts: 1,
+      event: { type: "agent_end", messageIds: [] },
+    });
+  return { activeTurns, coordination, enqueued, steeringReplies, completionNoticeTurns, persistAssistant, persistSteering, persistAgentEnd };
 }
 
 test("an empty complete assistant message is not persisted", () => {
@@ -119,6 +146,74 @@ test("an empty assistant message reserved for steering is persisted", () => {
   f.steeringReplies.add("m5");
   f.persistAssistant({ id: "m5", content: "", thinking: "", status: "complete" });
   assert.equal(f.enqueued.length, 1);
+});
+
+test("a trusted completion notice persists only its first empty complete reply", () => {
+  const f = fixture();
+  f.completionNoticeTurns.add(TURN);
+  f.persistAssistant({ id: "completion-1", content: "", thinking: "", status: "complete" });
+  assert.equal(f.enqueued.length, 1);
+  assert.equal(f.completionNoticeTurns.has(TURN), false);
+
+  f.persistAssistant({ id: "completion-2", content: "", thinking: "", status: "complete" });
+  assert.equal(f.enqueued.length, 1);
+});
+
+test("a visible or tool-batch completion reply spends the empty-row exception", () => {
+  for (const reply of [
+    { id: "visible", content: "done", status: "complete" },
+    { id: "tool", content: "", status: "complete", toolName: "Read", toolCallId: "call-1" },
+  ]) {
+    const f = fixture();
+    f.completionNoticeTurns.add(TURN);
+    f.persistAssistant(reply);
+    f.persistAssistant({ id: `${reply.id}-empty`, content: "", status: "complete" });
+    assert.equal(f.enqueued.length, 1);
+    assert.equal(f.completionNoticeTurns.has(TURN), false);
+  }
+});
+
+test("provider error retries keep the completion notice allowance", () => {
+  const f = fixture();
+  f.completionNoticeTurns.add(TURN);
+  f.persistAssistant({
+    id: "retry-error",
+    content: "",
+    status: "error",
+    error: { code: "PROVIDER_ERROR", message: "retry" },
+  });
+  assert.equal(f.enqueued.length, 1);
+  assert.equal(f.completionNoticeTurns.has(TURN), true);
+
+  f.persistAssistant({ id: "retry-complete", content: "", status: "complete" });
+  assert.equal(f.enqueued.length, 2);
+  assert.equal(f.completionNoticeTurns.has(TURN), false);
+});
+
+test("accepted user steering revokes the completion notice allowance", () => {
+  const f = fixture();
+  f.completionNoticeTurns.add(TURN);
+  f.persistSteering();
+  assert.equal(f.completionNoticeTurns.has(TURN), false);
+
+  f.persistAssistant({ id: "after-steering", content: "", status: "complete" });
+  assert.equal(f.enqueued.length, 1);
+});
+
+test("turn settlement clears an unused completion notice allowance", () => {
+  const f = fixture();
+  f.completionNoticeTurns.add(TURN);
+  f.persistAgentEnd();
+  assert.equal(f.completionNoticeTurns.has(TURN), false);
+});
+
+test("a stale turn cannot leave an unused completion notice allowance behind", () => {
+  const f = fixture();
+  f.completionNoticeTurns.add(TURN);
+  f.coordination.beginTranscriptRewrite(SESSION).commit();
+  f.persistAssistant({ id: "stale", content: "", status: "complete" });
+  assert.equal(f.enqueued.length, 0);
+  assert.equal(f.completionNoticeTurns.has(TURN), false);
 });
 
 test("a non-empty complete assistant message is persisted", () => {
