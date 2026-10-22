@@ -8560,13 +8560,13 @@ runner 会在运行时的隔离临时目录中生成六个插件形态 fixture�
 
 ### E2E-WORK-PANEL-active-tab-close-visibility
 
-- **前提条件**：在 Windows 上打开桌面会话，将工作面板调整到支持的窄宽度，并创建一个名称较长的文件或插件标签，使标签容器宽于可见的横向标签栏。
-- **步骤**：激活发生溢出的标签，读取标签容器及其 `.work-panel-tab-close` 矩形与标签栏 client 视口的关系。在两个溢出标签之间切换，并分别将标签栏滚向两端后重复检查。
-- **预期**：激活标签时，整个标签容器及其关闭按钮都会滚动到可见标签栏内。关闭按钮无需中键、键盘快捷键或扩大面板即可看见并命中。
+- **前提条件**：渲染工作面板，并创建足够多的长标题标签使横向标签栏溢出。
+- **步骤**：在窄布局中激活溢出标签，检查关闭按钮矩形是否落入标签栏视口，并确认 `elementFromPoint` 命中关闭按钮。保持同一标签激活并缩窄布局后重复检查。随后将标签栏滚到一半，对部分可见的非激活标签执行悬停，再检查其关闭按钮。
+- **预期**：激活标签及布局缩窄后，关闭按钮都完整位于标签栏内；悬停部分可见的非激活标签时，其关闭按钮也会滚入视口。三个状态下按钮都可见且可命中，无需中键、键盘快捷键或扩大面板。
 - **链接规格**：`04-ux/07-ui-design-system.md` §10，issue #1762
 - **验收**：品质
 - **里程碑**：M6 之后桌面壳维护
-- **状态**：渲染器源契约回归由 `apps/desktop/test/work-panel.test.mjs` 覆盖；`scripts/e2e-work-panel-drag.mjs` 的 Windows 探针也会在原生命中测试阶段前检查激活标签关闭按钮的矩形。
+- **状态**：`scripts/e2e-work-panel-tab-close.mjs` 在 Electron 中覆盖真实几何位置和命中目标；`apps/desktop/test/work-panel.test.mjs` 也覆盖滚动契约。Windows 原生命中测试由 `scripts/e2e-work-panel-drag.mjs` 单独覆盖。
 
 #### E2E-LAYOUT-sidebar-project-group-fold
 
