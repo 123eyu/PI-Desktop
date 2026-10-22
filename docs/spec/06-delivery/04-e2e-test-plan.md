@@ -11379,7 +11379,10 @@ This test plan spec is accepted when:
   localized title and the first question in its toast; generated session-title
   text never replaces that title. Background sessions retain the existing
   native notification policy. Exactly one soft chime plays for the ask; the
-  toast and native banner do not double it.
+  toast and native banner do not double it. With a right-docked work panel,
+  the toast stays horizontally centered within the main-content safe area and
+  never intersects the panel tab strip, browser navigation controls, or URL
+  field. It follows both safe-area resize and same-width horizontal shifts.
   Clicking the question toast (including from New task or Settings) opens its
   originating conversation and project, shows the pending card, and permits
   submitting an answer for that request. Enter and Space activate the focused
@@ -11397,8 +11400,9 @@ This test plan spec is accepted when:
   component in Electron and covers long-prompt scrolling, keyboard reachability,
   visible header actions, and scroll reset on Next.
   `pnpm test:e2e:question-notification` exercises real renderer event handling,
-  toast creation, session/project navigation, and answer submission in isolated
-  Electron with only the IPC boundary stubbed, plus native keyboard input.
+  safe-area geometry under resize and horizontal shift, toast creation,
+  session/project navigation, and answer submission in isolated Electron with
+  only the IPC boundary stubbed, plus native keyboard input.
 - **Status**: Partially automated (component paths and long-prompt behavior are
   covered; full application journey pending)
 
