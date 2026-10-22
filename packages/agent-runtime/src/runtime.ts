@@ -1264,6 +1264,7 @@ const TOOL_PARAM_ALIASES: Record<string, Record<string, string>> = {
   Grep: { query: "pattern" },
 };
 const TOOL_OUTPUT_UPDATE_THROTTLE_MS = 100;
+const READ_ONLY_CORE_TOOLS = new Set(["Read", "Glob", "Grep"]);
 /**
  * How long a stop request waits for a tool that host-core can actually
  * interrupt (`Bash`, `GenerateImages`) to hand back the output it collected
@@ -3489,14 +3490,12 @@ Do not invent objections or turn speculative risks into blockers. Stop when the 
               scheduleProgress();
             })
           : undefined;
-        // #1767: host-core only honours `tools.abort` for `Bash` and
-        // `GenerateImages` — it kills the process and answers the in-flight
-        // execute with `TOOL_ABORTED`. Every other tool keeps running to
-        // completion whatever the runtime sends, so awaiting it blocked the
-        // turn long after the user pressed Stop. Those tools therefore abandon
-        // the wait locally the instant the signal fires; the orphaned host call
-        // settles on its own and its result is discarded.
-        const hostAbortsTool = isBash || toolName === "GenerateImages";
+        // Read-only core tools may be abandoned locally if host-core is still
+        // waiting on a blocking read/search. Mutating, MCP, and plugin calls
+        // must settle before the turn is reported stopped. Bash and image
+        // generation retain their host process-abort path and grace window.
+        const hostAbortsProcess = isBash || toolName === "GenerateImages";
+        const canAbandonWait = READ_ONLY_CORE_TOOLS.has(toolName);
         const abortedMarker = Symbol("tool-aborted");
         let resolveAborted: (marker: typeof abortedMarker) => void = () => undefined;
         const aborted = new Promise<typeof abortedMarker>((resolve) => {
@@ -3507,31 +3506,31 @@ Do not invent objections or turn speculative risks into blockers. Stop when the 
         const abort = () => {
           if (abortRequested || settled) return;
           abortRequested = true;
-          if (hostAbortsTool) {
-            abortPromise = this.host
-              .call("tools.abort", {
-                sessionId: this.sessionId,
-                toolCallId,
-              })
-              .then(
-                () => undefined,
-                (error) => {
-                  abortError = error;
-                },
-              );
-          }
+          abortPromise = this.host
+            .call("tools.abort", {
+              sessionId: this.sessionId,
+              toolCallId,
+              toolName,
+            })
+            .then(
+              () => undefined,
+              (error) => {
+                abortError = error;
+              },
+            );
           // Release progress/output resources before arming the grace window:
           // cleanup is idempotent and must not race the timer it would clear.
           cleanup(true);
-          if (hostAbortsTool) {
+          if (hostAbortsProcess) {
             // Bounded window for the partial output the host collected before
             // the kill; past it the turn ends regardless.
             abortGraceTimer = setTimeout(
               () => resolveAborted(abortedMarker),
               TOOL_ABORT_GRACE_MS,
             );
-          } else {
-            // Nothing host-side can interrupt this tool, so stop waiting now.
+          } else if (canAbandonWait) {
+            // These tools are read-only, so returning before their host-side
+            // work drains cannot leave a write or external action behind.
             resolveAborted(abortedMarker);
           }
         };
@@ -3620,9 +3619,10 @@ Do not invent objections or turn speculative risks into blockers. Stop when the 
                 ? { delegationId: this.delegateWorktrees.get(toolCallId) }
                 : {}),
             });
-          // #1767: stop has to end the turn even when the tool never yields.
-          // Losing the race does not cancel the host call — it only stops this
-          // turn from waiting on it.
+          // #1767: read-only host work must not keep the user-facing turn open
+          // indefinitely. Other tool classes deliberately wait for the Host
+          // result so a write or extension action cannot outlive a reported
+          // stop.
           const raced = await Promise.race([execution, aborted]);
           if (raced === abortedMarker) {
             stopped = true;

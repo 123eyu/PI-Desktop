@@ -1931,26 +1931,36 @@ identify the platform validation still needed.
   regression in `renderer-stream-safety.test.mjs`, and math delimiter rendering
   in `latex-math.test.mjs`; full UI observation remains Draft)
 
-#### E2E-010: Abort generation
+#### E2E-010: Stop turns and in-flight tools safely
 
 - **Preconditions**: A session can produce both a deliberately delayed first
-  token and a streaming response.
+  token and a streaming response. A deterministic Host fixture can hold a
+  read-only `Grep` call and expose a pending `Write` approval.
 - **Steps**: 1) Send ordinary text and click Stop immediately, including while
   the prompt is still being admitted. 2) Confirm the user row is undone and
   the text returns to the composer after that first Stop. 3) Send again, wait
   for partial output, then stop during the stream. 4) Immediately send a new
-  prompt after Stop returns, without waiting for an idle delay. 5) Observe the
-  transcript and composer.
+  prompt after Stop returns, without waiting for an idle delay. 5) Start a
+  read-only Grep that does not return, press Stop, then start another prompt.
+  6) Start a Write that is waiting for permission, press Stop, then try to
+  approve the stale request. 7) Observe the transcript, composer, and workspace.
 - **Expected**: The first Stop is honored even if prompt admission is still in
   progress; the unanswered send is undone and its draft restored. The
   streaming send stops with its partial response preserved and no draft
-  restoration or duplicate user turn. Stop returns after the active runtime
-  operation has settled, and the follow-up starts without `AGENT_BUSY`. The
-  session remains usable.
-- **Specs linked**: `03-runtime/02-agent-runtime.md`
+  restoration or duplicate user turn. The read-only tool returns
+  `TOOL_ABORTED`, its late result is discarded, and the follow-up starts
+  without `AGENT_BUSY`. Stopping the pending Write cancels its permission;
+  approving the stale request fails and creates no file. A mutating operation
+  that already started is not reported stopped before its Host result arrives.
+- **Specs linked**: `03-runtime/02-agent-runtime.md`,
+  `03-runtime/03-tools-and-permissions.md`, `03-runtime/06-host-rpc-protocol.md`,
+  ADR `tool-abort-abandons-host-call`
 - **Acceptance**: C (abort)
 - **Milestone**: M2
-- **Status**: Draft
+- **Status**: Runtime and Host cancellation contracts automated by
+  `packages/agent-runtime/src/runtime.test.ts` and the pending-Write regression
+  in `crates/host-core/src/rpc/mod.rs`; rendered Electron interaction remains
+  a manual validation run.
 
 #### E2E-171: Streaming reply survives quit, crash, and stop
 

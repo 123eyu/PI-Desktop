@@ -1,7 +1,7 @@
-# ADR: A user stop ends the turn even when the running tool cannot be cancelled
+# ADR: A user stop preserves tool side-effect boundaries
 
 - Status: Accepted for implementation
-- Date: 2026-10-20
+- Date: 2026-10-20 (amended 2026-10-23)
 - Issues: #1767
 - Amends: spec 03-runtime/03-tools-and-permissions.md §3
 
@@ -16,29 +16,40 @@ single long call held the turn, and the session, hostage: one report measured a
 `Grep` that ran 21m39s after the user clicked Stop six times, with the abort
 applying in the same millisecond the tool finally returned.
 
+The fix must avoid telling the user that a turn stopped while a pending
+permission can still be approved or a mutating extension call is still running.
 Three facts constrain the fix:
 
-1. `tools.abort` only cancels what host-core can cancel: it clears a pending
-   approval and kills a `Bash` / `GenerateImages` process. Every other tool runs
-   to completion inside the Rust host whatever the runtime sends.
-2. A `tools.abort` for a tool call id that has no active cancellation registers
-   a 60s tombstone in `pending_bash_aborts`, which a later `Bash` reusing that
-   id would inherit as an immediate kill.
+1. Host cancellation can close a pending permission and remote calls. Bash and
+   image generation also have process cancellation. Local file writes and
+   desktop-dispatched MCP/plugin calls cannot be safely abandoned after their
+   operation has started.
+2. Bash process aborts retain their short-lived early-arrival tombstones. Other
+   tool aborts use a separate registry keyed by session, call id, and tool name,
+   so a delayed abort cannot affect a different tool that reuses the call id.
 3. `TOOL_ABORTED` already means "the tool was cancelled by a user stop or a turn
    abort before it finished" (spec 03-runtime/08-error-codes.md), so the runtime
    may report that outcome without host cooperation.
 
 ## Decision
 
-The abort listener now applies to every tool. For `Bash` and `GenerateImages` it
-keeps sending `tools.abort` and waits a bounded grace window (10s) for the host
-to return the output it collected before the kill. For every other tool it stops
-waiting the moment the signal fires, without sending `tools.abort`, and the call
-rejects with `TOOL_ABORTED`.
+The runtime sends typed `tools.abort` requests for in-flight tools. Host-core
+registers cancellation before permission evaluation, so stopping a pending
+approval or queued tool prevents it from starting. Local `Read`, `Glob`, and
+`Grep` calls may end the runtime's wait immediately because they are read-only;
+the host also observes cancellation and discards their result. The blocking
+filesystem worker may continue until it returns, but it cannot mutate files.
 
-In both cases the wait is a `Promise.race` against the execute call. Losing the
-race abandons the wait, not the host call: the orphaned `tools.execute` settles
-on its own, its result is discarded, and the runtime never surfaces it.
+For `Bash` and `GenerateImages`, the runtime waits a bounded 10s grace window
+for the host to return output collected before process termination. For
+mutating, MCP, and plugin calls, the runtime waits for the host result after
+requesting cancellation. A pending permission is cancelled; an operation that
+already started is not reported as stopped until its result arrives.
+
+Read-only and process-backed tools race their execution against cancellation.
+For a read-only local filesystem call, the Rust blocking worker may outlive the
+RPC, but its result is discarded. Mutating and desktop-dispatched tools are not
+locally abandoned while active.
 
 The runtime also drives the tools from `abort()` itself, not only from the
 signal each tool was handed. `abort()` walks the in-flight tool calls and runs
@@ -52,29 +63,20 @@ alive minutes later.
 
 ## Consequences
 
-- Stop always ends the turn, so a stuck tool can no longer block new turns,
-  compaction, or session switching.
-- A stop releases every in-flight tool, including one whose own abort signal
-  never fired, so the stop RPC always returns and the renderer always leaves
-  "processing".
-- A non-cancellable tool keeps consuming host resources until it finishes. That
-  is honest residual work, not a stuck UI, and it is why the durable fix stays
-  with host-core: teach `tools.execute` an abort token so `Grep` and friends can
-  actually be cancelled.
-- Abandoning a call means the runtime can no longer observe its result. A retry
-  must carry a fresh tool call id: reusing the abandoned id would race a second
-  execution against the first and, for `Bash`, could pick up a cancellation
-  tombstone meant for the abandoned call. This is also why non-cancellable tools
-  do not send `tools.abort` — the RPC cannot help them, and the tombstone it
-  leaves behind can only hurt.
+- A long-running read-only tool no longer holds the turn open after Stop, while
+  pending permission prompts and admission waits are cancelled at the host.
+- Local filesystem workers and already-started extension operations may still
+  consume resources until they return. Mutating and extension results remain
+  observable before the runtime reports the turn settled.
+- A new turn uses distinct tool call ids. Typed abort records also prevent an
+  early abort for one tool name from being inherited by another tool.
 - Progress output for an abandoned call stops at the moment of the stop.
 
 ## Alternatives
 
-- **Send `tools.abort` for every tool.** Cancels pending approvals for
-  non-cancellable tools, but leaves a 60s tombstone per aborted call that a
-  later `Bash` could inherit. Rejected as a side effect with no benefit for the
-  in-flight call.
+- **Locally abandon every tool.** Could report a stopped turn while a pending
+  `Write` approval is later accepted or an already-started plugin/MCP action
+  continues. Rejected because it hides side effects.
 - **Only arm a grace timer on abort (no race for cancellable tools).** Simpler,
   but leaves every non-cancellable tool waiting the full window and still keeps
   the turn blocked for that window.

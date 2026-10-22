@@ -118,17 +118,19 @@ result. Options may be plain strings or `{ label, description? }` objects; the
 selected label remains the answer value. Stopping the turn resolves outstanding
 questions as skipped.
 
-A stop ends the turn even when the running tool cannot be cancelled (ADR
-tool-abort-abandons-host-call). `Bash` and `GenerateImages` are cancelled through
-`tools.abort`, and the runtime waits a bounded 10s grace window for the host to
-return the output it collected before the kill. Every other tool has no
-host-side cancellation: the runtime stops waiting the moment the signal fires,
-returns `TOOL_ABORTED`, and leaves the host call to settle on its own with its
-result discarded. Abandoned calls keep consuming host resources until they
-finish, and a retry must carry a fresh tool call id. The stop releases the
-in-flight tools directly as well, so it still ends the turn when a tool's own
-abort signal never fires; the stop RPC must return even in that case, because
-the renderer waits for it before it leaves the running state.
+A stop sends a typed `tools.abort` request for each in-flight call (ADR
+tool-abort-abandons-host-call). Host-core registers cancellation before
+permission evaluation, so a pending approval or queued admission is cancelled
+instead of starting after Stop. `Bash` and `GenerateImages` use the existing
+process cancellation path; the runtime waits up to 10s for the host to return
+output collected before termination. Local `Read`, `Glob`, and `Grep` calls may
+end the runtime's wait immediately and return `TOOL_ABORTED`; their results are
+discarded. A blocking filesystem worker may continue until it returns, but
+these tools do not mutate the workspace. For a mutating, MCP, or plugin call
+that has already started, the runtime waits for the host result before it
+settles the turn, so Stop cannot hide a write or extension action that is still
+running. Typed cancellation records include the tool name and cannot be
+inherited by a different tool that reuses the call id.
 
 `JevClassify` is an external provider operation rather than a workspace
 execution tool. It validates its structured request, observes cancellation,
