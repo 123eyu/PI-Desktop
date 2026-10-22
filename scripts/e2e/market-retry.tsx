@@ -220,6 +220,10 @@ globalThis.marketRetryProbe = async () => {
       await until(() => status().includes(i18n.t("settings.mcpMarket.remoteError")), `${locale}: MCP snapshot run 2 did not fail`);
       assert(snapshotLine(), `${locale}: MCP failure with a snapshot shows no snapshot line`);
       assert(container.textContent?.includes("Recovered Server") === true, `${locale}: MCP retained list is missing`);
+      assert(
+        container.querySelector(".mcpm-badge.is-remote"),
+        `${locale}: retained MCP entry lost its remote source badge`,
+      );
     }
     return { ok: true };
   } finally {

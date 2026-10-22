@@ -236,11 +236,6 @@ export function McpMarketPanel({
     id ? sources.find((source) => source.id === id)?.name : undefined;
 
 
-  const remoteIds = useMemo(
-    () => new Set(remote.entries.map((entry) => entry.id)),
-    [remote.entries],
-  );
-
   /**
    * The last successful list stands in only while the current query has
    * nothing of its own to show — a failure, or the retry that follows one.
@@ -253,6 +248,10 @@ export function McpMarketPanel({
     remote.entries.length === 0 &&
     (remote.status === "error" || remote.status === "loading");
   const displayEntries = showingSnapshot && snapshotForQuery ? snapshotForQuery.entries : remote.entries;
+  const remoteIds = useMemo(
+    () => new Set(displayEntries.map((entry) => entry.id)),
+    [displayEntries],
+  );
 
   const visible = useMemo(() => {
     const query = search.trim().toLocaleLowerCase();

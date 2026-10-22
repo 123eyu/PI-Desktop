@@ -16699,10 +16699,11 @@ plugin-form fixtures in an isolated temporary directory at runtime.
 - **Expected**: Both markets repeat the current search, show loading while the
   request runs, retain a Retry action for partial failures, and clear the failed
   source after recovery. After a successful load, a later failure keeps that
-  list on screen, says when it was taken, and still offers Retry; the retained
-  list disappears once a retry succeeds, and it never stands in for a
-  different query or for a failure with nothing loaded. The test makes no live
-  network request and does not change the main-process network policy.
+  list on screen, says when it was taken, retains each remote source badge,
+  and still offers Retry; the retained list disappears once a retry succeeds,
+  and it never stands in for a different query or for a failure with nothing
+  loaded. The test makes no live network request and does not change the
+  main-process network policy.
 - **Specs linked**: `04-ux/06-settings-ia.md`, ADR 0177, ADR 0272
 - **Acceptance**: Quality
 - **Milestone**: M6+
