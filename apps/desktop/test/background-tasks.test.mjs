@@ -78,7 +78,7 @@ test("a background Bash call returns a backgroundTaskId and never a blocking std
 test("turn cancellation and timeout cannot reach a background task: it never registers a bash cancellation", () => {
   assert.match(
     rpcSources.replace(/\r/g, ""),
-    /cancellation_receiver = if remote_workspace\.is_some\(\)[\s\S]*?&& !p\.run_in_background\)/,
+    /if remote_workspace\.is_none\(\) && p\.tool_name == "Bash" && p\.run_in_background \{\s*None\s*\} else \{[\s\S]*?register_bash_cancellation\(/,
   );
   assert.match(rpcSources.replace(/\r/g, ""), /"Bash" \| "GenerateImages"/);
 });
