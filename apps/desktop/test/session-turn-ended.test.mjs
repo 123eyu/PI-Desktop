@@ -32,6 +32,7 @@ function fixture() {
 
   const persistence = createEventPersistence({
     runtimeState: { host: null },
+    completionNoticeTurns: new Set(),
     activeTurns,
     activeToolCalls: new Map(),
     activeToolCallKey: coordination.activeToolCallKey,
