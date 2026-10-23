@@ -14,6 +14,7 @@ import {
 import { readEditorValue, type ComposerFileReference } from "../editor";
 import type { ComposerDraftSnapshot } from "../../../../lib/composer-smart-stop";
 import type { ComposerDraftController } from "./useComposerDraft";
+import { submitWithLatestDraftRestore } from "./submit-with-latest-draft-restore.mjs";
 
 type UseComposerSubmitOptions = {
   value: string;
@@ -49,14 +50,6 @@ export type ComposerSubmitController = { submit: (steering?: boolean) => Promise
  * dependency so command dispatch and optimistic draft clearing remain
  * independent from editor rendering.
  */
-
-/**
- * One failure may restore its draft only while it is still the newest submit
- * for that slot: a late rejection of an older send must never paint that older
- * message, with its attachments, back into the composer (#1809). Module scope
- * keeps the hook callable outside a renderer, the way `Composer.tsx` drives it.
- */
-const latestSubmitEpochs = new Map<string, number>();
 
 export function useComposerSubmit({
   value,
@@ -187,19 +180,19 @@ export function useComposerSubmit({
       return;
     }
     draft.clearDraftForKey(submittedDraftKey, submittedDraftRevision, submittedDraft);
-    const submitEpoch = (latestSubmitEpochs.get(submittedDraftKey) ?? 0) + 1;
-    latestSubmitEpochs.set(submittedDraftKey, submitEpoch);
-    const accepted = steering
-      ? await steerPrompt(inlineContent, submittedDraft)
-      : await sendPrompt(
-          inlineContent,
-          submittedDraft,
-          activeSessionId ?? undefined,
-          captureAcceptedSession,
-        );
+    const accepted = await submitWithLatestDraftRestore(
+      submittedDraftKey,
+      () => steering
+        ? steerPrompt(inlineContent, submittedDraft)
+        : sendPrompt(
+            inlineContent,
+            submittedDraft,
+            activeSessionId ?? undefined,
+            captureAcceptedSession,
+          ),
+      () => draft.restoreDraftForKey(submittedDraftKey, submittedDraft),
+    );
     if (accepted) remember();
-    else if (latestSubmitEpochs.get(submittedDraftKey) === submitEpoch)
-      draft.restoreDraftForKey(submittedDraftKey, submittedDraft);
   };
 
   return { submit };
