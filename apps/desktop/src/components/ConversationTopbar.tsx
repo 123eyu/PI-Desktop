@@ -57,6 +57,7 @@ export function ConversationTopbar({
   const { t } = useTranslation();
   const activeSessionId = useAppStore((s) => s.activeSessionId);
   const sessions = useAppStore((s) => s.sessions);
+  const workspace = useAppStore((s) => s.workspace);
   const projectMeta = useAppStore((s) => s.projectMeta);
   const renameSession = useAppStore((s) => s.renameSession);
   const showToast = useAppStore((s) => s.showToast);
@@ -205,7 +206,8 @@ export function ConversationTopbar({
    * the app happens to show: a task can be opened from a project other than
    * the active one. A remote session carries its display-only label; a local
    * one resolves its project path through the sidebar's naming preferences,
-   * and a draft-like session with no project keeps the plain title.
+   * and a temporary session keeps the plain title. Before the first prompt
+   * there is no session yet, so the active workspace names the draft.
    */
   const sessionProjectPath = remoteSession ? null : activeSession?.projectPath;
   const projectKey = sessionProjectPath
@@ -215,7 +217,9 @@ export function ConversationTopbar({
     ? activeSession?.remoteWorkspaceLabel?.trim() || null
     : projectKey
       ? projectMeta[projectKey]?.name?.trim() || projectName(sessionProjectPath)
-      : null;
+      : activeSession
+        ? null
+        : projectName(workspace?.path, workspace?.name);
   const breadcrumbTitle = project
     ? `${project} · ${fullTaskTitle}`
     : fullTaskTitle;

@@ -274,9 +274,11 @@ and Settings keep the frameless drag band. It owns the project breadcrumb, the
 task title, and window actions only. The crumb resolves from the active
 session's project — a remote session's workspace label, a local session's
 project path and naming preference — and is omitted for a temporary chat with
-no project. The title follows the crumb after a `/` separator. Its full text
-remains in the native tooltip as `Project · Task title`. The Composer owns the
-Agent/Plan/Goal control and the combined model × reasoning selection (§11).
+no project. Before the first prompt there is no session yet, so the active
+workspace names the draft. The title follows the crumb after a `/` separator.
+Its full text remains in the native tooltip as `Project · Task title`. The
+Composer owns the Agent/Plan/Goal control and the combined model × reasoning
+selection (§11).
 
 The local task title is a rename trigger. Activating it swaps the heading for a
 boxless inline editor seeded with the stored title; Enter or blur commits the

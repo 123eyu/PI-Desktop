@@ -123,6 +123,21 @@ test("a session without a project keeps only the title", async () => {
   });
 });
 
+test("an empty chat names the active workspace and stays read-only", async () => {
+  await withTopbar(async ({ render }) => {
+    const html = render({
+      activeSessionId: null,
+      sessions: [],
+      workspace: { path: "/workspace", name: "Workspace" },
+    });
+
+    assert.ok(html.includes('class="ct-project-name">Workspace</span>'));
+    assert.match(html, /<h1 class="ct-title">New task<\/h1>/);
+    assert.ok(html.includes('title="Workspace · New task"'));
+    assert.ok(!html.includes("ct-title-trigger"), "there is no session to rename yet");
+  });
+});
+
 test("a remote session shows its remote workspace label and keeps the title read-only", async () => {
   await withTopbar(async ({ render }) => {
     const html = render({
