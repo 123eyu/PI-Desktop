@@ -2254,6 +2254,20 @@ identify the platform validation still needed.
   `pnpm test:e2e:composer-paste`; real desktop recording uses isolated data and
   a local model with a controlled response delay.
 
+#### E2E-011c-2: Late send failures do not restore stale composer drafts
+
+- **Preconditions**: Session A is idle; the two send results for its composer
+  can be held and settled independently.
+- **Steps**: Submit draft N, then submit draft N+1 before N settles. Accept N+1
+  and reject N. Repeat with N+1 rejected after N remains pending.
+- **Expected**: N's late rejection never restores its text or file references
+  over N+1. If N+1 is rejected, only N+1's own snapshot is restored.
+- **Specs linked**: `04-ux/09-interaction-patterns.md` (session-scoped drafts)
+- **Acceptance**: C (composer input and session isolation)
+- **Milestone**: M2
+- **Status**: Async ownership behavior covered by
+  `apps/desktop/test/composer-submit-race.test.mjs`; rendered UI scenario Draft
+
 #### E2E-SESSION-reference-conversation-link: A pasted conversation link carries that conversation into the turn
 
 - **Preconditions**: Isolated desktop profile; one project with conversations A
@@ -10298,7 +10312,7 @@ must keep splitting are covered by `markdown-blocks.test.mjs`.
 | A / C / F / Quality — Tray session navigation | E2E-TRAY-bounded-session-navigation |
 | B — Model config | E2E-005, E2E-PROVIDER-custom-endpoint-no-api-key, E2E-006, E2E-007, E2E-038, E2E-050, E2E-052, E2E-055, E2E-066, E2E-080, E2E-082, E2E-102c, E2E-102d, E2E-102e, E2E-151, E2E-154, E2E-163, E2E-166, E2E-172, E2E-174, E2E-197, E2E-005G, E2E-005J, E2E-199, E2E-201, E2E-202, E2E-203, E2E-205, E2E-206, E2E-209, E2E-PLUGIN-provider-catalog-add-service |
 | C — Conversation & stream | E2E-CHAT-long-history-stream-keeps-responsive, E2E-CHAT-running-status-survives-output-pauses, E2E-008, E2E-008d, E2E-008e, E2E-008a, E2E-009, E2E-010, E2E-011, E2E-011a, E2E-011b, E2E-011d, E2E-011e, E2E-011g, E2E-031, E2E-040, E2E-047, E2E-048, E2E-048A, E2E-049, E2E-052, E2E-053, E2E-054, E2E-055, E2E-059, E2E-059a, E2E-060c, E2E-060d, E2E-061, E2E-061a, E2E-062, E2E-064, E2E-065, E2E-068, E2E-071, E2E-073, E2E-074, E2E-075, E2E-081, E2E-083, E2E-084, E2E-086, E2E-087, E2E-088, E2E-088b, E2E-089, E2E-090, E2E-COMPOSER-narrow-controls, E2E-094, E2E-095, E2E-096, E2E-097, E2E-098, E2E-099, E2E-102, E2E-102a, E2E-102b, E2E-102c, E2E-102d, E2E-102g, E2E-106, E2E-109, E2E-111, E2E-114, E2E-116, E2E-117, E2E-118, E2E-119, E2E-120, E2E-121, E2E-218, E2E-259, E2E-219, E2E-AGENTS-001, E2E-142, E2E-144, E2E-145, E2E-146, E2E-146a, E2E-147, E2E-151, E2E-154, E2E-155, E2E-158, E2E-159, E2E-161, E2E-162, E2E-166, E2E-172, E2E-173, E2E-174, E2E-177, E2E-178, E2E-179, E2E-180, E2E-182, E2E-183, E2E-187, E2E-198, E2E-199, E2E-202, E2E-203, E2E-207, E2E-208, E2E-CHAT-content-width-handles, E2E-250, E2E-102i, E2E-PLUGIN-session-orchestrator-real-workers, E2E-SUBAGENT-settlement-updates-before-parent-poll, E2E-SUBAGENT-resume-a-settled-delegation |
-| C — Conversation & stream (composer drafts) | E2E-011c, E2E-011c-1 |
+| C — Conversation & stream (composer drafts) | E2E-011c, E2E-011c-1, E2E-011c-2 |
 | D — Workspace | E2E-012, E2E-013, E2E-022B, E2E-024I, E2E-047, E2E-049, E2E-057, E2E-058, E2E-060, E2E-068, E2E-075, E2E-078, E2E-153, E2E-158, E2E-182, E2E-187, E2E-252 |
 | C / D / Quality — Project session history resets after collapse | E2E-263 |
 | D — Workspace (project ordering) | E2E-253 |
@@ -10388,7 +10402,7 @@ must keep splitting are covered by `markdown-blocks.test.mjs`.
 | Post-baseline local automation | E2E-220 |
 | Post-baseline local automation (MCP `pi_session_get` large compaction) | E2E-MCP-session-get-projects-large-compaction |
 | Post-MVP remote control | E2E-221, E2E-222, E2E-223, E2E-224, E2E-225, E2E-226, E2E-227, E2E-228, E2E-229, E2E-230, E2E-231, E2E-232, E2E-REMOTE-HOST-settings-compact-inventory |
-| Trusted extensions (R7 v1) | E2E-DIALOG-long-text-boundaries, E2E-241, E2E-242, E2E-HOOKS-prompt-chain, E2E-HOOKS-cancel-and-dispose, E2E-TRUSTED-EXTENSION-custom-agent-stream-and-binding, E2E-243, E2E-TRUSTED-EXTENSION-temporary-session-cwd-is-scratch, E2E-244, E2E-245, E2E-PLUGIN-imported-pi-package-skills, E2E-PLUGIN-import-extension-installs-dependencies, E2E-PLUGIN-import-extension-reports-missing-dependency, E2E-PLUGIN-declared-provider-appears-in-the-native-provider-list, E2E-PLUGIN-provider-catalog-add-service |
+| Trusted extensions (R7 v1) | E2E-DIALOG-long-text-boundaries, E2E-241, E2E-242, E2E-HOOKS-prompt-chain, E2E-HOOKS-context-every-request, E2E-HOOKS-cancel-and-dispose, E2E-TRUSTED-EXTENSION-custom-agent-stream-and-binding, E2E-243, E2E-TRUSTED-EXTENSION-temporary-session-cwd-is-scratch, E2E-244, E2E-245, E2E-PLUGIN-imported-pi-package-skills, E2E-PLUGIN-import-extension-installs-dependencies, E2E-PLUGIN-import-extension-reports-missing-dependency, E2E-PLUGIN-declared-provider-appears-in-the-native-provider-list, E2E-PLUGIN-provider-catalog-add-service |
 | Trusted extensions (R7 v1 npm recovery) | E2E-PLUGIN-import-extension-recovers-missing-npm |
 | Post-MVP regression coverage (plugin tool dispatch) | E2E-PLUGIN-slow-tool-is-not-cut-off-by-host-dispatch |
 | M6+ (Project delete) | E2E-PROJECT-delete-removes-project-and-owned-sessions |
@@ -15628,6 +15642,19 @@ plugin-form fixtures in an isolated temporary directory at runtime.
   failed handlers do not discard earlier additions, cancelled turns send no
   request, and the next turn can proceed. Other events retain existing folds.
 - **Specs linked**: `07-plugins/16-trusted-extensions.md` §6; ADR 0214; #1023.
+
+#### E2E-HOOKS-context-every-request: Context handlers shape every provider request
+
+- **Preconditions**: An enabled fixture extension appends a marker message in
+  `context`; the provider is a local deterministic HTTP/SSE service whose first
+  reply is a tool call.
+- **Steps**: Run two turns through the real runtime: the first turn makes a
+  tool call and a follow-up request, the second answers directly. Inspect every
+  provider request and the persisted transcript rows.
+- **Expected**: `context` fires once per provider request, including the first
+  request of each run, and every request carries the marker exactly once. The
+  marker never reaches the persisted transcript.
+- **Specs linked**: `07-plugins/16-trusted-extensions.md` §6; ADR 0214; #1838.
 - **Acceptance**: B (agent), Quality
 - **Milestone**: Post-MVP (R7 v1)
 - **Status**: Automated by `extensions/prompt-chain.test.ts`,
