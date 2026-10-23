@@ -67,6 +67,14 @@ sidecar's workspace file resolver remain restricted to the session workspace.
   links, URL attributes, `foreignObject`, script, embedded media, and external
   image elements are removed before the SVG reaches the DOM. Invalid or
   oversized input fails closed to escaped source text.
+- Inline GenUI admits only `frame-src pi-genui:` in the parent. Its document
+  responses enforce `sandbox allow-scripts` in the CSP header, in addition to
+  the caller's opaque-origin iframe sandbox. Documents allow only bundled
+  scripts and inline styles; fetches, frames, forms, and remote assets are
+  blocked. The private Host reader pins native directory capabilities and
+  returns bounded bytes; Main never reopens model paths. See
+  [the GenUI ADR](../../adr/gen-ui-inline-visualization.md) for the explicit
+  WebRTC ICE residual channel and the remaining v1 limits.
 
 ### Future hardening (tracked, post-MVP)
 

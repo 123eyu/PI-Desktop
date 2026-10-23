@@ -1,4 +1,5 @@
 mod config_sync_rpc;
+mod gen_ui;
 mod plugin_reviews_rpc;
 mod remote_tools;
 mod scheduled_rpc;
@@ -1421,8 +1422,8 @@ fn requires_external_path_permission(
     let Some(path) = args.get("path").and_then(Value::as_str) else {
         return false;
     };
-    if roots.lexical_root(path).is_some() {
-        return false;
+    if let Some(root) = roots.lexical_root(path) {
+        return !root.allows_implicit_access();
     }
     let Some(workspace_path) = workspace_path else {
         return false;
@@ -1461,7 +1462,8 @@ fn contained_write_auto_allowed(
         && args
             .get("path")
             .and_then(Value::as_str)
-            .is_some_and(|path| roots.lexical_root(path).is_some())
+            .and_then(|path| roots.lexical_root(path))
+            .is_some_and(|root| root.allows_implicit_access())
         && edit_move_stays_contained(roots, args)
 }
 
@@ -1475,7 +1477,11 @@ fn edit_move_stays_contained(roots: &ContainedRoots, args: &Value) -> bool {
     let Ok(parsed) = crate::tools::hashline::parse_ops(ops) else {
         return true;
     };
-    crate::tools::hashline::mv_dest(&parsed).is_none_or(|dest| roots.lexical_root(dest).is_some())
+    crate::tools::hashline::mv_dest(&parsed).is_none_or(|dest| {
+        roots
+            .lexical_root(dest)
+            .is_some_and(|root| root.allows_implicit_access())
+    })
 }
 
 /// Plans are owned by the session's persisted project. Unlike the legacy
@@ -1908,6 +1914,7 @@ async fn handle_request(
     }
 
     match method {
+        "visualizations.readFragment" => gen_ui::read_fragment(state, params).await,
         "tools.remoteComplete" | "tools.workspaceExecute" | "tools.workspaceAbort" => {
             remote_tools::handle(state, method, params, tx).await
         }
@@ -4140,10 +4147,10 @@ async fn handle_request(
                         );
                     // Write/Edit targeting the session scratch dir (D114) or
                     // visualization dir (D671) never touch the user's project —
-                    // skip the prompt. The lexical pre-check only decides
-                    // prompting; execution still goes through the symlink-aware
-                    // resolver, so it cannot be used to escape containment. A
-                    // contract mode's hard deny is never bypassed.
+                    // skip the prompt only while those roots remain valid.
+                    // Execution revalidates visualization roots and runs the
+                    // symlink-aware path resolver; root identity is not cached.
+                    // A contract mode's hard deny is never bypassed.
                     if auto.is_none()
                         && contained_write_auto_allowed(
                             remote_workspace.is_some(),

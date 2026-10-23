@@ -20,6 +20,25 @@ export const GEN_UI_SKILL_ID = "pi-desktop/visualize";
 /** Largest fragment Electron Main will serve. */
 export const GEN_UI_MAX_FRAGMENT_BYTES = 2 * 1024 * 1024;
 
+/** Private Host → Main payload; base64 bounds JSON expansion of fragment bytes. */
+export type GenUiFragmentReadResult =
+  | { ok: true; base64: string }
+  | { ok: false; code: "not-found" | "too-large" };
+
+const MAX_BASE64_LENGTH = Math.ceil(GEN_UI_MAX_FRAGMENT_BYTES / 3) * 4;
+const BASE64_PATTERN = /^[A-Za-z0-9+/]*={0,2}$/;
+
+/** Validate the private native-reader boundary before Main decodes any bytes. */
+export function isGenUiFragmentReadResult(value: unknown): value is GenUiFragmentReadResult {
+  if (!value || typeof value !== "object" || Array.isArray(value)) return false;
+  const record = value as Record<string, unknown>;
+  if (Object.keys(record).length !== 2) return false;
+  if (record.ok === false) return record.code === "not-found" || record.code === "too-large";
+  return record.ok === true && typeof record.base64 === "string"
+    && record.base64.length <= MAX_BASE64_LENGTH && record.base64.length % 4 === 0
+    && BASE64_PATTERN.test(record.base64);
+}
+
 /** Guest → host: the guest document's content height in CSS pixels. */
 export const GEN_UI_SIZE_MESSAGE = "pi-genui:size";
 /** Host → guest: resolved theme variables to apply on the guest root. */

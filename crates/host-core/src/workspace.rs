@@ -108,8 +108,25 @@ pub struct ContainedRoot {
     pub kind: ToolRoot,
 }
 
-/// Ordered list of contained roots tried after the workspace. The first root
-/// that contains a path wins.
+impl ContainedRoot {
+    /// Root identity is rechecked at authorization and execution, not cached
+    /// when the session starts. Scratch retains its existing D114 semantics.
+    pub fn allows_implicit_access(&self) -> bool {
+        self.kind != ToolRoot::Visualization
+            || crate::visualizations::validate_session_root(&self.path).is_ok()
+    }
+
+    fn lexically_contains(&self, input: &str) -> bool {
+        if self.kind == ToolRoot::Visualization {
+            crate::visualizations::contains_session_path(&self.path, input)
+        } else {
+            lexically_inside(&self.path, input)
+        }
+    }
+}
+
+/// Ordered contained roots checked before workspace fallback. The first root
+/// that claims a path must validate its current identity before granting access.
 #[derive(Debug, Clone, Default, PartialEq, Eq)]
 pub struct ContainedRoots {
     roots: Vec<ContainedRoot>,
@@ -137,12 +154,12 @@ impl ContainedRoots {
         self.roots.iter()
     }
 
-    /// The first root that lexically contains `input` (absolute paths only).
-    /// Decides prompting only; execution runs the symlink-aware resolver.
+    /// First claimed root (absolute paths only), including visualization data
+    /// aliases. Claiming a root does not grant access: check its current validity.
     pub fn lexical_root(&self, input: &str) -> Option<&ContainedRoot> {
         self.roots
             .iter()
-            .find(|root| lexically_inside(&root.path, input))
+            .find(|root| root.lexically_contains(input))
     }
 }
 
@@ -325,6 +342,9 @@ pub fn resolve_tool_path(
 }
 
 fn resolve_in_contained_root(root: &ContainedRoot, input: &str) -> Option<PathBuf> {
+    if !root.allows_implicit_access() {
+        return None;
+    }
     if let Ok(path) = resolve_in_workspace(&root.path, input) {
         return Some(path);
     }

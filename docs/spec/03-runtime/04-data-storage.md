@@ -714,6 +714,10 @@ CREATE INDEX idx_session_import_origins_plugin
   `::visualize` paths; unreferenced fragments stay behind. Cards always load
   from the owning session's directory, so deleting the source session does not
   affect the fork (D671).
+  Reference identity is the source session and file name, independent of the
+  old absolute data prefix, JSON escaping, or canonical alias spelling.
+  Relocating the data directory before forking must retain those child copies.
+  Cleanup and copying refuse redirected visualization base/session directories.
 
 ### 4.6 turns — one row per agent run
 

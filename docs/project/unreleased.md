@@ -8,4 +8,6 @@
   get a builtin `visualize` skill; the model writes an HTML fragment to the
   session's visualization directory and references it with a `::visualize`
   line, which the transcript shows as a sandboxed, theme-aware card with an
-  expanded view.
+  expanded view. Visualization writes and cleanup reject redirected roots;
+  document responses enforce an opaque sandbox, inline and expanded frames
+  share a bounded pool, and forks retain their cards after data relocation.

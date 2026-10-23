@@ -1203,8 +1203,8 @@ pub async fn execute_tool_with_path_access(
         if let (Some(dir), Some(path)) =
             (visualization_root, args.get("path").and_then(Value::as_str))
         {
-            if crate::workspace::lexically_inside(dir, path) {
-                if let Err(error) = std::fs::create_dir_all(dir) {
+            if crate::visualizations::contains_session_path(dir, path) {
+                if let Err(error) = crate::visualizations::ensure_session_root(dir) {
                     tracing::warn!(%error, "failed to create visualization directory");
                 }
             }
@@ -1343,7 +1343,8 @@ fn ensure_visualization_fragment(
     let direct_child = roots
         .iter()
         .find(|root| root.kind == ToolRoot::Visualization)
-        .and_then(|root| std::fs::canonicalize(&root.path).ok())
+        .filter(|root| root.allows_implicit_access())
+        .and_then(|root| crate::workspace::simple_canonicalize(&root.path).ok())
         .is_some_and(|root| resolved.parent() == Some(root.as_path()));
     if !direct_child || !crate::visualizations::is_fragment_path(resolved) {
         return Err((
@@ -1615,9 +1616,11 @@ fn tool_write(
         return Err(ignore_rules::denied_error(path));
     }
     ensure_visualization_fragment(roots, root_kind, &resolved)?;
-    if let Some(parent) = resolved.parent() {
-        std::fs::create_dir_all(parent)
-            .map_err(|e| ("TOOL_FAILED".into(), format!("mkdir failed: {e}")))?;
+    if root_kind != ToolRoot::Visualization {
+        if let Some(parent) = resolved.parent() {
+            std::fs::create_dir_all(parent)
+                .map_err(|e| ("TOOL_FAILED".into(), format!("mkdir failed: {e}")))?;
+        }
     }
     std::fs::write(&resolved, &content).map_err(|e| {
         if e.kind() == std::io::ErrorKind::NotFound {
@@ -1779,6 +1782,8 @@ fn tool_edit(
     )?;
 
     if success.delete_file {
+        ensure_visualization_fragment(roots, root_kind, &resolved)
+            .map_err(|(code, message)| hashline::ToolError::new(code, message))?;
         std::fs::remove_file(&resolved)
             .map_err(|e| hashline::ToolError::new("TOOL_FAILED", format!("delete failed: {e}")))?;
         hashline::invalidate_path(hashline, &canonical);
@@ -1810,11 +1815,15 @@ fn tool_edit(
                 "MV destination resolves to the source file; choose a different destination",
             ));
         }
-        if let Some(parent) = dest_resolved.parent() {
-            std::fs::create_dir_all(parent).map_err(|e| {
-                hashline::ToolError::new("TOOL_FAILED", format!("mkdir failed: {e}"))
-            })?;
+        if dest_root != ToolRoot::Visualization {
+            if let Some(parent) = dest_resolved.parent() {
+                std::fs::create_dir_all(parent).map_err(|e| {
+                    hashline::ToolError::new("TOOL_FAILED", format!("mkdir failed: {e}"))
+                })?;
+            }
         }
+        ensure_visualization_fragment(roots, root_kind, &resolved)
+            .map_err(|(code, message)| hashline::ToolError::new(code, message))?;
         std::fs::write(&dest_resolved, &bytes)
             .map_err(|e| hashline::ToolError::new("TOOL_FAILED", format!("write failed: {e}")))?;
         std::fs::remove_file(&resolved)
@@ -1839,6 +1848,8 @@ fn tool_edit(
         }));
     }
 
+    ensure_visualization_fragment(roots, root_kind, &resolved)
+        .map_err(|(code, message)| hashline::ToolError::new(code, message))?;
     std::fs::write(&resolved, &bytes)
         .map_err(|e| hashline::ToolError::new("TOOL_FAILED", format!("write failed: {e}")))?;
     hashline::record_write(hashline, &canonical, &file, &success.tag);

@@ -1,8 +1,9 @@
-import { useEffect, useRef } from "react";
+import { useEffect, useLayoutEffect, useRef } from "react";
 import { useTranslation } from "react-i18next";
 import { OverlayBackdrop, portalOverlay, TooltipButton } from "../../../components/ui";
 import { IconClose } from "../../../components/icons";
 import { GenUiFrame } from "./GenUiFrame";
+import { genUiFramePool } from "./gen-ui-frames";
 
 /**
  * Where Tab should move focus inside the dialog, or null to let the browser
@@ -27,16 +28,25 @@ const FOCUSABLE = "button:not([disabled]), iframe";
  */
 export function GenUiDialog({
   url,
+  inlineSlot,
   title,
   onClose,
 }: {
   url: string;
+  inlineSlot: symbol;
   title: string;
   onClose: () => void;
 }) {
   const { t } = useTranslation();
   const closeRef = useRef<HTMLButtonElement | null>(null);
   const dialogRef = useRef<HTMLDivElement | null>(null);
+  const slot = useRef(Symbol(url));
+
+  useLayoutEffect(() => {
+    const id = slot.current;
+    genUiFramePool.acquireExpanded(id, inlineSlot, onClose);
+    return () => genUiFramePool.release(id);
+  }, [inlineSlot, onClose]);
 
   useEffect(() => {
     const previouslyFocused = document.activeElement as HTMLElement | null;

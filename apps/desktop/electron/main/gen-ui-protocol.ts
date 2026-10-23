@@ -1,10 +1,6 @@
 import { protocol, type CustomScheme } from "electron";
-import { constants as fsConstants } from "node:fs";
-import { lstat, open, readFile, realpath } from "node:fs/promises";
-import { join, relative, isAbsolute } from "node:path";
+import { readFile } from "node:fs/promises";
 import {
-  GEN_UI_DIRECTORY_NAME,
-  GEN_UI_MAX_FRAGMENT_BYTES,
   GEN_UI_SCHEME,
   genUiLocationFromUrl,
   type GenUiErrorCode,
@@ -16,6 +12,7 @@ import {
   genUiResponseHeaders,
   isFullHtmlDocument,
 } from "./gen-ui-document";
+import { createGenUiFragmentReader, type GenUiFragmentHost, type GenUiFragmentReader } from "./gen-ui-files";
 
 /**
  * Serve model-written visualization fragments to transcript cards
@@ -51,20 +48,15 @@ export type GenUiResolveResult =
 
 const NOT_FOUND = { ok: false, status: 404, code: "not-found" } as const;
 
-function isInside(root: string, candidate: string): boolean {
-  const rel = relative(root, candidate);
-  return rel === "" || (!rel.startsWith("..") && !isAbsolute(rel));
-}
-
 /**
- * Resolve one request to a shell document or a safe error. Pure apart from
- * filesystem reads, so it is tested without Electron. Errors carry a fixed
+ * Resolve one request through the native reader and build its shell. The
+ * dependency boundary is tested without Electron. Errors carry a fixed
  * code the card localizes; they never echo a path.
  */
 export async function resolveGenUiRequest(input: {
   method: string;
   url: string;
-  dataDir: string;
+  readFragment: GenUiFragmentReader;
   loadKit: () => Promise<GenUiKit>;
 }): Promise<GenUiResolveResult> {
   if (input.method !== "GET") {
@@ -73,61 +65,11 @@ export async function resolveGenUiRequest(input: {
   const location = genUiLocationFromUrl(input.url);
   if (!location) return NOT_FOUND;
 
-  const visualizationsRoot = join(input.dataDir, GEN_UI_DIRECTORY_NAME);
-  const sessionDir = join(visualizationsRoot, location.sessionId);
-
-  let fragment: string;
-  try {
-    // The session directory must really live under the visualizations root:
-    // a symlinked session directory would otherwise serve any `.html` file on
-    // disk with a matching name.
-    const [realRoot, realSessionDir] = await Promise.all([
-      realpath(visualizationsRoot),
-      realpath(sessionDir),
-    ]);
-    if (!isInside(realRoot, realSessionDir) || realSessionDir === realRoot) return NOT_FOUND;
-
-    // Open the file inside the resolved directory without following a final
-    // symlink, then check the opened handle, so a swap between the checks and
-    // the read cannot redirect it.
-    const filePath = join(realSessionDir, location.fileName);
-    // O_NOFOLLOW is unavailable on Windows; keep the lstat check there.
-    if ((await lstat(filePath)).isSymbolicLink()) return NOT_FOUND;
-    const handle = await open(
-      filePath,
-      fsConstants.O_RDONLY | fsConstants.O_NOFOLLOW,
-    );
-    try {
-      const stats = await handle.stat();
-      if (!stats.isFile()) return NOT_FOUND;
-      if (stats.size > GEN_UI_MAX_FRAGMENT_BYTES) {
-        return { ok: false, status: 413, code: "too-large" };
-      }
-      // Bounded read: a file that grows after stat still cannot exceed the cap.
-      const buffer = Buffer.alloc(Math.min(stats.size, GEN_UI_MAX_FRAGMENT_BYTES) + 1);
-      let bytesRead = 0;
-      while (bytesRead < buffer.length) {
-        const chunk = await handle.read(buffer, bytesRead, buffer.length - bytesRead, bytesRead);
-        if (chunk.bytesRead === 0) break;
-        bytesRead += chunk.bytesRead;
-      }
-      if (bytesRead > GEN_UI_MAX_FRAGMENT_BYTES) {
-        return { ok: false, status: 413, code: "too-large" };
-      }
-      fragment = buffer.subarray(0, bytesRead).toString("utf8");
-    } finally {
-      await handle.close();
-    }
-
-    if (isFullHtmlDocument(fragment)) {
-      return {
-        ok: false,
-        status: 422,
-        code: "not-fragment",
-      };
-    }
-  } catch {
-    return NOT_FOUND;
+  const result = await input.readFragment(location);
+  if (!result.ok) return result;
+  const { fragment } = result;
+  if (isFullHtmlDocument(fragment)) {
+    return { ok: false, status: 422, code: "not-fragment" };
   }
 
   let kit: GenUiKit;
@@ -214,10 +156,11 @@ function loadInstalledKit(): Promise<GenUiKit> {
 }
 
 /**
- * Install the request handler. Call once, after the app is ready. `getDataDir`
- * is read per request so the handler follows the data directory in use.
+ * Install once after ready. Resolve the current local Host per request so
+ * profile relocation and runtime restarts never reuse a stale reader.
  */
-export function installGenUiProtocol(input: { getDataDir: () => string }): void {
+export function installGenUiProtocol(input: { getHost: () => GenUiFragmentHost | null }): void {
+  const readFragment = createGenUiFragmentReader(input.getHost);
   protocol.handle(GEN_UI_SCHEME, async (request) => {
     if (isGenUiAssetRequest(request.url)) {
       return genUiAssetResponse(
@@ -228,7 +171,7 @@ export function installGenUiProtocol(input: { getDataDir: () => string }): void 
       await resolveGenUiRequest({
         method: request.method,
         url: request.url,
-        dataDir: input.getDataDir(),
+        readFragment,
         loadKit: loadInstalledKit,
       }),
     );

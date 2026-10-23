@@ -18616,7 +18616,11 @@ host-created files. The full app's file-preview viewer is covered separately.
   card's expand button, then Esc. 5) Ask the model to write a non-`.html` file
   into the visualization directory, and to write a fragment that calls
   `fetch("https://example.com")`. 6) Fork the session, then delete the source
-  session. 7) Repeat step 1 in the remote session.
+  session. 7) Repeat step 1 in the remote session. 8) Relocate the data directory,
+  then fork a transcript that still names its old visualization path. 9) Try
+  redirected visualization roots and a `.html` FIFO, and open two document
+  URLs from callers that omit the iframe sandbox. 10) Expand a card while
+  eight inline cards are live.
 - **Expected**:
   - No permission card appears for the fragment write. While streaming, the
     reply shows plain text; after completion the `::visualize` line is
@@ -18624,9 +18628,23 @@ host-created files. The full app's file-preview viewer is covered separately.
   - The slider works; theme changes recolor the card without a reload.
   - Expand opens a large modal copy; Esc closes it and the inline card keeps
     its state.
-  - The non-`.html` write fails with a tool error; the network call fails and
-    nothing leaves the machine; the frame cannot open popups or navigate.
-  - The fork shows the same card until the source session is deleted, then an
-    "unavailable" card. The source's `visualizations/<sessionId>/` directory is
-    removed with it.
+  - The non-`.html` write fails with a tool error; fetch requests are blocked,
+    and the frame cannot open popups or navigate remotely. The ADR's WebRTC
+    ICE limitation remains explicit rather than a blanket no-network claim.
+  - The fork retains its own card after the source session is deleted, including
+    a fork made after data relocation. The source's directory is removed.
+  - Redirected roots cannot bypass Ask write confirmation or let cleanup delete
+    unrelated data. FIFO requests fail without blocking other filesystem work.
+  - Every document response enforces an opaque sandbox; a caller that omits
+    iframe sandbox cannot read another session's DOM.
+  - Expanded and inline frames share the eight-frame quota, and the expanded
+    card's original inline control state remains unchanged.
   - The remote session gets no visualization directory or skill.
+- **Coverage**: `pnpm test:e2e:gen-ui` runs the offline Electron card journey,
+  including real protocol responses, bundled assets, focus/guest Escape,
+  viewport release, and unsandboxed callers through a real isolated Host.
+  Native directory, FIFO, and ABA regressions run in `visualizations/files`;
+  `gen-ui-file-safety.test.mjs` validates the private Host-to-Main boundary.
+  Rust visualization RPC/lifecycle/fork tests
+  cover authorization, deletion safety, Windows path spelling, and relocation.
+- **Status**: Automated without a paid provider or a user's running instance.

@@ -211,3 +211,25 @@ test("every locale defines the gen-ui strings", () => {
   }
   assert.equal(Object.keys(catalogs).length, 9);
 });
+
+test("expanded frames share the quota without evicting their inline state", async (t) => {
+  const ssr = await slotSsr(t);
+  const { createGenUiFramePool } = await ssr.load("/src/features/chat/gen-ui/gen-ui-frames.ts");
+  const pool = createGenUiFramePool(3);
+  const [source, other, dialog, incoming] = [Symbol("source"), Symbol("other"), Symbol("dialog"), Symbol("incoming")];
+  const evicted = [];
+  pool.acquire(source, () => evicted.push("source"));
+  pool.acquire(other, () => evicted.push("other"));
+  pool.acquireExpanded(dialog, source, () => evicted.push("dialog"));
+  pool.acquire(incoming, () => evicted.push("incoming"));
+  assert.equal(pool.size, 3);
+  assert.deepEqual(evicted, ["other"]);
+  pool.release(dialog);
+  pool.acquire(other, () => evicted.push("other"));
+  const next = Symbol("next");
+  pool.acquire(next, () => evicted.push("next"));
+  assert.equal(pool.size, 3);
+  assert.deepEqual(evicted, ["other", "source"], "closing releases the inline protection");
+  for (const id of [source, other, incoming, next]) pool.release(id);
+  assert.equal(pool.size, 0);
+});

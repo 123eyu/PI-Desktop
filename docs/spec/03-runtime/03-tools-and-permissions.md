@@ -302,8 +302,10 @@ visualization lives as long as its session:
   directory, no prompt line, and no `pi-desktop/visualize` skill.
 - **Addressing.** Absolute paths only; the path is advertised in the system
   prompt next to the scratch directory. Relative paths never resolve here.
-- **Containment.** `resolve_tool_path` checks the workspace, scratch, and
-  visualization roots in that order with the same lexical + symlink defense.
+- **Containment.** Scratch and visualization roots are checked before the
+  workspace, so a data directory inside a workspace remains controlled.
+  The visualization base and session must be real directories, never
+  symlink/junction redirects; canonical data-directory aliases are supported.
 - **Content.** `Write`/`Edit` accept only a single-component file name ending in
   `.html`; anything else in this root fails with a tool error. `Read` is
   allowed.
@@ -312,15 +314,23 @@ visualization lives as long as its session:
   contract modes cannot write here. Results carry `root: "visualization"`, are
   not recorded as artifacts, and are not review-snapshotted.
 - **Lifecycle.** Created lazily on the first write. Deleted with
-  `session.delete`. The startup sweep removes only directories whose session
-  no longer exists; it never removes by age.
+  `session.delete`. The startup sweep removes only safe session directories
+  whose session no longer exists; it never expires live cards by age or
+  traverses a redirected visualization base.
 - **Rendering.** A standalone `::visualize{"path":"<absolute path>","title":"…"}`
   line outside code blocks renders as an inline card after the turn completes.
   The renderer derives `pi-genui://session/<sessionId>/<file>` from the path
-  suffix and never sends the absolute path to Main. Main serves only regular,
-  non-symlink fragments up to 2 MB below the current data directory, rejects
-  full documents, and wraps the fragment in a host shell with a strict CSP
-  (no network, frames, or forms); the frame is `sandbox="allow-scripts"`.
+  suffix and never sends the absolute path to Main. Host Core reads only regular
+  non-symlink fragments up to 2 MB using pinned native directory capabilities.
+  Main validates the private byte response, rejects full documents, and wraps
+  the fragment in a host shell with a strict CSP.
+  Both the iframe and the response CSP header enforce `sandbox allow-scripts`,
+  so omitting the caller's sandbox cannot enable cross-session DOM reads.
+  Unix uses relative `openat` and a nonblocking leaf; Windows holds the ancestor
+  chain without write/delete sharing and rejects reparse points. Directory
+  replacement/restoration cannot redirect serving to a different session.
+  Fetches, frames, forms, and remote assets are blocked. WebRTC ICE remains
+  the explicitly documented v1 residual channel (see the ADR).
 
 ## 4c. Message-owned review snapshots and rollback
 

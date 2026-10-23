@@ -67,7 +67,10 @@ export const GEN_UI_PERMISSIONS_POLICY = [
 export function genUiResponseHeaders(): Record<string, string> {
   return {
     "content-type": "text/html; charset=utf-8",
-    "content-security-policy": GEN_UI_CONTENT_SECURITY_POLICY,
+    // Response-level sandbox also protects callers that omit iframe sandbox.
+    // Unlike the fetch restrictions, this forces a distinct opaque origin.
+    // CSP sandbox is not supported in meta elements, so keep it header-only.
+    "content-security-policy": `${GEN_UI_CONTENT_SECURITY_POLICY}; sandbox allow-scripts`,
     "permissions-policy": GEN_UI_PERMISSIONS_POLICY,
     "x-content-type-options": "nosniff",
     "cache-control": "no-store",

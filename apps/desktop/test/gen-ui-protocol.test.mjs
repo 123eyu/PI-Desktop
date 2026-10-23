@@ -1,8 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import { register } from "node:module";
-import { mkdirSync, mkdtempSync, readFileSync, rmSync, symlinkSync, writeFileSync } from "node:fs";
-import { tmpdir } from "node:os";
+import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import { readMainModule, readMainSource } from "./helpers/source-contracts.mjs";
 
@@ -16,7 +15,6 @@ const {
   isFullHtmlDocument,
   sanitizeGenUiThemeVars,
 } = await import("../electron/main/gen-ui-document.ts");
-const { GEN_UI_MAX_FRAGMENT_BYTES } = await import("@pi-desktop/shared");
 
 // gen-ui-protocol.ts imports `electron` for `protocol`; load it through a tiny
 // stub so the resolver and privileges can be exercised without Electron.
@@ -46,16 +44,10 @@ const D3_CDN = "https://cdn.jsdelivr.net/npm/d3@7.9.0/dist/d3.min.js";
 
 const EXPECTED_CSP =
   "default-src 'none'; script-src 'unsafe-inline' pi-genui://assets; style-src 'unsafe-inline'; img-src data: blob:; font-src data:; media-src data: blob:; connect-src 'none'; frame-src 'none'; form-action 'none'; base-uri 'none'; webrtc 'block'";
+const EXPECTED_HEADER_CSP = `${EXPECTED_CSP}; sandbox allow-scripts`;
 
-function fixture(t) {
-  const dataDir = mkdtempSync(join(tmpdir(), "pi-genui-"));
-  t.after(() => rmSync(dataDir, { recursive: true, force: true }));
-  const sessionDir = join(dataDir, "visualizations", "sess_1");
-  mkdirSync(sessionDir, { recursive: true });
-  return { dataDir, sessionDir };
-}
-
-const get = (dataDir, url, method = "GET") => resolveGenUiRequest({ method, url, dataDir, loadKit });
+const missingFragment = async () => ({ ok: false, status: 404, code: "not-found" });
+const get = (readFragment, url, method = "GET") => resolveGenUiRequest({ method, url, readFragment, loadKit });
 
 test("guest CSP and permissions policy are exact and network-free", () => {
   assert.equal(GEN_UI_CONTENT_SECURITY_POLICY, EXPECTED_CSP);
@@ -65,7 +57,7 @@ test("guest CSP and permissions policy are exact and network-free", () => {
   const headers = genUiResponseHeaders();
   assert.deepEqual(headers, {
     "content-type": "text/html; charset=utf-8",
-    "content-security-policy": EXPECTED_CSP,
+    "content-security-policy": EXPECTED_HEADER_CSP,
     "permissions-policy": GEN_UI_PERMISSIONS_POLICY,
     "x-content-type-options": "nosniff",
     "cache-control": "no-store",
@@ -160,12 +152,10 @@ test("assets: only manifest files are served, as cacheable JavaScript", async ()
 });
 
 test("a missing kit yields the unavailable page, never a half-built document", async (t) => {
-  const { dataDir, sessionDir } = fixture(t);
-  writeFileSync(join(sessionDir, "chart.html"), "<p>x</p>");
   const result = await resolveGenUiRequest({
     method: "GET",
     url: "pi-genui://session/sess_1/chart.html",
-    dataDir,
+    readFragment: async () => ({ ok: true, fragment: "<p>x</p>" }),
     loadKit: async () => {
       throw new Error("missing");
     },
@@ -218,32 +208,24 @@ test("full HTML documents are detected past whitespace, BOM, and comments", () =
 });
 
 test("a valid fragment is served inside the shell with security headers", async (t) => {
-  const { dataDir, sessionDir } = fixture(t);
-  writeFileSync(join(sessionDir, "chart.html"), "<svg id=chart></svg>");
-  const result = await get(dataDir, "pi-genui://session/sess_1/chart.html");
+  const result = await get(async () => ({ ok: true, fragment: "<svg id=chart></svg>" }), "pi-genui://session/sess_1/chart.html");
   assert.equal(result.ok, true);
   assert.match(result.document, /<svg id=chart><\/svg>/);
   const response = genUiResponse(result);
   assert.equal(response.status, 200);
-  assert.equal(response.headers.get("content-security-policy"), EXPECTED_CSP);
+  assert.equal(response.headers.get("content-security-policy"), EXPECTED_HEADER_CSP);
   assert.equal(response.headers.get("access-control-allow-origin"), null);
   assert.match(await response.text(), /<svg id=chart>/);
 });
 
-test("rejections: method, URL shape, traversal, symlinks, non-files, size, documents", async (t) => {
-  const { dataDir, sessionDir } = fixture(t);
-  writeFileSync(join(sessionDir, "ok.html"), "<p>ok</p>");
-  const outside = join(dataDir, "secret.html");
-  writeFileSync(outside, "<p>secret</p>");
-  symlinkSync(outside, join(sessionDir, "link.html"));
-  mkdirSync(join(sessionDir, "dir.html"));
-  writeFileSync(join(sessionDir, "big.html"), Buffer.alloc(GEN_UI_MAX_FRAGMENT_BYTES + 1, 0x61));
-  writeFileSync(join(sessionDir, "doc.html"), "<!-- hi -->\n<!doctype html><html></html>");
-  // A symlinked session directory must not reach outside the root either.
-  mkdirSync(join(dataDir, "elsewhere"));
-  writeFileSync(join(dataDir, "elsewhere", "ok.html"), "<p>elsewhere</p>");
-  symlinkSync(join(dataDir, "elsewhere"), join(dataDir, "visualizations", "linked"));
-
+test("rejections: method, URL shape, traversal, native file errors, documents", async () => {
+  // Native filesystem checks are covered by Host tests; this boundary maps
+  // their fixed failures without reimplementing path containment in Main.
+  const readFragment = async (location) => {
+    if (location.fileName === "big.html") return { ok: false, status: 413, code: "too-large" };
+    if (location.fileName === "doc.html") return { ok: true, fragment: "<!-- hi -->\n<!doctype html><html></html>" };
+    return missingFragment();
+  };
   const cases = [
     ["POST", "pi-genui://session/sess_1/ok.html", 405],
     ["GET", "pi-genui://session/bad%20id/ok.html", 404],
@@ -261,35 +243,29 @@ test("rejections: method, URL shape, traversal, symlinks, non-files, size, docum
     ["GET", "pi-genui://session/sess_1/doc.html", 422],
   ];
   for (const [method, url, status] of cases) {
-    const result = await get(dataDir, url, method);
+    const result = await get(readFragment, url, method);
     assert.equal(result.ok, false, url);
     assert.equal(result.status, status, `${method} ${url}`);
     const response = genUiResponse(result);
     assert.equal(response.status, status);
-    assert.equal(response.headers.get("content-security-policy"), EXPECTED_CSP);
+    assert.equal(response.headers.get("content-security-policy"), EXPECTED_HEADER_CSP);
     const body = await response.text();
-    assert.ok(!body.includes(dataDir), `error body leaks the data dir for ${url}`);
     assert.ok(!body.includes("secret"), url);
     assert.ok(!body.includes("elsewhere"), url);
   }
-  assert.equal(genUiResponse(await get(dataDir, "pi-genui://session/sess_1/ok.html", "POST")).headers.get("allow"), "GET");
-  // Missing visualizations root entirely.
-  const empty = mkdtempSync(join(tmpdir(), "pi-genui-empty-"));
-  t.after(() => rmSync(empty, { recursive: true, force: true }));
-  assert.equal((await get(empty, "pi-genui://session/sess_1/ok.html")).status, 404);
+  assert.equal(genUiResponse(await get(readFragment, "pi-genui://session/sess_1/ok.html", "POST")).headers.get("allow"), "GET");
+  assert.equal((await get(missingFragment, "pi-genui://session/sess_1/ok.html")).status, 404);
 });
 
-test("the data directory is read per request, so references follow relocation", async (t) => {
-  const first = fixture(t);
-  const second = fixture(t);
-  writeFileSync(join(second.sessionDir, "moved.html"), "<p>moved</p>");
-  let current = first.dataDir;
-  const resolveNow = (url) => get(current, url);
+test("the native reader dependency is used per request so references follow relocation", async () => {
+  let current = { ok: false, status: 404, code: "not-found" };
+  const readFragment = async () => current;
+  const resolveNow = (url) => get(readFragment, url);
   assert.equal((await resolveNow("pi-genui://session/sess_1/moved.html")).ok, false);
-  current = second.dataDir;
+  current = { ok: true, fragment: "<p>moved</p>" };
   assert.equal((await resolveNow("pi-genui://session/sess_1/moved.html")).ok, true);
   const source = await readMainModule("gen-ui-protocol.ts");
-  assert.match(source, /dataDir: input\.getDataDir\(\)/);
+  assert.match(source, /createGenUiFragmentReader\(input\.getHost\)/);
 });
 
 test("scheme privileges: standard + secure only, registered in the single privileged call", async () => {
@@ -305,7 +281,7 @@ test("scheme privileges: standard + secure only, registered in the single privil
     /registerSchemesAsPrivileged\(\[\s*PLUGIN_ASSET_SCHEME_PRIVILEGES,\s*PLUGIN_RENDERER_SCHEME_PRIVILEGES,\s*GEN_UI_SCHEME_PRIVILEGES,\s*\]\)/,
   );
   const startup = await readMainModule("bootstrap/startup.ts");
-  const install = startup.indexOf("installGenUiProtocol({ getDataDir: () => dataDir });");
+  const install = startup.indexOf("installGenUiProtocol({ getHost });");
   assert.ok(install > startup.indexOf("app.whenReady()"), "protocol handler installs after ready");
 });
 

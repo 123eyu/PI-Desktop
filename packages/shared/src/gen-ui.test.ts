@@ -3,6 +3,8 @@ import {
   genUiLocationFromPath,
   genUiLocationFromUrl,
   genUiUrl,
+  GEN_UI_MAX_FRAGMENT_BYTES,
+  isGenUiFragmentReadResult,
   parseGenUiReferenceLine,
   splitGenUiReferences,
 } from "./gen-ui.js";
@@ -114,5 +116,20 @@ describe("gen-ui references", () => {
   it("leaves content untouched when there is no reference", () => {
     const markdown = "plain ::visualize text\n\n\n";
     expect(splitGenUiReferences(markdown)).toEqual({ content: markdown, references: [] });
+  });
+});
+
+describe("native visualization read contract", () => {
+  it("accepts bounded bytes and fixed failures only", () => {
+    for (const value of [{ ok: true, base64: "PHA+eDwvcD4=" }, { ok: true, base64: "" },
+      { ok: false, code: "not-found" }, { ok: false, code: "too-large" }]) {
+      expect(isGenUiFragmentReadResult(value)).toBe(true);
+    }
+    for (const value of [null, [], "bytes", { ok: true }, { ok: true, base64: "AA" },
+      { ok: true, base64: "!!!!" }, { ok: true, base64: "====" },
+      { ok: false, code: "private-path" }, { ok: false, code: "not-found", path: "/private" },
+      { ok: true, base64: "A".repeat(Math.ceil(GEN_UI_MAX_FRAGMENT_BYTES / 3) * 4 + 4) }]) {
+      expect(isGenUiFragmentReadResult(value)).toBe(false);
+    }
   });
 });

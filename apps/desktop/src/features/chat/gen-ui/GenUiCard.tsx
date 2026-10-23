@@ -113,7 +113,7 @@ function PooledGenUiCard({
           </div>
         )}
       </div>
-      {expanded ? <GenUiDialog url={url} title={title} onClose={closeDialog} /> : null}
+      {expanded ? <GenUiDialog url={url} inlineSlot={slot.current} title={title} onClose={closeDialog} /> : null}
     </div>
   );
 }

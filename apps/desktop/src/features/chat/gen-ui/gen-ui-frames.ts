@@ -98,34 +98,44 @@ export function isGenUiReadyMessage(event: FrameMessageEvent, frameWindow: unkno
 /** Upper bound on simultaneously mounted guest frames across all panes. */
 export const GEN_UI_MAX_LIVE_FRAMES = 8;
 
-type LiveFrame = { onEvict: () => void; visible: boolean };
+type LiveFrame = { onEvict: () => void; visible: boolean; inlineSlot?: symbol };
 
 /**
  * Bounded set of live frames. Cards hold a slot only while near the viewport
  * and release it when they scroll away, so the pool overflows only when many
  * cards are near at once (tall windows, split panes). Acquiring beyond the
- * limit evicts the longest-live frame that is off-screen, and only when every
- * other frame is on screen the longest-live one overall. An off-screen
- * newcomer never displaces a frame the reader is looking at: it is evicted
- * itself and loads once it scrolls into view.
+ * limit evicts an off-screen inline frame first, then the oldest inline frame.
+ * Expanded frames share the quota and protect their source inline state while
+ * open. An off-screen newcomer never displaces a visible frame.
  */
 export function createGenUiFramePool(limit = GEN_UI_MAX_LIVE_FRAMES) {
   const live = new Map<symbol, LiveFrame>();
   const victim = (newcomer: symbol): symbol => {
-    for (const [id, frame] of live) if (!frame.visible) return id;
-    for (const id of live.keys()) if (id !== newcomer) return id;
+    const protectedSlots = new Set([...live.values()].flatMap((frame) => frame.inlineSlot ? [frame.inlineSlot] : []));
+    const inline = [...live].filter(([id, frame]) => !frame.inlineSlot && !protectedSlots.has(id));
+    for (const [id, frame] of inline) if (!frame.visible) return id;
+    for (const [id] of inline) if (id !== newcomer) return id;
+    if (inline.some(([id]) => id === newcomer)) return newcomer;
+    // Multiple panes may hold expanded views; the global bound still wins.
+    for (const [id, frame] of live) if (frame.inlineSlot && id !== newcomer) return id;
     return newcomer;
+  };
+  const acquire = (id: symbol, frame: LiveFrame): void => {
+    live.delete(id);
+    live.set(id, frame);
+    while (live.size > limit) {
+      const evicted = victim(id);
+      const entry = live.get(evicted);
+      live.delete(evicted);
+      entry?.onEvict();
+    }
   };
   return {
     acquire(id: symbol, onEvict: () => void, visible = true): void {
-      live.delete(id);
-      live.set(id, { onEvict, visible });
-      while (live.size > limit) {
-        const evicted = victim(id);
-        const frame = live.get(evicted);
-        live.delete(evicted);
-        frame?.onEvict();
-      }
+      acquire(id, { onEvict, visible });
+    },
+    acquireExpanded(id: symbol, inlineSlot: symbol, onEvict: () => void): void {
+      acquire(id, { onEvict, visible: true, inlineSlot });
     },
     setVisible(id: symbol, visible: boolean): void {
       const frame = live.get(id);

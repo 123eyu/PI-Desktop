@@ -200,7 +200,7 @@ export function registerApplicationStartup(deps: StartupDependencies): void {
     installPluginRendererProtocol((pluginId, generation, requestPath) =>
       plugins.resolveRendererSource(pluginId, generation, requestPath),
     );
-    installGenUiProtocol({ getDataDir: () => dataDir });
+    installGenUiProtocol({ getHost });
     // Load the close-behavior preference before the first window exists: the
     // close handler reads `closeBehavior` synchronously, and a window created
     // while it still held the "ask" default would prompt a user who already

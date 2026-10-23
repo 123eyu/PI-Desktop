@@ -1,6 +1,6 @@
 # ADR: Inline generative UI visualizations
 
-- Status: Proposed
+- Status: Accepted
 - Related: D671, D114 (session scratch root), ADR 0092 (plugin-owned panel surface)
 
 ## Context
@@ -35,11 +35,11 @@ The model ends its reply with one standalone line per visualization:
 ::visualize{"path":"/abs/path/to/chart.html","title":"Optional title"}
 ```
 
-The renderer parses references only in completed (non-streaming) assistant
-messages and ignores lines inside fenced or indented code blocks. A malformed
-line stays plain text. The model-facing contract lives in a first-party
-built-in skill, `pi-desktop/visualize`, adapted from ZCode's visualize skill
-with the host API, tweaks, calendar, export, and CDN guidance removed.
+The renderer parses only completed assistant messages. Fenced and indented code
+stays code, except a closing fence containing only one reference is accepted as
+the model's reference. Malformed lines stay text. The first-party builtin
+`pi-desktop/visualize` skill teaches this contract; host APIs, tweaks, calendar,
+export, and CDN guidance are removed from the adapted ZCode skill.
 
 ### Storage root (Rust host-core)
 
@@ -47,25 +47,33 @@ with the host API, tweaks, calendar, export, and CDN guidance removed.
    additional containment root for `Read`, `Write`, and `Edit`, addressed by
    absolute path only, with the same lexical and symlink defenses as the D114
    scratch root.
+   The visualization base and session directories must not be redirected by
+   symlinks or junctions, including when the data directory is in a workspace.
 2. Before adding the root, the single optional `scratch_root` parameter that
    threads through path resolution is generalized into an ordered list of
    contained roots. That step is behavior-preserving and lands first, so the
    new root does not become a second parallel path.
 3. `Write` and `Edit` into the visualization root accept only `.html` files.
    `Read` is unrestricted inside the root so the model can revise a fragment.
-4. Writes there auto-allow without a permission card under the same conditions
-   as scratch (local workspace only; contract and Plan modes still deny), and
-   the root is never treated as an external path. Files there are not recorded
-   as artifacts and not snapshotted for review.
+4. Valid contained writes auto-allow under scratch's conditions (local workspace
+   only; contract and Plan modes still deny), without artifacts or review
+   snapshots. Redirected roots never grant containment; an explicitly approved
+   external path continues through ordinary external permission semantics.
 5. The directory is created lazily and removed with its session (session
    delete and project removal). The startup sweep removes only directories of
    sessions that no longer exist; unlike scratch it never expires live
    sessions by age, because transcripts keep pointing at these files.
+   Cleanup refuses a redirected base instead of traversing or deleting its
+   target. The selected data directory itself may use a canonical alias.
 6. Forks copy only the fragments their transcript references into
    `visualizations/<childId>/` and rewrite those paths, like referenced pasted
    files in scratch. Cards always resolve against the owning session, so a
    transcript cannot load another session's files, and deleting the parent
    leaves the child's cards intact.
+   References are matched by source-session/file identity rather than the
+   current absolute prefix, so relocation and canonical aliases preserve forks.
+   Only assistant/checkpoint visualization references are remapped; raw tool
+   strings, thinking, code examples, and foreign-session references stay intact.
 
 ### Model guidance (agent runtime and Electron Main)
 
@@ -82,19 +90,29 @@ fallback for older messages.
 
 1. Main registers a `pi-genui:` scheme through the single
    `registerSchemesAsPrivileged` call site as `standard` and `secure` only —
-   no Fetch API support, no CORS, no `Access-Control-Allow-Origin` header — so
-   no other renderer context, including renderer plugins, can read another
-   session's visualization.
+   no Fetch API support, no CORS, no `Access-Control-Allow-Origin` header.
+   Every document response also enforces `sandbox allow-scripts` in its CSP
+   header. This forces an opaque origin even when a renderer plugin or other
+   caller omits the iframe sandbox; blocking Fetch alone cannot isolate DOMs.
 2. The card URL is `pi-genui://session/<sessionId>/<file>.html`. The renderer derives
    it from the trailing `visualizations/<sessionId>/<file>.html` segment of the
-   referenced path and never loads the absolute path. Main resolves the file
-   against the *current* data directory, so references survive data-directory
-   relocation, which does not rewrite message text.
+   referenced path and never loads the absolute path. Main asks the current
+   local Host to resolve its own data directory, so references survive
+   relocation without rewriting the historical message prefix.
 3. The handler accepts `GET` only, validates the session ID against
    `[A-Za-z0-9_-]` and the file name as a single path component ending in
    `.html`, and rejects symlinks, non-regular files, files over 2 MB, and
    complete HTML documents (a leading `<!doctype`, `<html`, `<head`, or
    `<body`).
+   Main does not open model-written paths. The private
+   `visualizations.readFragment` RPC returns bounded base64 bytes for a session
+   and filename only. Unix Host Core opens base/session/leaf relative to pinned
+   directory descriptors with no-follow flags and a nonblocking leaf. Windows
+   pins the full canonical directory chain without write/delete sharing and
+   rejects reparse points. Ancestor rename or ABA replacement cannot redirect
+   the leaf to another session. No renderer IPC or Plugin SDK surface is added.
+   This replaces path snapshots, which cannot establish an atomic directory
+   capability. Main validates the private reply before constructing the shell.
 4. Main wraps the fragment in a host shell: the kit stylesheet
    (`resources/gen-ui/visualize.css`, which defines the agent-facing tokens
    such as `--foreground` and `--viz-series-1` from MCP Apps-style
@@ -146,14 +164,15 @@ visualization cannot replace itself with a remote page outside its own CSP.
    renderer posts `{ type: "pi-genui:theme", vars, colorScheme }` (host
    design tokens mapped to `--color-*` names) when the resolved theme
    changes and `{ type: "pi-genui:view", view }` on load.
-4. Expanding opens a modal with a fresh frame for the same URL. Moving an
-   iframe in the DOM reloads it anyway, and this version has no guest state to
-   lose. The `expanded` view centers the fragment in the dialog.
+4. Expanding opens a modal with a fresh frame for the same URL. The inline
+   frame remains mounted with its existing interactive state. The `expanded`
+   view centers the fragment in the dialog; Esc closes the copy.
 5. A missing, invalid, or remote file renders an "unavailable" card with a
    localized reason; the rest of the message renders normally. Serving errors
    reach the card as a fixed code (`pi-genui:error`), never as text or paths.
-6. The number of simultaneously live frames is bounded so hidden session panes
-   do not accumulate pages.
+6. A shared pool bounds inline and expanded frames to eight across all panes.
+   Expanded views protect their source inline frame from quota eviction while
+   open; off-screen inline frames are evicted before visible ones.
 
 ## Consequences
 

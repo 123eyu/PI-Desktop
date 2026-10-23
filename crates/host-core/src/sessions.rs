@@ -6329,11 +6329,14 @@ mod tests {
         let chart = dir.join("chart.html");
         std::fs::write(&chart, "<p>chart</p>").unwrap();
         std::fs::write(dir.join("unused.html"), "<p>unused</p>").unwrap();
-        let text = format!("::visualize{{\"path\":\"{}\"}}", chart.display());
+        let text = format!("::visualize{}", json!({"path": chart}));
         append_message(
             &db,
             &source.id,
-            &user_msg("viz-1", &text, "2025-05-01T00:00:00Z"),
+            &UiMessage {
+                role: "assistant".into(),
+                ..user_msg("viz-1", &text, "2025-05-01T00:00:00Z")
+            },
             None,
         )
         .unwrap();
@@ -6347,7 +6350,7 @@ mod tests {
         let child_chart = child_dir.join("chart.html");
         assert_eq!(
             child.messages[0].content,
-            format!("::visualize{{\"path\":\"{}\"}}", child_chart.display())
+            format!("::visualize{}", json!({"path": child_chart}))
         );
         assert!(!child_dir.join("unused.html").exists());
         delete_session(&db, &source.id).unwrap();
