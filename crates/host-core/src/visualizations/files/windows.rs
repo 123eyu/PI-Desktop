@@ -5,7 +5,8 @@ use std::os::windows::io::AsRawHandle;
 use std::path::{Component, Path, PathBuf, Prefix};
 use windows_sys::Win32::Storage::FileSystem::{
     GetFileType, FILE_ATTRIBUTE_REPARSE_POINT, FILE_FLAG_BACKUP_SEMANTICS,
-    FILE_FLAG_OPEN_REPARSE_POINT, FILE_READ_ATTRIBUTES, FILE_SHARE_READ, FILE_TYPE_DISK,
+    FILE_FLAG_OPEN_REPARSE_POINT, FILE_LIST_DIRECTORY, FILE_READ_ATTRIBUTES, FILE_SHARE_READ,
+    FILE_TYPE_DISK,
 };
 
 pub(super) fn read_fragment(
@@ -64,7 +65,10 @@ fn read_fragment_impl(
 fn open_directory(path: &Path) -> Result<File, FragmentReadError> {
     let file = OpenOptions::new()
         .read(true)
-        .access_mode(FILE_READ_ATTRIBUTES)
+        // Attribute-only opens do not participate in Windows share-access
+        // accounting. LIST_DIRECTORY (the directory READ_DATA bit) makes
+        // this a real read pin that excludes existing/future writers/deleters.
+        .access_mode(FILE_LIST_DIRECTORY | FILE_READ_ATTRIBUTES)
         .share_mode(FILE_SHARE_READ)
         .custom_flags(FILE_FLAG_BACKUP_SEMANTICS | FILE_FLAG_OPEN_REPARSE_POINT)
         .open(path)

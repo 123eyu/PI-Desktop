@@ -1,38 +1,143 @@
 use super::super::tests::{fixture, FILE_NAME, ORIGINAL, SESSION, VICTIM};
 use super::super::{read_fragment, FragmentReadError};
 use super::{directory_chain, read_fragment_impl};
+use std::ffi::c_void;
 use std::fs::{self, File, OpenOptions};
-use std::os::windows::fs::{symlink_file, OpenOptionsExt};
+use std::io;
+use std::os::windows::ffi::OsStrExt;
+use std::os::windows::fs::{symlink_file, MetadataExt, OpenOptionsExt};
+use std::os::windows::io::AsRawHandle;
+use std::os::windows::process::CommandExt;
 use std::path::{Component, Path, PathBuf, Prefix};
 use std::process::Command;
-use windows_sys::Win32::Foundation::ERROR_SHARING_VIOLATION;
+use windows_sys::Win32::Foundation::{ERROR_ACCESS_DENIED, ERROR_SHARING_VIOLATION, GENERIC_WRITE};
 use windows_sys::Win32::Storage::FileSystem::{
-    FILE_FLAG_BACKUP_SEMANTICS, FILE_FLAG_OPEN_REPARSE_POINT, FILE_SHARE_DELETE, FILE_SHARE_READ,
-    FILE_SHARE_WRITE, FILE_WRITE_DATA,
+    DELETE, FILE_APPEND_DATA, FILE_ATTRIBUTE_REPARSE_POINT, FILE_FLAG_BACKUP_SEMANTICS,
+    FILE_FLAG_OPEN_REPARSE_POINT, FILE_SHARE_DELETE, FILE_SHARE_READ, FILE_SHARE_WRITE,
+    FILE_WRITE_ATTRIBUTES, FILE_WRITE_DATA,
 };
 
+const MUTATION_ACCESS: [u32; 4] = [FILE_WRITE_DATA, FILE_APPEND_DATA, GENERIC_WRITE, DELETE];
+
+fn junction_command_path(path: &Path) -> String {
+    // cmd/mklink consume DOS spelling, not the reader's verbatim handle path.
+    let native = path.to_str().expect("Unicode test path").replace('/', "\\");
+    if let Some(path) = native.strip_prefix(r"\\?\UNC\") {
+        format!(r"\\{path}")
+    } else {
+        native.strip_prefix(r"\\?\").unwrap_or(&native).to_owned()
+    }
+}
+
 fn junction(link: &Path, target: &Path) {
-    // Junctions need no symlink privilege. Both paths are controlled fixtures;
-    // quoting protects spaces in the Windows temporary directory.
-    let command = format!("mklink /J \"{}\" \"{}\"", link.display(), target.display());
-    let output = Command::new("cmd")
-        .args(["/D", "/C", &command])
+    // Junctions need no symlink privilege. raw_arg preserves cmd quoting:
+    // passing the quoted command through arg would introduce CRT backslashes.
+    let command = format!(
+        "mklink /J \"{}\" \"{}\"",
+        junction_command_path(link),
+        junction_command_path(target)
+    );
+    let output = Command::new("cmd.exe")
+        .args(["/D", "/V:OFF", "/C"])
+        .raw_arg(command)
         .output()
         .expect("create test junction");
     assert!(
         output.status.success(),
-        "junction creation failed: {}",
-        String::from_utf8_lossy(&output.stderr)
+        "junction creation failed: {output:?}"
     );
 }
 
-fn open_writable_directory(path: &Path) -> std::io::Result<File> {
+fn open_directory_access(path: &Path, access: u32) -> io::Result<File> {
     OpenOptions::new()
-        .write(true)
-        .access_mode(FILE_WRITE_DATA)
+        .access_mode(access)
         .share_mode(FILE_SHARE_READ | FILE_SHARE_WRITE | FILE_SHARE_DELETE)
         .custom_flags(FILE_FLAG_BACKUP_SEMANTICS | FILE_FLAG_OPEN_REPARSE_POINT)
         .open(path)
+}
+
+// Test-only synchronous binding: the existing windows-sys features do not
+// expose System::IO. No new dependency or production FFI surface is needed.
+#[link(name = "kernel32")]
+unsafe extern "system" {
+    #[link_name = "DeviceIoControl"]
+    fn device_io_control(
+        handle: *mut c_void,
+        code: u32,
+        input: *const c_void,
+        input_size: u32,
+        output: *mut c_void,
+        output_size: u32,
+        returned: *mut u32,
+        overlapped: *mut c_void,
+    ) -> i32;
+}
+
+fn set_junction(file: &File, target: &Path) -> io::Result<()> {
+    const FSCTL_SET_REPARSE_POINT: u32 = 0x0009_00a4;
+    const IO_REPARSE_TAG_MOUNT_POINT: u32 = 0xa000_0003;
+    let canonical = fs::canonicalize(target)?;
+    let mut substitute: Vec<u16> = canonical.as_os_str().encode_wide().collect();
+    assert!(substitute.starts_with(&[b'\\' as u16, b'\\' as u16, b'?' as u16, b'\\' as u16]));
+    // Convert \\?\C:\... to the mount point's native \??\C:\... name.
+    substitute[1] = b'?' as u16;
+    let print: Vec<u16> = junction_command_path(&canonical).encode_utf16().collect();
+    let substitute_bytes = u16::try_from(substitute.len() * 2).expect("short test target");
+    let print_bytes = u16::try_from(print.len() * 2).expect("short test target");
+    let data_bytes = u16::try_from(8 + (substitute.len() + print.len() + 2) * 2)
+        .expect("short mount point buffer");
+    let mut buffer = Vec::new();
+    buffer.extend_from_slice(&IO_REPARSE_TAG_MOUNT_POINT.to_le_bytes());
+    // REPARSE_DATA_BUFFER header, then the mount point offsets and lengths.
+    for value in [
+        data_bytes,
+        0,
+        0,
+        substitute_bytes,
+        substitute_bytes + 2,
+        print_bytes,
+    ] {
+        buffer.extend_from_slice(&value.to_le_bytes());
+    }
+    for unit in substitute.into_iter().chain([0]).chain(print).chain([0]) {
+        buffer.extend_from_slice(&unit.to_le_bytes());
+    }
+    let mut returned = 0;
+    // SAFETY: File owns a live handle; input is an initialized mount-point
+    // buffer. Output/OVERLAPPED are null for this synchronous, input-only call.
+    let result = unsafe {
+        device_io_control(
+            file.as_raw_handle(),
+            FSCTL_SET_REPARSE_POINT,
+            buffer.as_ptr().cast(),
+            u32::try_from(buffer.len()).expect("short test buffer"),
+            std::ptr::null_mut(),
+            0,
+            &mut returned,
+            std::ptr::null_mut(),
+        )
+    };
+    if result == 0 {
+        Err(io::Error::last_os_error())
+    } else {
+        Ok(())
+    }
+}
+
+#[test]
+fn junction_command_paths_convert_verbatim_drive_and_unc_spelling() {
+    assert_eq!(
+        junction_command_path(Path::new(r"\\?\C:\a folder\data")),
+        r"C:\a folder\data"
+    );
+    assert_eq!(
+        junction_command_path(Path::new(r"\\?\UNC\server\share\data")),
+        r"\\server\share\data"
+    );
+    assert_eq!(
+        junction_command_path(Path::new("C:/a folder/data")),
+        r"C:\a folder\data"
+    );
 }
 
 #[test]
@@ -78,8 +183,9 @@ fn reads_canonical_drive_path_and_allows_trusted_data_junction_alias() {
         read_fragment(&canonical, SESSION, FILE_NAME),
         Ok(ORIGINAL.to_vec())
     );
-    let alias = fixture.temp.path().join("data-alias");
-    junction(&alias, &fixture.data);
+    // Exercise both verbatim input and spaces in the actual cmd invocation.
+    let alias = canonical.with_file_name("data alias");
+    junction(&alias, &canonical);
     assert_eq!(
         read_fragment(&alias, SESSION, FILE_NAME),
         Ok(ORIGINAL.to_vec())
@@ -152,9 +258,11 @@ fn pins_data_ancestors_base_and_session_until_read_completes() {
         base.as_path(),
         fixture.session.as_path(),
     ];
-    // Establish that write access is allowed without our share pins.
+    // Establish that actual data/append/delete rights work without our pins.
     for path in paths {
-        drop(open_writable_directory(path).expect("unpinned writable directory"));
+        for access in MUTATION_ACCESS {
+            drop(open_directory_access(path, access).expect("unpinned mutable directory"));
+        }
     }
     let result = read_fragment_impl(&fixture.data, SESSION, FILE_NAME, || {
         for path in paths {
@@ -163,14 +271,18 @@ fn pins_data_ancestors_base_and_session_until_read_completes() {
                 fs::rename(path, &replacement).is_err(),
                 "pinned ancestor cannot be renamed"
             );
-            let error =
-                open_writable_directory(path).expect_err("pinned ancestor cannot be modified");
-            assert_eq!(error.raw_os_error(), Some(ERROR_SHARING_VIOLATION as i32));
+            for access in MUTATION_ACCESS {
+                let error = open_directory_access(path, access)
+                    .expect_err("pinned ancestor cannot acquire mutation rights");
+                assert_eq!(error.raw_os_error(), Some(ERROR_SHARING_VIOLATION as i32));
+            }
         }
     });
     assert_eq!(result, Ok(ORIGINAL.to_vec()));
     for path in paths {
-        drop(open_writable_directory(path).expect("directory pin released"));
+        for access in MUTATION_ACCESS {
+            drop(open_directory_access(path, access).expect("directory pin released"));
+        }
     }
     let held = fixture.session.with_file_name("renamed-after-read");
     fs::rename(&fixture.session, &held).expect("session pin released");
@@ -180,20 +292,16 @@ fn pins_data_ancestors_base_and_session_until_read_completes() {
 #[test]
 fn refuses_preexisting_write_or_delete_directory_handles() {
     let fixture = fixture();
-    let writable =
-        open_writable_directory(&fixture.session).expect("existing writable session handle");
-    assert_eq!(
-        read_fragment(&fixture.data, SESSION, FILE_NAME),
-        Err(FragmentReadError::NotFound)
-    );
-    drop(writable);
-    let deletion = OpenOptions::new()
-        .read(true)
-        .access_mode(windows_sys::Win32::Storage::FileSystem::DELETE)
-        .share_mode(FILE_SHARE_READ | FILE_SHARE_WRITE | FILE_SHARE_DELETE)
-        .custom_flags(FILE_FLAG_BACKUP_SEMANTICS | FILE_FLAG_OPEN_REPARSE_POINT)
-        .open(&fixture.data)
-        .expect("existing deletable data handle");
+    for access in MUTATION_ACCESS {
+        let mutable = open_directory_access(&fixture.session, access)
+            .expect("existing mutable session handle");
+        assert_eq!(
+            read_fragment(&fixture.data, SESSION, FILE_NAME),
+            Err(FragmentReadError::NotFound)
+        );
+        drop(mutable);
+    }
+    let deletion = open_directory_access(&fixture.data, DELETE).expect("existing deletable data");
     assert_eq!(
         read_fragment(&fixture.data, SESSION, FILE_NAME),
         Err(FragmentReadError::NotFound)
@@ -203,6 +311,54 @@ fn refuses_preexisting_write_or_delete_directory_handles() {
         read_fragment(&fixture.data, SESSION, FILE_NAME),
         Ok(ORIGINAL.to_vec())
     );
+}
+
+#[test]
+fn pins_block_native_junction_mutation_and_release_after_read() {
+    let fixture = fixture();
+    fs::remove_file(fixture.session.join(FILE_NAME)).expect("empty original session");
+    let victim = fixture.data.join("visualizations").join("session-B");
+    fs::create_dir(&victim).expect("victim session");
+    fs::write(victim.join(FILE_NAME), VICTIM).expect("victim fragment");
+    let result = read_fragment_impl(&fixture.data, SESSION, FILE_NAME, || {
+        // Attribute-only handles bypass the share mask, but must not be able
+        // to set a reparse point through an actual, well-formed native FSCTL.
+        let attributes = open_directory_access(&fixture.session, FILE_WRITE_ATTRIBUTES)
+            .expect("attribute-only handle");
+        set_junction(&attributes, &victim).expect_err("attributes cannot redirect pinned session");
+        drop(attributes);
+        let error = open_directory_access(&fixture.session, GENERIC_WRITE)
+            .expect_err("junction mutation requires blocked write access");
+        assert_eq!(error.raw_os_error(), Some(ERROR_SHARING_VIOLATION as i32));
+        let held = fixture.session.with_file_name("held-session");
+        fs::rename(&fixture.session, &held).expect_err("pinned session cannot be replaced");
+    });
+    assert_eq!(result, Err(FragmentReadError::NotFound));
+    let metadata = fs::symlink_metadata(&fixture.session).expect("original session metadata");
+    assert!(metadata.is_dir());
+    assert_eq!(metadata.file_attributes() & FILE_ATTRIBUTE_REPARSE_POINT, 0);
+
+    // Control on the same now-unpinned, empty directory: attributes alone
+    // lack mutation rights, whereas a writable handle really can redirect it.
+    let attributes = open_directory_access(&fixture.session, FILE_WRITE_ATTRIBUTES)
+        .expect("unpinned attribute-only handle");
+    let error =
+        set_junction(&attributes, &victim).expect_err("reparse FSCTL requires write access");
+    assert_eq!(error.raw_os_error(), Some(ERROR_ACCESS_DENIED as i32));
+    drop(attributes);
+    let writable = open_directory_access(&fixture.session, GENERIC_WRITE)
+        .expect("unpinned junction mutation handle");
+    set_junction(&writable, &victim).expect("unpinned native junction control");
+    drop(writable);
+    assert_eq!(
+        fs::read(fixture.session.join(FILE_NAME)).expect("attack control"),
+        VICTIM
+    );
+    assert_eq!(
+        read_fragment(&fixture.data, SESSION, FILE_NAME),
+        Err(FragmentReadError::NotFound)
+    );
+    fs::remove_dir(&fixture.session).expect("remove native junction");
 }
 
 #[test]
