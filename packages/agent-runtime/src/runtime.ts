@@ -123,6 +123,7 @@ import {
   subagentToolsLabel,
   type ProposalKind,
   type SubagentPermission,
+  GEN_UI_SKILL_ID,
 } from "@pi-desktop/shared";
 import { createStreamCoalescer, type StreamCoalescer } from "./stream-coalescer.js";
 import type { RuntimeHost } from "./host-client.js";
@@ -1022,6 +1023,10 @@ export type AgentRuntimeOptions = {
    * Advertised to the model in the system prompt; host-core enforces it as
    * a second containment root. */
   scratchDir?: string;
+  /** Absolute per-session directory for inline visualization fragments
+   * (ADR gen-ui-inline-visualization). Advertised in the system prompt;
+   * host-core enforces it as a containment root. Ignored for remote sessions. */
+  visualizationsDir?: string;
   onEvent: (envelope: AgentEventEnvelope) => void;
   /** Bounded diagnostics routed to the Electron logger, never the transcript. */
   onDiagnostic?: (diagnostic: AgentRuntimeDiagnostic) => void;
@@ -1869,6 +1874,7 @@ export class DesktopAgentRuntime {
   private trackToolActivation = false;
   private activationHydrated = false;
   private scratchDir?: string;
+  private visualizationsDir?: string;
   private projectPath?: string;
   private remoteWorkspace?: { hostKey: string; path: string };
   /** Set only for an isolated session; see `RuntimeConfig.workspaceRoot`. */
@@ -2063,6 +2069,7 @@ export class DesktopAgentRuntime {
     this.commandShell = opts.commandShell;
     this.remoteWorkspace = opts.remoteWorkspace;
     this.scratchDir = opts.remoteWorkspace ? undefined : opts.scratchDir;
+    this.visualizationsDir = opts.remoteWorkspace ? undefined : opts.visualizationsDir;
     this.projectPath = opts.remoteWorkspace?.path ?? (opts.projectPath?.trim() || undefined);
     // Remote workspaces are never isolated (ADR 0329).
     this.workspaceRoot = opts.remoteWorkspace ? undefined : opts.workspaceRoot?.trim() || undefined;
@@ -2118,6 +2125,12 @@ Do not invent objections or turn speculative risks into blockers. Stop when the 
       ...(this.scratchDir
         ? [
             `Your scratch directory for this session is \`${formatScratchDirForShell(this.commandShell, this.scratchDir)}\` (in Bash: ${shellScratchVariable(this.commandShell)}). Store ad-hoc temporary and intermediate files there using absolute paths. Workspace writes must be task-related project files or required toolchain outputs. Scratch persists across turns and is deleted with the session.`,
+          ]
+        : []),
+      // Inline visualizations (ADR gen-ui-inline-visualization).
+      ...(this.visualizationsDir
+        ? [
+            `Visualization directory (absolute paths only, .html fragments only; see the ${GEN_UI_SKILL_ID} skill): \`${this.visualizationsDir}\``,
           ]
         : []),
       // Isolated session (ADR 0329).
