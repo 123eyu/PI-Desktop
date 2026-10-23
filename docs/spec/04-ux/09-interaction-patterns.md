@@ -610,6 +610,11 @@ may be retained while exactly one workspace supplies the visible shell context.
   switching back restores it; selecting a workspace without an active
   conversation hides the panel. Session/workspace identity remains attached to
   every relative resource, preventing cross-context reinterpretation.
+- Browser page execution is Main-owned, independent of the side panel's
+  presentation lifecycle. Hidden/background tool operations keep their trusted
+  session connection and never reveal or retarget the visible page. A shell
+  reload detaches presentation; selecting a session restores its live Browser
+  tab metadata without changing the panel's collapsed state.
 - Relaunch discards every session context, including Browser resources; only
   the committed preferred panel width persists. Native window state is stored
   independently from normal bounds, including when the app closes while
