@@ -229,8 +229,10 @@ Electron 主要低于 `<data_dir>/scratch/<sessionId>/pasted/` 之前的
 <data_dir>/visualizations/<sessionId>/
 ```
 
-- **可用范围。** 仅本地会话。远程工作区会话没有该目录、没有提示行，也没有
-  `pi-desktop/visualize` skill。
+- **可用范围。** 仅本地会话，且默认关闭：需要用户开启设置项
+  `AppSettings.inlineVisualizations`（缺省与 `false` 都表示关闭）。关闭时没有该目录、
+  没有提示行，技能目录、`/` 菜单和 `Skill` 工具都不提供 `pi-desktop/visualize`，
+  渲染层只隐藏引用行、不加载卡片。远程工作区会话同样没有这些内容。
 - **寻址。** 只接受绝对路径；路径在系统提示中与 scratch 目录一起给出。相对路径
   永远不会解析到这里。
 - **包含校验。** `resolve_tool_path` 依次检查工作区、scratch、可视化三个根目录，

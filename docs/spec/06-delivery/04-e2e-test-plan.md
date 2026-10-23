@@ -18658,10 +18658,13 @@ host-created files. The full app's file-preview viewer is covered separately.
 
 ### E2E-GENUI-inline-visualization-card: a visualization renders inline and stays sandboxed
 
-- **Preconditions**: The app is running with a local Agent session and the
-  builtin `pi-desktop/visualize` skill enabled. A second session uses a remote
+- **Preconditions**: The app is running with a local Agent session, Settings →
+  AI → Inline visualizations switched on, and the builtin
+  `pi-desktop/visualize` skill enabled. A second session uses a remote
   workspace.
-- **Steps**: 1) Ask for an interactive chart (for example "show a slider that
+- **Steps**: 0) With the switch off (the default), ask for a chart and confirm
+  no directory, skill, or card appears; then switch it on. 1) Ask for an
+  interactive chart (for example "show a slider that
   changes a sine wave's frequency"). 2) Wait for the turn to finish, then drag
   the slider. 3) Switch the app theme between light and dark. 4) Press the
   card's expand button, then Esc. 5) Ask the model to write a non-`.html` file

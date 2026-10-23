@@ -1458,6 +1458,8 @@ sklm: {
     "infiniteProviderRetryDesc": "Réessaie les erreurs réseau et temporaires jusqu’à la réussite. Vous pouvez toujours arrêter le tour ; la consommation d’API peut continuer.",
     "smoothStreaming": "Streaming fluide",
     "smoothStreamingDesc": "Libère le texte diffusé caractère par caractère pour un effet machine à écrire. Automatiquement désactivé lorsque le système préfère un mouvement réduit.",
+    "inlineVisualizations": "Visualisations intégrées",
+    "inlineVisualizationsDesc": "Affiche les cartes HTML interactives que l'agent écrit dans le répertoire de visualisations de la session. Désactivé par défaut : le prompt n'annonce aucun répertoire de visualisations, la compétence visualize est retirée et les lignes de référence existantes restent masquées.",
     "preventScreenSleep": "Empêcher la mise en veille",
     "preventScreenSleepDesc": "Garde l'écran allumé tant que l'application est ouverte. Utilise les API de gestion d'énergie du système sur toutes les plateformes.",
     "windowTranslucency": "Fenêtre translucide",

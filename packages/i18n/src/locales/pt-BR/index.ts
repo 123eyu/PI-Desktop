@@ -1431,6 +1431,8 @@ export const ptBR = {
     infiniteProviderRetryDesc: "Continua tentando indefinidamente em caso de falhas temporárias de rede ou do provedor. Ainda é possível interromper a rodada; enquanto esta opção estiver ativada, o consumo e os custos da API podem continuar.",
     smoothStreaming: "Exibição gradual",
     smoothStreamingDesc: "Exibe o texto recebido caractere por caractere, criando um efeito de máquina de escrever. É desativada automaticamente quando o sistema está configurado para reduzir animações.",
+    inlineVisualizations: "Visualizações embutidas",
+    inlineVisualizationsDesc: "Mostra os cartões HTML interativos que o agente escreve no diretório de visualizações da sessão. Desativado por padrão: o prompt não anuncia diretório de visualizações, a habilidade visualize fica oculta e as linhas de referência existentes permanecem escondidas.",
     preventScreenSleep: "Impedir suspensão da tela",
     preventScreenSleepDesc: "Mantém a tela ligada enquanto o app está em execução. Usa as APIs de gerenciamento de energia do sistema em todas as plataformas.",
     windowTranslucency: "Janela translúcida",

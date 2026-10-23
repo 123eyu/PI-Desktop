@@ -298,8 +298,12 @@ visualization lives as long as its session:
 <data_dir>/visualizations/<sessionId>/
 ```
 
-- **Availability.** Local sessions only. A remote-workspace session gets no
-  directory, no prompt line, and no `pi-desktop/visualize` skill.
+- **Availability.** Local sessions only, and opt-in through
+  `AppSettings.inlineVisualizations` (absent and `false` mean off). While it is
+  off there is no directory, no prompt line, no `pi-desktop/visualize` skill in
+  the catalog, `/` menu, or `Skill` tool, and the renderer strips reference
+  lines without loading a card. A remote-workspace session gets none of it
+  either.
 - **Addressing.** Absolute paths only; the path is advertised in the system
   prompt next to the scratch directory. Relative paths never resolve here.
 - **Containment.** Scratch and visualization roots are checked before the

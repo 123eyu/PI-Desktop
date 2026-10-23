@@ -1462,6 +1462,8 @@ sklm: {
     infiniteProviderRetryDesc: "Ağ ve geçici sağlayıcı hataları istek başarılı olana kadar yeniden denenir. Çalışmayı yine durdurabilirsiniz; açıkken API kullanımı sürebilir.",
     smoothStreaming: "Düzgün akış",
     smoothStreamingDesc: "Akan metni daktilo efekti için karakter karakter gösterir. Sistem hareket azaltmayı tercih ettiğinde otomatik devre dışı kalır.",
+    inlineVisualizations: "Satır içi görselleştirmeler",
+    inlineVisualizationsDesc: "Aracının oturumun görselleştirme dizinine yazdığı etkileşimli HTML kartlarını gösterir. Varsayılan olarak kapalı: istem görselleştirme dizinini bildirmez, visualize becerisi gizlenir ve mevcut referans satırları gösterilmez.",
     preventScreenSleep: "Ekran uykusunu engelle",
     preventScreenSleepDesc: "Uygulama çalışırken ekranı açık tutar. Tüm platformlarda sistem güç yönetimi API'lerini kullanır.",
     windowTranslucency: "Saydam pencere",

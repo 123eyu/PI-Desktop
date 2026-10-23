@@ -1458,6 +1458,8 @@ sklm: {
     "infiniteProviderRetryDesc": "Netzwerk- und vorübergehende Anbieterfehler werden bis zum Erfolg wiederholt. Du kannst den Lauf weiterhin stoppen; der API-Verbrauch kann fortlaufen.",
     "smoothStreaming": "Sanftes Streaming",
     "smoothStreamingDesc": "Gibt gestreamten Text zeichenweise aus, um einen Schreibmaschineneffekt zu erzeugen. Wird automatisch deaktiviert, wenn das System reduzierte Bewegung bevorzugt.",
+    "inlineVisualizations": "Inline-Visualisierungen",
+    "inlineVisualizationsDesc": "Zeigt die interaktiven HTML-Karten, die der Agent in das Visualisierungsverzeichnis der Sitzung schreibt. Standardmäßig aus: Der Prompt nennt kein Visualisierungsverzeichnis, der visualize-Skill wird zurückgehalten und vorhandene Referenzzeilen bleiben ausgeblendet.",
     "preventScreenSleep": "Bildschirmsperre verhindern",
     "preventScreenSleepDesc": "Hält das Display wach, solange die App läuft. Nutzt plattformübergreifend die System-Energieverwaltung.",
     "windowTranslucency": "Transparentes Fenster",

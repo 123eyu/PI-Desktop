@@ -1452,6 +1452,8 @@ sklm: {
     infiniteProviderRetryDesc: "網路或暫時性服務故障會持續重試直到成功。仍可隨時停止，但開啟後可能持續消耗 API 用量。",
     smoothStreaming: "平滑串流顯示",
     smoothStreamingDesc: "將串流文字逐字釋放，產生打字機效果。系統開啟「減少動態效果」時自動停用。",
+    inlineVisualizations: "聊天內嵌視覺化",
+    inlineVisualizationsDesc: "在對話中顯示智慧代理寫入工作階段視覺化目錄的互動式 HTML 卡片。預設停用：不向模型提供視覺化目錄，同時隱藏 visualize 技能，歷史引用行也不再顯示。",
     preventScreenSleep: "防止螢幕休眠",
     preventScreenSleepDesc: "應用程式執行時保持螢幕常亮，跨平台使用系統電源管理介面。",
     windowTranslucency: "視窗透明效果",

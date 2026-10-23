@@ -1468,6 +1468,8 @@ sklm: {
     infiniteProviderRetryDesc: "네트워크 및 일시적인 제공자 오류가 성공할 때까지 계속 재시도됩니다. 언제든 중지할 수 있지만 API 사용량이 계속 발생할 수 있습니다.",
     smoothStreaming: "부드러운 스트리밍",
     smoothStreamingDesc: "스트리밍 텍스트를 한 글자씩 타자기 효과로 표시합니다. 시스템에서 동작 줄이기를 선호하면 자동으로 비활성화됩니다.",
+    inlineVisualizations: "인라인 시각화",
+    inlineVisualizationsDesc: "에이전트가 세션 시각화 디렉터리에 작성한 대화형 HTML 카드를 대화에 표시합니다. 기본적으로 꺼져 있습니다: 프롬프트에 시각화 디렉터리를 제공하지 않고 visualize 스킬을 숨기며 기존 참조 줄도 표시하지 않습니다.",
     preventScreenSleep: "화면 절전 방지",
     preventScreenSleepDesc: "앱이 실행되는 동안 화면이 꺼지지 않도록 합니다. 모든 플랫폼에서 시스템 전원 관리 API를 사용합니다.",
     windowTranslucency: "반투명 창",
