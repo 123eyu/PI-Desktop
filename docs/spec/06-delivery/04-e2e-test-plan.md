@@ -1859,23 +1859,22 @@ identify the platform validation still needed.
   2) With the work panel closed, ask the agent to preview a workspace HTML
   file (`BrowserPreview`) and verify the Browser tab opens in the visible work
   panel. 3) Use ToolSearch `cdp` / `Browser` to snapshot and interact while the
-  panel remains visible. 4) With the work panel closed, call the plugin
-  Browser tool for an HTTP(S) URL and verify it activates the existing Browser
-  tab before navigating. 5) Switch to a second session and call Browser;
-  verify it opens that session's own page, then switch back and verify the first
-  page is retained. 6) Run Browser from a background session and verify it does
-  not steal focus. 7) Switch to Plan and call the plugin Browser tool. 8) Disable
+  panel remains visible. 4) Collapse the panel and continue Browser snapshot,
+  click/fill, screenshot and navigation. 5) Switch to a second session and call
+  Browser; verify it uses that session's own page. 6) Continue the first session's
+  Browser actions while the second session is visible; reload the shell and
+  return to the first page. 7) In Plan/Goal, exercise the read-only Browser
+  actions and verify mutating actions remain denied. 8) Disable
   `pi.browser`. 9) Call `BrowserPreview` and click an http(s) transcript link.
   10) From a third-party or test caller, send
   `Network.getAllCookies` through `pi.browser.cdp`.
 - **Expected**: The launcher has no host Browser row. Preview opens the plugin
-  view, reveals the work panel, and live-reloads the file. Browser operations
-  run only after the originating session's view is visible; the agent opens it
-  automatically and waits for readiness. A background session does not change
-  the visible tab and receives `UNAVAILABLE` if it cannot be revealed. Plugin
-  tool `plugin_pi_browser_Browser` can snapshot
-  after ToolSearch. Plan denies the plugin tool
-  (`PLUGIN_DISABLED_IN_PLAN`) while `BrowserPreview` remains callable. Disable
+  view, reveals the work panel, and live-reloads the file. Session-owned Browser
+  operations run in the background without opening the panel, borrowing another
+  page, or changing focus. Shell reload retains the native page and form data;
+  its side-panel tabs can be restored. ToolSearch activates the Browser tool.
+  Plan/Goal allow navigate/snapshot/screenshot/console; click/fill/evaluate/cdp
+  remain denied. Disable
   hides the view and tools; `BrowserPreview` errors; http(s) chips use
   `openExternal`. Cookie CDP is denied. Guest bounds stay inside the plugin
   view.
@@ -5006,10 +5005,10 @@ window; opening a normal panel afterward must still work.
   does not create a work-panel tab. Session switches and invalid schemes retain
   their security and visibility gates.
 - **Additional paths**: Invoke BrowserPreview through ToolSearch/BrowserPreview
-  while a tab has unsent form input: only a new tab navigates. Queue navigation
-  for an inactive session with an existing tab, then return and verify the queued
-  destination wins over an old load completion. Open a blank tab and inspect its
-  empty address and state. Close a background tab and verify its WebContents is
+  while a tab has unsent form input: only a new host-owned page navigates, before
+  its renderer tab mounts. Navigate for an inactive session and verify immediate
+  execution in its connected page without changing the visible one. Open a blank
+  tab and inspect its empty address and state. Close a background tab and verify its WebContents is
   destroyed without affecting its sibling; deleting a session and plugin/window
   disposal release the appropriate retained pages.
 - **Status**: Targeted isolated Electron validation; no new repository test suite.
@@ -5027,6 +5026,31 @@ window; opening a normal panel afterward must still work.
 - **Coverage**: `browser-pane-navigation.test.mjs` for published state and event
   isolation; native Electron click-through for actual same-document events.
 - **Specs linked**: `04-ux/08-component-spec.md` §5.3.
+
+#### E2E-BROWSER-background-lifecycle: Side-panel presentation does not own page execution
+
+- **Preconditions**: Dedicated worktree, reused Electron/toolchain, isolated
+  profile and localhost A/B/C pages. No real account or paid provider requests.
+- **Steps**: Snapshot A, switch to B, fill and click A through production CDP,
+  then start a new hidden screenshot. Detach presentation, reload the renderer,
+  repeat A's snapshot/screenshot and restore its tab. Open a first C preview
+  before UI mounting. Close C and try unknown/closed targets. Exercise every
+  Browser API through real concurrent plugin invocations with spoofed argument
+  identities. Restore missing renderer tabs while the panel is collapsed.
+- **Expected**: A's actions, pixels and screenshot path belong to A; B is
+  unchanged and remains the only visible guest. No background action reveals
+  a page. Renderer reload retains native identity and inputs. C executes before
+  mounting. Unknown/closed targets fail without fallback. Restored tabs are
+  scoped, duplicate-free and do not reopen or replace a user's selected resource.
+  Hidden backing hosts remain invisible and release with the last parked page.
+- **Automation**: `node scripts/e2e-browser-background.mjs`,
+  `browser-background-session.test.mjs`, `browser-tab-restore.test.mjs`,
+  `browser-capture-resize.test.mjs`, and `plugin-tool-invocations.test.mjs`.
+  The isolated Desktop trial also uses real Composer, sidecar, plugin and Host
+  wiring with a localhost SSE model; no real provider is contacted.
+- **Specs**: `04-ux/08-component-spec.md`, `07-plugins/03-plugin-api.md`,
+  `05-security/01-security.md`, [background lifecycle ADR](../../adr/browser-background-lifecycle.md).
+- **Status**: Automated native Chromium/service paths; isolated Desktop trial passed.
 
 #### E2E-060: Files tab browsing stays inside the workspace
 

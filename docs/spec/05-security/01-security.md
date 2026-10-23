@@ -49,6 +49,15 @@ cannot use a file link to escape the workspace. This local-file browsing is
 covered by the high-risk `browser.cdp` capability; `BrowserPreview` and the
 sidecar's workspace file resolver remain restricted to the session workspace.
 
+Browser tool calls derive page identity from the trusted in-flight invocation,
+not plugin arguments or the currently visible page. Session-owned CDP works
+while hidden; unscoped plugin UI calls remain visibility-gated. Unknown or closed
+targets fail closed. Hidden guests are hosted by an invisible sandboxed backing
+window with no Node integration or elevated preload. Host-only focus emulation
+enables input without presenting or focusing a window or extending the raw CDP
+allowlist. Closing the last parked page releases the backing host. Cookie,
+storage, Target and network-interception methods remain denied.
+
 ### Content Security Policy
 
 - Dev: `script-src 'self' 'unsafe-inline' 'unsafe-eval'` (required by Vite
