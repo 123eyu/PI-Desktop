@@ -2292,6 +2292,9 @@ Do not invent objections or turn speculative risks into blockers. Stop when the 
         );
       },
       prepareRequest: ({ context }) => this.prepareToolDeclarations(context),
+      // Extensions see every provider request, including the first one of a
+      // run, which `prepareNextTurn` never reaches (spec 16 §6, issue #1838).
+      transformContext: (messages) => this.extensionContext(messages),
       prepareNextTurnWithContext: (context, signal) =>
         this.prepareNextTurn(context, signal),
       afterToolCall: async (context) => this.afterToolCall(context),
@@ -2583,17 +2586,20 @@ Do not invent objections or turn speculative risks into blockers. Stop when the 
     return Object.keys(out).length ? out : undefined;
   }
 
-  /** `context` hook: extensions may rewrite the message list before a provider request. */
-  private async extensionContext(update: AgentLoopTurnUpdate): Promise<AgentLoopTurnUpdate> {
+  /**
+   * `context` hook: extensions may rewrite the message list of one provider
+   * request. The replacement only shapes that request; the run's working
+   * context and the transcript keep the original messages.
+   */
+  private async extensionContext(messages: AgentMessage[]): Promise<AgentMessage[]> {
     const runner = this.extensionRunner;
-    if (!runner?.hasHandlers("context") || !update.context) return update;
+    if (!runner?.hasHandlers("context")) return messages;
     const result = await runner.emit<{ messages?: AgentMessage[] }>(
       "context",
-      { type: "context", messages: update.context.messages },
+      { type: "context", messages },
       (_acc, next) => next,
     );
-    if (!Array.isArray(result?.messages)) return update;
-    return { ...update, context: { ...update.context, messages: result.messages } };
+    return Array.isArray(result?.messages) ? result.messages : messages;
   }
 
   /** Mirror pi-agent-core events to extension handlers (spec 16 §6). */
@@ -6914,13 +6920,6 @@ Do not invent objections or turn speculative risks into blockers. Stop when the 
    * this hook.
    */
   private async prepareNextTurn(
-    turn: PrepareNextTurnContext,
-    signal?: AbortSignal,
-  ): Promise<AgentLoopTurnUpdate> {
-    return this.extensionContext(await this.prepareNextTurnWithoutExtensions(turn, signal));
-  }
-
-  private async prepareNextTurnWithoutExtensions(
     turn: PrepareNextTurnContext,
     _signal?: AbortSignal,
   ): Promise<AgentLoopTurnUpdate> {
