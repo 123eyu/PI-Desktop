@@ -326,9 +326,10 @@ visualization lives as long as its session:
   the fragment in a host shell with a strict CSP.
   Both the iframe and the response CSP header enforce `sandbox allow-scripts`,
   so omitting the caller's sandbox cannot enable cross-session DOM reads.
-  Unix uses relative `openat` and a nonblocking leaf; Windows holds the ancestor
-  chain without write/delete sharing and rejects reparse points. Directory
-  replacement/restoration cannot redirect serving to a different session.
+  Unix uses relative `openat` and a nonblocking leaf; Windows uses relative
+  `NtCreateFile` directory handles, rejects reparse entries, and keeps share
+  restrictions as an additional defense. Attribute-only junction mutation or
+  directory replacement/restoration cannot redirect serving to another session.
   Fetches, frames, forms, and remote assets are blocked. WebRTC ICE remains
   the explicitly documented v1 residual channel (see the ADR).
 

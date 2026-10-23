@@ -108,9 +108,13 @@ fallback for older messages.
    `visualizations.readFragment` RPC returns bounded base64 bytes for a session
    and filename only. Unix Host Core opens base/session/leaf relative to pinned
    directory descriptors with no-follow flags and a nonblocking leaf. Windows
-   pins the full canonical directory chain without write/delete sharing and
-   rejects reparse points. Ancestor rename or ABA replacement cannot redirect
-   the leaf to another session. No renderer IPC or Plugin SDK surface is added.
+   opens every canonical ancestor and owned child through `NtCreateFile` with
+   `RootDirectory`, retaining handles through the bounded leaf read. It rejects
+   reparse entries and keeps read-only share masks as additional defense, not
+   the security boundary: attribute handles can mutate reparse points despite
+   those masks. Relative opens stay bound to the pinned directory objects.
+   Ancestor rename, attribute-junction mutation, or ABA cannot redirect the leaf.
+   No renderer IPC or Plugin SDK surface is added.
    This replaces path snapshots, which cannot establish an atomic directory
    capability. Main validates the private reply before constructing the shell.
 4. Main wraps the fragment in a host shell: the kit stylesheet

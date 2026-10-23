@@ -1,4 +1,5 @@
 use super::{read_open_file, FragmentReadError};
+use std::ffi::OsStr;
 use std::fs::{self, File, OpenOptions};
 use std::os::windows::fs::{MetadataExt, OpenOptionsExt};
 use std::os::windows::io::AsRawHandle;
@@ -6,89 +7,98 @@ use std::path::{Component, Path, PathBuf, Prefix};
 use windows_sys::Win32::Storage::FileSystem::{
     GetFileType, FILE_ATTRIBUTE_REPARSE_POINT, FILE_FLAG_BACKUP_SEMANTICS,
     FILE_FLAG_OPEN_REPARSE_POINT, FILE_LIST_DIRECTORY, FILE_READ_ATTRIBUTES, FILE_SHARE_READ,
-    FILE_TYPE_DISK,
+    FILE_TYPE_DISK, SYNCHRONIZE,
 };
+
+#[path = "windows_native.rs"]
+mod native;
 
 pub(super) fn read_fragment(
     data_dir: &Path,
     session_id: &str,
     file_name: &str,
 ) -> Result<Vec<u8>, FragmentReadError> {
-    read_fragment_impl(data_dir, session_id, file_name, || {})
+    read_fragment_impl(data_dir, session_id, file_name, |_| {})
 }
 
-// Private seam for share/rename tests; it cannot be supplied through the RPC.
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+enum DirectoryPin {
+    Data,
+    Base,
+    Session,
+}
+
+// Private deterministic race seam; no hook can be supplied through the RPC.
 fn read_fragment_impl(
     data_dir: &Path,
     session_id: &str,
     file_name: &str,
-    after_directory_pin: impl FnOnce(),
+    mut after_directory_pin: impl FnMut(DirectoryPin),
 ) -> Result<Vec<u8>, FragmentReadError> {
-    // std canonicalize uses the native final handle path and retains the
-    // extended drive/UNC prefix. Only this trusted root may resolve aliases.
+    // Resolve aliases only for the trusted data root. From the drive/share
+    // root onwards, every component is opened relative to its parent HANDLE.
     let canonical = fs::canonicalize(data_dir).map_err(|_| FragmentReadError::NotFound)?;
-    let mut pins = Vec::new();
-    // Pin from the volume/share root downwards, BEFORE resolving each next
-    // component. Keeping just data/base/session handles would leave their
-    // earlier ancestors free to be renamed or converted to junctions.
-    for ancestor in directory_chain(&canonical)? {
-        pins.push(open_directory(&ancestor)?);
+    let (volume, components) = directory_components(&canonical)?;
+    let mut pins = vec![open_volume(&volume)?];
+    for component in components {
+        pin_directory(&mut pins, component)?;
     }
-    let base = canonical.join("visualizations");
-    pins.push(open_directory(&base)?);
-    let session = base.join(session_id);
-    pins.push(open_directory(&session)?);
-    after_directory_pin();
+    after_directory_pin(DirectoryPin::Data);
+    pin_directory(&mut pins, OsStr::new("visualizations"))?;
+    after_directory_pin(DirectoryPin::Base);
+    pin_directory(&mut pins, OsStr::new(session_id))?;
+    after_directory_pin(DirectoryPin::Session);
 
-    // All ancestors now deny write/delete sharing. Absolute resolution cannot
-    // be redirected while they are held. The leaf denies those shares too,
-    // including when a writable/deletable attacker handle already exists.
-    let leaf = OpenOptions::new()
-        .read(true)
-        .share_mode(FILE_SHARE_READ)
-        .custom_flags(FILE_FLAG_OPEN_REPARSE_POINT)
-        .open(session.join(file_name))
-        .map_err(|_| FragmentReadError::NotFound)?;
-    let metadata = leaf.metadata().map_err(|_| FragmentReadError::NotFound)?;
-    if metadata.file_attributes() & FILE_ATTRIBUTE_REPARSE_POINT != 0
-        || !metadata.is_file()
-        || !is_disk(&leaf)
-    {
-        return Err(FragmentReadError::NotFound);
-    }
+    // Share masks alone are not capabilities: FILE_WRITE_ATTRIBUTES can set
+    // reparse data even while read pins are held. Never reopen an absolute
+    // child path; RootDirectory binds the leaf to the actual session object.
+    let session = pins.last().ok_or(FragmentReadError::NotFound)?;
+    let leaf = native::open_child(session, OsStr::new(file_name), false)?;
+    validate_entry(&leaf, false)?;
     let result = read_open_file(leaf);
-    // Explicitly keep every directory capability alive THROUGH the read.
     drop(pins);
     result
 }
 
-fn open_directory(path: &Path) -> Result<File, FragmentReadError> {
+fn pin_directory(pins: &mut Vec<File>, name: &OsStr) -> Result<(), FragmentReadError> {
+    let parent = pins.last().ok_or(FragmentReadError::NotFound)?;
+    let child = native::open_child(parent, name, true)?;
+    validate_entry(&child, true)?;
+    pins.push(child);
+    Ok(())
+}
+
+// The sole absolute open is the trusted canonical drive/share root, not any
+// mutable directory entry below it. Owned entries are all native-relative.
+fn open_volume(path: &Path) -> Result<File, FragmentReadError> {
     let file = OpenOptions::new()
-        .read(true)
-        // Attribute-only opens do not participate in Windows share-access
-        // accounting. LIST_DIRECTORY (the directory READ_DATA bit) makes
-        // this a real read pin that excludes existing/future writers/deleters.
-        .access_mode(FILE_LIST_DIRECTORY | FILE_READ_ATTRIBUTES)
+        .access_mode(FILE_LIST_DIRECTORY | FILE_READ_ATTRIBUTES | SYNCHRONIZE)
         .share_mode(FILE_SHARE_READ)
         .custom_flags(FILE_FLAG_BACKUP_SEMANTICS | FILE_FLAG_OPEN_REPARSE_POINT)
         .open(path)
         .map_err(|_| FragmentReadError::NotFound)?;
-    let metadata = file.metadata().map_err(|_| FragmentReadError::NotFound)?;
-    if !metadata.is_dir()
-        || metadata.file_attributes() & FILE_ATTRIBUTE_REPARSE_POINT != 0
-        || !is_disk(&file)
-    {
-        return Err(FragmentReadError::NotFound);
-    }
+    validate_entry(&file, true)?;
     Ok(file)
 }
 
-fn is_disk(file: &File) -> bool {
+fn validate_entry(file: &File, directory: bool) -> Result<(), FragmentReadError> {
+    let metadata = file.metadata().map_err(|_| FragmentReadError::NotFound)?;
     // SAFETY: File owns a live Windows handle for the duration of this call.
-    unsafe { GetFileType(file.as_raw_handle()) == FILE_TYPE_DISK }
+    let disk = unsafe { GetFileType(file.as_raw_handle()) == FILE_TYPE_DISK };
+    if !disk
+        || metadata.file_attributes() & FILE_ATTRIBUTE_REPARSE_POINT != 0
+        || if directory {
+            !metadata.is_dir()
+        } else {
+            !metadata.is_file()
+        }
+    {
+        return Err(FragmentReadError::NotFound);
+    }
+    Ok(())
 }
 
-fn directory_chain(canonical: &Path) -> Result<Vec<PathBuf>, FragmentReadError> {
+fn directory_components(canonical: &Path) -> Result<(PathBuf, Vec<&OsStr>), FragmentReadError> {
     let mut components = canonical.components();
     let prefix = match components.next() {
         Some(Component::Prefix(prefix))
@@ -104,17 +114,16 @@ fn directory_chain(canonical: &Path) -> Result<Vec<PathBuf>, FragmentReadError> 
     if components.next() != Some(Component::RootDir) {
         return Err(FragmentReadError::NotFound);
     }
-    let mut current = PathBuf::from(prefix.as_os_str());
-    current.push(Component::RootDir.as_os_str());
-    let mut chain = vec![current.clone()];
+    let mut volume = PathBuf::from(prefix.as_os_str());
+    volume.push(Component::RootDir.as_os_str());
+    let mut names = Vec::new();
     for component in components {
-        if !matches!(component, Component::Normal(_)) {
+        let Component::Normal(name) = component else {
             return Err(FragmentReadError::NotFound);
-        }
-        current.push(component.as_os_str());
-        chain.push(current.clone());
+        };
+        names.push(name);
     }
-    Ok(chain)
+    Ok((volume, names))
 }
 
 #[cfg(test)]

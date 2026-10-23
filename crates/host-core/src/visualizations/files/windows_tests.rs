@@ -1,16 +1,16 @@
 use super::super::tests::{fixture, FILE_NAME, ORIGINAL, SESSION, VICTIM};
 use super::super::{read_fragment, FragmentReadError};
-use super::{directory_chain, read_fragment_impl};
-use std::ffi::c_void;
+use super::{directory_components, read_fragment_impl, DirectoryPin};
+use std::ffi::{c_void, OsStr};
 use std::fs::{self, File, OpenOptions};
 use std::io;
 use std::os::windows::ffi::OsStrExt;
 use std::os::windows::fs::{symlink_file, MetadataExt, OpenOptionsExt};
 use std::os::windows::io::AsRawHandle;
 use std::os::windows::process::CommandExt;
-use std::path::{Component, Path, PathBuf, Prefix};
+use std::path::{Component, Path, Prefix};
 use std::process::Command;
-use windows_sys::Win32::Foundation::{ERROR_ACCESS_DENIED, ERROR_SHARING_VIOLATION, GENERIC_WRITE};
+use windows_sys::Win32::Foundation::{ERROR_SHARING_VIOLATION, GENERIC_WRITE};
 use windows_sys::Win32::Storage::FileSystem::{
     DELETE, FILE_APPEND_DATA, FILE_ATTRIBUTE_REPARSE_POINT, FILE_FLAG_BACKUP_SEMANTICS,
     FILE_FLAG_OPEN_REPARSE_POINT, FILE_SHARE_DELETE, FILE_SHARE_READ, FILE_SHARE_WRITE,
@@ -142,32 +142,28 @@ fn junction_command_paths_convert_verbatim_drive_and_unc_spelling() {
 
 #[test]
 fn extended_drive_and_unc_paths_keep_their_root_components() {
+    let (drive, names) =
+        directory_components(Path::new(r"\\?\C:\Users\example\data")).expect("drive components");
+    assert_eq!(drive, Path::new(r"\\?\C:\"));
     assert_eq!(
-        directory_chain(Path::new(r"\\?\C:\Users\example\data")).expect("drive chain"),
+        names,
         [
-            PathBuf::from(r"\\?\C:\"),
-            PathBuf::from(r"\\?\C:\Users"),
-            PathBuf::from(r"\\?\C:\Users\example"),
-            PathBuf::from(r"\\?\C:\Users\example\data"),
+            OsStr::new("Users"),
+            OsStr::new("example"),
+            OsStr::new("data")
         ]
     );
-    assert_eq!(
-        directory_chain(Path::new(r"\\?\UNC\server\share\data")).expect("UNC chain"),
-        [
-            PathBuf::from(r"\\?\UNC\server\share\"),
-            PathBuf::from(r"\\?\UNC\server\share\data"),
-        ]
-    );
+    let (share, names) =
+        directory_components(Path::new(r"\\?\UNC\server\share\data")).expect("UNC components");
+    assert_eq!(share, Path::new(r"\\?\UNC\server\share\"));
+    assert_eq!(names, [OsStr::new("data")]);
     for path in [
         r"C:\data",
         r"C:data",
         r"\\.\pipe\data",
         r"\\?\C:\data\..\other",
     ] {
-        assert_eq!(
-            directory_chain(Path::new(path)),
-            Err(FragmentReadError::NotFound)
-        );
+        assert!(directory_components(Path::new(path)).is_err());
     }
 }
 
@@ -264,7 +260,10 @@ fn pins_data_ancestors_base_and_session_until_read_completes() {
             drop(open_directory_access(path, access).expect("unpinned mutable directory"));
         }
     }
-    let result = read_fragment_impl(&fixture.data, SESSION, FILE_NAME, || {
+    let result = read_fragment_impl(&fixture.data, SESSION, FILE_NAME, |stage| {
+        if stage != DirectoryPin::Session {
+            return;
+        }
         for path in paths {
             let replacement = path.with_file_name("rename-attempt");
             assert!(
@@ -314,51 +313,97 @@ fn refuses_preexisting_write_or_delete_directory_handles() {
 }
 
 #[test]
-fn pins_block_native_junction_mutation_and_release_after_read() {
+fn relative_leaf_open_survives_attribute_only_session_junction_mutation() {
     let fixture = fixture();
     fs::remove_file(fixture.session.join(FILE_NAME)).expect("empty original session");
     let victim = fixture.data.join("visualizations").join("session-B");
     fs::create_dir(&victim).expect("victim session");
     fs::write(victim.join(FILE_NAME), VICTIM).expect("victim fragment");
-    let result = read_fragment_impl(&fixture.data, SESSION, FILE_NAME, || {
-        // Attribute-only handles bypass the share mask, but must not be able
-        // to set a reparse point through an actual, well-formed native FSCTL.
-        let attributes = open_directory_access(&fixture.session, FILE_WRITE_ATTRIBUTES)
-            .expect("attribute-only handle");
-        set_junction(&attributes, &victim).expect_err("attributes cannot redirect pinned session");
-        drop(attributes);
-        let error = open_directory_access(&fixture.session, GENERIC_WRITE)
-            .expect_err("junction mutation requires blocked write access");
-        assert_eq!(error.raw_os_error(), Some(ERROR_SHARING_VIOLATION as i32));
-        let held = fixture.session.with_file_name("held-session");
-        fs::rename(&fixture.session, &held).expect_err("pinned session cannot be replaced");
-    });
-    assert_eq!(result, Err(FragmentReadError::NotFound));
-    let metadata = fs::symlink_metadata(&fixture.session).expect("original session metadata");
-    assert!(metadata.is_dir());
-    assert_eq!(metadata.file_attributes() & FILE_ATTRIBUTE_REPARSE_POINT, 0);
-
-    // Control on the same now-unpinned, empty directory: attributes alone
-    // lack mutation rights, whereas a writable handle really can redirect it.
-    let attributes = open_directory_access(&fixture.session, FILE_WRITE_ATTRIBUTES)
-        .expect("unpinned attribute-only handle");
-    let error =
-        set_junction(&attributes, &victim).expect_err("reparse FSCTL requires write access");
-    assert_eq!(error.raw_os_error(), Some(ERROR_ACCESS_DENIED as i32));
-    drop(attributes);
-    let writable = open_directory_access(&fixture.session, GENERIC_WRITE)
-        .expect("unpinned junction mutation handle");
-    set_junction(&writable, &victim).expect("unpinned native junction control");
-    drop(writable);
+    assert_attribute_junction_attack_contained(
+        &fixture.data,
+        &fixture.session,
+        &victim,
+        DirectoryPin::Session,
+    );
     assert_eq!(
-        fs::read(fixture.session.join(FILE_NAME)).expect("attack control"),
+        fs::read(victim.join(FILE_NAME)).expect("intact victim"),
         VICTIM
     );
+}
+
+#[test]
+fn relative_session_open_survives_attribute_only_base_junction_mutation() {
+    let fixture = fixture();
+    fs::remove_dir_all(&fixture.session).expect("empty original base");
+    let base = fixture.data.join("visualizations");
+    let victim = fixture.temp.path().join("victim-base");
+    fs::create_dir_all(victim.join(SESSION)).expect("victim base");
+    fs::write(victim.join(SESSION).join(FILE_NAME), VICTIM).expect("victim fragment");
+    assert_attribute_junction_attack_contained(&fixture.data, &base, &victim, DirectoryPin::Base);
     assert_eq!(
-        read_fragment(&fixture.data, SESSION, FILE_NAME),
-        Err(FragmentReadError::NotFound)
+        fs::read(victim.join(SESSION).join(FILE_NAME)).expect("intact victim"),
+        VICTIM
     );
-    fs::remove_dir(&fixture.session).expect("remove native junction");
+}
+
+#[test]
+fn relative_base_open_survives_attribute_only_data_ancestor_junction_mutation() {
+    let fixture = fixture();
+    fs::remove_dir_all(fixture.data.join("visualizations")).expect("empty original data");
+    let victim = fixture.temp.path().join("victim-data");
+    let victim_session = victim.join("visualizations").join(SESSION);
+    fs::create_dir_all(&victim_session).expect("victim data");
+    fs::write(victim_session.join(FILE_NAME), VICTIM).expect("victim fragment");
+    assert_attribute_junction_attack_contained(
+        &fixture.data,
+        &fixture.data,
+        &victim,
+        DirectoryPin::Data,
+    );
+    assert_eq!(
+        fs::read(victim_session.join(FILE_NAME)).expect("intact victim"),
+        VICTIM
+    );
+}
+
+fn assert_attribute_junction_attack_contained(
+    data: &Path,
+    directory: &Path,
+    victim: &Path,
+    stage: DirectoryPin,
+) {
+    let exposed_leaf = data.join("visualizations").join(SESSION).join(FILE_NAME);
+    let mut attacked = false;
+    let result = read_fragment_impl(data, SESSION, FILE_NAME, |current| {
+        if current != stage {
+            return;
+        }
+        let attributes = open_directory_access(directory, FILE_WRITE_ATTRIBUTES)
+            .expect("attribute-only attacker handle while read pins are held");
+        // Windows CI proves this succeeds despite read/delete share pins.
+        // Preserve that mutation as a positive control, not a denial assumption.
+        set_junction(&attributes, victim).expect("attribute-only junction mutation succeeds");
+        drop(attributes);
+        attacked = true;
+        let metadata = fs::symlink_metadata(directory).expect("mutated directory metadata");
+        assert_ne!(metadata.file_attributes() & FILE_ATTRIBUTE_REPARSE_POINT, 0);
+        let old_absolute = OpenOptions::new()
+            .read(true)
+            .share_mode(FILE_SHARE_READ)
+            .custom_flags(FILE_FLAG_OPEN_REPARSE_POINT)
+            .open(&exposed_leaf)
+            .expect("old absolute leaf open, including its no-follow/share flags");
+        assert_eq!(
+            super::super::read_open_file(old_absolute)
+                .expect("old bounded absolute lookup control"),
+            VICTIM
+        );
+    });
+    assert!(attacked, "the real filesystem mutation hook must have run");
+    // The original pinned directory was empty. A relative open must fail;
+    // the old absolute lookup above demonstrably reads the victim instead.
+    assert_eq!(result, Err(FragmentReadError::NotFound));
+    fs::remove_dir(directory).expect("remove only the attack junction after pins release");
 }
 
 #[test]

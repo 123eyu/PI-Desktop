@@ -342,9 +342,11 @@ to later refresh and inference; the vendor picker does not collect them.
   is added. Parameters contain only a validated session ID and direct `.html`
   basename; caller-supplied roots and extra fields are rejected. Host resolves
   against its current data directory and pins native directory capabilities:
-  Unix uses relative `openat` with no-follow/nonblocking flags; Windows pins the
-  complete ancestor chain without write/delete sharing and refuses reparse
-  points. Returns `{ ok: true, base64 }` for at most 2 MiB of file bytes, or
+  Unix uses relative `openat` with no-follow/nonblocking flags; Windows uses
+  `NtCreateFile` with a pinned `RootDirectory` for every ancestor/owned child
+  and refuses opened reparse entries. Share masks are an extra defense, not a
+  substitute for relative capabilities. Returns `{ ok: true, base64 }` for at
+  most 2 MiB of file bytes, or
   `{ ok: false, code: "not-found" | "too-large" }`. Main validates this payload,
   decodes bytes, rejects full HTML documents, and supplies the response sandbox.
   Filesystem work does not hold the state/database lock. Additive to v11; no
