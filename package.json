@@ -1,7 +1,7 @@
 {
   "name": "pi-desktop",
   "private": true,
-  "version": "0.21.0-beta.6",
+  "version": "0.21.0-beta.7",
   "description": "Local-first AI coding agent desktop client",
   "packageManager": "pnpm@12.8.1+sha512.f64ba907507f5ceafe06c8d38e6052d0179444580ec1279ddd5bfc11cb48aa8a2644b66598e07e761da84872a9fc57d5f902b87fa49d024198d558612aabbe45",
   "engines": {
@@ -65,6 +65,7 @@
     "test:e2e:window-surface": "node scripts/e2e-window-surface.mjs",
     "test:e2e:work-panel-reorder": "node scripts/e2e-work-panel-reorder.mjs",
     "test:e2e:browser-local-files": "node scripts/e2e-browser-local-file-access.mjs",
+    "test:e2e:browser-background": "node scripts/e2e-browser-background.mjs",
     "test:e2e:work-panel-drag": "node scripts/e2e-work-panel-drag.mjs",
     "test:e2e:work-panel-tab-close": "node scripts/e2e-work-panel-tab-close.mjs",
     "test:e2e:supervision": "node scripts/e2e-supervision.mjs",

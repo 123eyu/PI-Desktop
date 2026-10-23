@@ -40,8 +40,8 @@ function harness({ sessions = DEFAULT_SESSIONS, pendingAsks = {}, pendingPermiss
   let state = {
     sessions,
     pendingAsks,
-    askDrafts: {},
     pendingPermissions,
+    askDrafts: {},
     planningStates: {},
     planCheckpoints: {},
     pendingPlans: {},

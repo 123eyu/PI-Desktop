@@ -21,6 +21,7 @@ Each ADR includes:
 | ID | Title | Status |
 |---|---|---|
 | plugin-remote-workspace-reads | [Plugin reads in remote workspaces](plugin-remote-workspace-reads.md) | Implemented candidate |
+| browser-background-lifecycle | [Browser page execution outlives side-panel presentation](browser-background-lifecycle.md) | Accepted |
 | asktool-draft-survives-session-switch | [AskTool drafts survive a card remount](asktool-draft-survives-session-switch.md) | Accepted |
 | tool-abort-abandons-host-call | [A user stop ends the turn even when the running tool cannot be cancelled](tool-abort-abandons-host-call.md) | Accepted for implementation |
 | provider-metadata-client-certificate-retry | [Provider metadata recovery from optional client certificates](provider-metadata-client-certificate-retry.md) | Implemented candidate |
