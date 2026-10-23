@@ -10388,7 +10388,7 @@ must keep splitting are covered by `markdown-blocks.test.mjs`.
 | Post-baseline local automation | E2E-220 |
 | Post-baseline local automation (MCP `pi_session_get` large compaction) | E2E-MCP-session-get-projects-large-compaction |
 | Post-MVP remote control | E2E-221, E2E-222, E2E-223, E2E-224, E2E-225, E2E-226, E2E-227, E2E-228, E2E-229, E2E-230, E2E-231, E2E-232, E2E-REMOTE-HOST-settings-compact-inventory |
-| Trusted extensions (R7 v1) | E2E-DIALOG-long-text-boundaries, E2E-241, E2E-242, E2E-HOOKS-prompt-chain, E2E-HOOKS-cancel-and-dispose, E2E-TRUSTED-EXTENSION-custom-agent-stream-and-binding, E2E-243, E2E-TRUSTED-EXTENSION-temporary-session-cwd-is-scratch, E2E-244, E2E-245, E2E-PLUGIN-imported-pi-package-skills, E2E-PLUGIN-import-extension-installs-dependencies, E2E-PLUGIN-import-extension-reports-missing-dependency, E2E-PLUGIN-declared-provider-appears-in-the-native-provider-list, E2E-PLUGIN-provider-catalog-add-service |
+| Trusted extensions (R7 v1) | E2E-DIALOG-long-text-boundaries, E2E-241, E2E-242, E2E-HOOKS-prompt-chain, E2E-HOOKS-context-every-request, E2E-HOOKS-cancel-and-dispose, E2E-TRUSTED-EXTENSION-custom-agent-stream-and-binding, E2E-243, E2E-TRUSTED-EXTENSION-temporary-session-cwd-is-scratch, E2E-244, E2E-245, E2E-PLUGIN-imported-pi-package-skills, E2E-PLUGIN-import-extension-installs-dependencies, E2E-PLUGIN-import-extension-reports-missing-dependency, E2E-PLUGIN-declared-provider-appears-in-the-native-provider-list, E2E-PLUGIN-provider-catalog-add-service |
 | Trusted extensions (R7 v1 npm recovery) | E2E-PLUGIN-import-extension-recovers-missing-npm |
 | Post-MVP regression coverage (plugin tool dispatch) | E2E-PLUGIN-slow-tool-is-not-cut-off-by-host-dispatch |
 | M6+ (Project delete) | E2E-PROJECT-delete-removes-project-and-owned-sessions |
@@ -15628,6 +15628,19 @@ plugin-form fixtures in an isolated temporary directory at runtime.
   failed handlers do not discard earlier additions, cancelled turns send no
   request, and the next turn can proceed. Other events retain existing folds.
 - **Specs linked**: `07-plugins/16-trusted-extensions.md` §6; ADR 0214; #1023.
+
+#### E2E-HOOKS-context-every-request: Context handlers shape every provider request
+
+- **Preconditions**: An enabled fixture extension appends a marker message in
+  `context`; the provider is a local deterministic HTTP/SSE service whose first
+  reply is a tool call.
+- **Steps**: Run two turns through the real runtime: the first turn makes a
+  tool call and a follow-up request, the second answers directly. Inspect every
+  provider request and the persisted transcript rows.
+- **Expected**: `context` fires once per provider request, including the first
+  request of each run, and every request carries the marker exactly once. The
+  marker never reaches the persisted transcript.
+- **Specs linked**: `07-plugins/16-trusted-extensions.md` §6; ADR 0214; #1838.
 - **Acceptance**: B (agent), Quality
 - **Milestone**: Post-MVP (R7 v1)
 - **Status**: Automated by `extensions/prompt-chain.test.ts`,
