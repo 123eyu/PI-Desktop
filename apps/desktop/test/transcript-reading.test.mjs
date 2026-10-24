@@ -611,3 +611,36 @@ test("a restored range already at the tail uses canonical updates without adding
   assert.deepEqual(transcriptViewMessages(live, search).map((row) => [row.id, row.content]),
     [["tail", "persisted"]], "explicit search keeps its selected snapshot");
 });
+
+test("a bookmark inside the page being revalidated keeps that page instead of a narrower window", async () => {
+  // Returning to a retained session commits its page while `selectingSessionId`
+  // is still set and then swaps `messages` for the revalidated window. The
+  // bookmarked row is already in that page, so restoration must publish the page
+  // itself: reading a range around the anchor would both narrow the transcript
+  // and report `hasMoreAfter`, which paints the load-later affordance on a
+  // conversation nobody left.
+  const r = reader(async () => { throw new Error("unexpected read"); }, {
+    messages: [message("old"), message("tail")], selectingSessionId: "s",
+  });
+  assert.equal(await r.restoreTranscriptReading("s", bookmark, new AbortController().signal), true);
+  assert.deepEqual(r.visible().map((row) => row.id), ["old", "tail"]);
+  assert.equal(r.view().restored, true);
+  assert.equal(r.view().hasMoreAfter, false);
+});
+
+test("a saved anchor does not supersede in-flight navigation when both rows are loaded", async () => {
+  const focused = {
+    ...transcriptViewFromSession(page([message("old"), message("target")]).session, {
+      ...target("target"), requestId: 7,
+    }),
+    loading: "target",
+  };
+  const r = reader(async () => { throw new Error("automatic restore must not read"); }, {
+    messages: [message("old"), message("target")],
+    selectingSessionId: "s",
+    transcriptViews: { s: focused },
+  });
+
+  assert.equal(await r.restoreTranscriptReading("s", bookmark, new AbortController().signal), false);
+  assert.equal(r.view(), focused, "explicit navigation keeps ownership of the reading view");
+});
