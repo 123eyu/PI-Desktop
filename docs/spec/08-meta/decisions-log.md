@@ -7967,3 +7967,30 @@ must keep splitting are covered by `markdown-blocks.test.mjs`.
   `packages/agent-runtime/src/provider-binding.test.ts`, and the official-wire
   cases in `packages/agent-runtime/src/provider-reasoning-effort.test.ts`. See
   `03-runtime/11-provider-model-system.md` and E2E-005E.
+
+## 2026-10-24 — Automatic transcript folding is deterministic (D673)
+
+- D673 amends the turn-process disclosure policy: every ordinary group of a turn
+  stays open while that turn is active, instead of folding as soon as it stops
+  owning the live segment. After the turn settles, groups with at most four
+  visible items, Task topology groups, and groups that still render a Thinking
+  row stay open; larger groups of plain tool rows start closed. Visible
+  reasoning is reader-requested content, so `Show thinking` is no longer
+  undermined by folding the group around it.
+- Disclosure ownership is split in two. An explicit header/rail choice belongs to
+  its own level and never pins an ancestor; a press, focus or selection is a
+  transient reading hold that defers an automatic close until the reader leaves.
+  Previously a pointer press or a nested toggle recorded the enclosing levels'
+  current state as permanent choices, which disabled automatic folding for the
+  rest of the pane's life and could pin a level closed. Search reveals still keep
+  their revealed ancestor path open.
+- The activity-group issue counter is one inline non-wrapping chip
+  (`activity-issue-count`), replacing the unstyled `turn-process-error` span that
+  wrapped its icon and localized count onto separate lines in narrow bands. The
+  top-level turn header still carries no issue count.
+- No persisted format or protocol change. Covered by
+  `apps/desktop/test/activity-group-folding.test.mjs` and the automatic-folding
+  scenario inside `pnpm test:e2e:transcript`. See ADR
+  `turn-process-and-thinking-display`, `04-ux/08-component-spec.md` §9,
+  `04-ux/09-interaction-patterns.md` §4.2, and
+  E2E-CHAT-turn-process-and-thinking-display.

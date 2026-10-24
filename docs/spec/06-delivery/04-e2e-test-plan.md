@@ -17422,12 +17422,15 @@ plugin-form fixtures in an isolated temporary directory at runtime.
   stay inside their groups and only ordinary assistant progress text splits a
   group, so the middle progress paragraph ends the preceding group and the
   following activity starts a new one. A group appears only with at least two
-  visible items; a singleton has no group. Active groups stay open while the turn
-  runs; after completion, groups with at most four visible items and Task topology
-  groups remain open, while larger ordinary groups start closed. Thinking rows
-  default expanded in every mode when `Show thinking` is on.
+  visible items; a singleton has no group. Every group stays open while its turn
+  runs; after completion, groups with at most four visible items, Task topology
+  groups and groups that still render a Thinking row remain open, while larger
+  ordinary groups of plain tool rows start closed. Thinking rows default
+  expanded in every mode when `Show thinking` is on.
   Explicit user choices persist and are restored when the enclosing disclosure is
-  reopened; group defaults do not depend on `Show thinking`. The header
+  reopened, and never pin an ancestor; an automatic close is deferred only while
+  focus or a selection remains inside. Apart from visible reasoning, group
+  defaults do not depend on `Show thinking`. The header
   reports running, finished, stopped, or failed with failure and stop outranking
   a normal finish, reads `Thinking` while the live step is reasoning, names
   compaction and recovery while those stages are live, omits a duration the
@@ -17457,10 +17460,14 @@ plugin-form fixtures in an isolated temporary directory at runtime.
   group presentation only; precise item-level transcript search targeting is out
   of scope and keeps the existing message-level search behavior.
 - **Automation:** `pnpm test:e2e:transcript` covers the command-first and
-  fully-folded layouts and active-to-completed process disclosure behavior;
-  `pnpm test:e2e:transcript-disclosure` verifies manual-open retention and
-  viewport anchoring; `apps/desktop/test/turn-process.test.mjs` covers mode
-  segmentation, `apps/desktop/test/transcript-display-modes-ui.test.mjs` covers
+  fully-folded layouts, active-to-completed process disclosure behavior, the
+  automatic folding and reading-hold transitions, and the activity issue
+  counter's inline layout at 320/800px and 100%/150% zoom in English and
+  Simplified Chinese; `pnpm test:e2e:transcript-disclosure` verifies manual-open
+  retention and viewport anchoring; `apps/desktop/test/turn-process.test.mjs`
+  covers mode segmentation, `apps/desktop/test/activity-group-folding.test.mjs`
+  covers the settled group defaults and the issue-counter contract,
+  `apps/desktop/test/transcript-display-modes-ui.test.mjs` covers
   the renderer's mode wiring, Thinking defaults and TextShimmer,
   `apps/desktop/test/turn-process-header.test.mjs` covers the top-level header's
   status/duration/tool-count composition and the absence of issue counts,
