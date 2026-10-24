@@ -6150,9 +6150,10 @@ must keep splitting are covered by `markdown-blocks.test.mjs`.
 - **Steps**: 1) Open sessions A, B, and C in that order, scrolling each one up a
   measured amount. 2) Switch back to A, then B, and confirm each returns to its
   own offset. 3) Open D and then E, so A and B fall outside the retained budget.
-  4) Return to A. 5) Return to E, then D, and confirm they are still warm. 6)
-  Repeat the whole cycle once more and watch for a stuck progress track, an error
-  toast, or a blank chat area.
+  4) Return to A and scroll to the lower boundary of the restored range without
+  clicking any load control. 5) Return to E, then D, and confirm they are still
+  warm. 6) Repeat the whole cycle once more and watch for a stuck progress track,
+  an error toast, or a blank chat area.
 - **Expected**: Only the visible pane and the two most recently visited ones are
   retained; visiting beyond that budget evicts the oldest pane. A warm return
   paints the retained frame and offset immediately. Returning to an evicted
@@ -6167,6 +6168,14 @@ must keep splitting are covered by `markdown-blocks.test.mjs`.
   dimmed at any point, hidden panes stay non-interactive and out of the
   accessibility tree, and repeated cycling neither leaks a growing number of
   mounted transcripts nor leaves a pane showing another session's rows.
+  A restored historical range has no Load later messages button: reaching its
+  lower boundary automatically reads bounded newer pages without moving the
+  visible anchor. Short ranges fill the viewport automatically; hidden panes do
+  not initiate reads. Pending reads coalesce, obsolete results cannot replace
+  a newer navigation, and failures do not cause automatic retry loops. After
+  continuation reaches the tail, live updates resume without adding older
+  cached rows above the reading position. Explicit search still uses manual
+  later-message paging.
 - **Specs linked**: `04-ux/08-component-spec.md` §1.6 / §3.5 / §7,
   `04-ux/09-interaction-patterns.md` §5, ADR 0130, ADR 0137
 - **Acceptance**: C (switch sessions), Quality
