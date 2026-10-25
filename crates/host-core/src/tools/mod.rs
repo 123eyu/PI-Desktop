@@ -111,12 +111,24 @@ const RUNNER_SPAWN_BACKOFFS_MS: [u64; 3] = [50, 100, 250];
 const INTERNAL_RUNNER_ERROR_PREFIX: &str = "PI_DESKTOP_RUNNER_ERROR\t";
 
 #[cfg(windows)]
-use windows_sys::Win32::Foundation::{CloseHandle, HANDLE};
+use windows_sys::Win32::Foundation::{
+    CloseHandle, GetLastError, ERROR_ACCESS_DENIED, ERROR_INVALID_PARAMETER, ERROR_NO_MORE_FILES,
+    HANDLE, INVALID_HANDLE_VALUE, STILL_ACTIVE,
+};
+#[cfg(windows)]
+use windows_sys::Win32::System::Diagnostics::ToolHelp::{
+    CreateToolhelp32Snapshot, Process32FirstW, Process32NextW, PROCESSENTRY32W, TH32CS_SNAPPROCESS,
+};
 #[cfg(windows)]
 use windows_sys::Win32::System::JobObjects::{
     AssignProcessToJobObject, CreateJobObjectW, JobObjectExtendedLimitInformation,
     SetInformationJobObject, TerminateJobObject, JOBOBJECT_EXTENDED_LIMIT_INFORMATION,
     JOB_OBJECT_LIMIT_KILL_ON_JOB_CLOSE,
+};
+#[cfg(windows)]
+use windows_sys::Win32::System::Threading::{
+    GetExitCodeProcess, OpenProcess, TerminateProcess, PROCESS_QUERY_LIMITED_INFORMATION,
+    PROCESS_TERMINATE,
 };
 
 #[cfg(windows)]
@@ -191,12 +203,29 @@ impl ProcessOwnership {
     }
 
     #[cfg(windows)]
-    fn terminate(&self, _pid: u32) -> Result<(), String> {
+    fn terminate(&self, pid: u32) -> Result<(), String> {
         let Some(job) = self.job else {
             return Err("shell runner process ownership is unavailable".into());
         };
-        if unsafe { TerminateJobObject(job, 1) == 0 } {
-            Err("TerminateJobObject failed for the shell runner".into())
+        let mut job_error = if unsafe { TerminateJobObject(job, 1) == 0 } {
+            Some("TerminateJobObject failed for the shell runner".to_string())
+        } else {
+            None
+        };
+
+        // When a shell is spawned on Windows, child processes created by the
+        // shell (and their descendants) might escape the Job Object if they
+        // were spawned before or concurrently with AssignProcessToJobObject.
+        // To guarantee clean termination of the entire tree, take a snapshot of
+        // processes and explicitly terminate any descendants of `pid`.
+        let tree_error = if pid != 0 {
+            terminate_windows_process_tree(pid).err()
+        } else {
+            None
+        };
+
+        if let Some(err) = job_error.take().or(tree_error) {
+            Err(err)
         } else {
             Ok(())
         }
@@ -262,6 +291,132 @@ impl Drop for ProcessOwnership {
     fn drop(&mut self) {
         self.close_now();
     }
+}
+
+#[cfg(windows)]
+fn terminate_windows_process_tree(root_pid: u32) -> Result<(), String> {
+    let snapshot = unsafe { CreateToolhelp32Snapshot(TH32CS_SNAPPROCESS, 0) };
+    if snapshot == INVALID_HANDLE_VALUE {
+        let err = std::io::Error::last_os_error();
+        return Err(format!("CreateToolhelp32Snapshot failed: {err}"));
+    }
+
+    let mut parent_to_children: std::collections::HashMap<u32, Vec<u32>> =
+        std::collections::HashMap::new();
+    let mut entry: PROCESSENTRY32W = unsafe { std::mem::zeroed() };
+    entry.dwSize = std::mem::size_of::<PROCESSENTRY32W>() as u32;
+
+    if unsafe { Process32FirstW(snapshot, &mut entry) } != 0 {
+        loop {
+            let pid = entry.th32ProcessID;
+            let parent_pid = entry.th32ParentProcessID;
+            if pid != 0 && pid != parent_pid {
+                parent_to_children.entry(parent_pid).or_default().push(pid);
+            }
+            if unsafe { Process32NextW(snapshot, &mut entry) } == 0 {
+                let err = unsafe { GetLastError() };
+                if err != ERROR_NO_MORE_FILES {
+                    unsafe {
+                        CloseHandle(snapshot);
+                    }
+                    let os_err = std::io::Error::from_raw_os_error(err as i32);
+                    return Err(format!("Process32NextW failed: {os_err}"));
+                }
+                break;
+            }
+        }
+    } else {
+        let err = std::io::Error::last_os_error();
+        unsafe {
+            CloseHandle(snapshot);
+        }
+        return Err(format!("Process32FirstW failed: {err}"));
+    }
+    unsafe {
+        CloseHandle(snapshot);
+    }
+
+    // Traverse the descendants breadth-first / post-order to collect all child PIDs.
+    let mut queue = std::collections::VecDeque::new();
+    let mut descendants = Vec::new();
+    queue.push_back(root_pid);
+    descendants.push(root_pid);
+
+    while let Some(current) = queue.pop_front() {
+        if let Some(children) = parent_to_children.get(&current) {
+            for &child in children {
+                descendants.push(child);
+                queue.push_back(child);
+            }
+        }
+    }
+
+    let mut first_error: Option<String> = None;
+
+    // Helper to verify if a process has already exited when OpenProcess/TerminateProcess
+    // encounters ERROR_ACCESS_DENIED or other unexpected errors.
+    let is_process_exited = |pid: u32| -> bool {
+        let query_handle = unsafe { OpenProcess(PROCESS_QUERY_LIMITED_INFORMATION, 0, pid) };
+        if query_handle.is_null() {
+            let err = unsafe { GetLastError() };
+            // If query open fails with invalid parameter, the PID does not exist (already exited).
+            return err == ERROR_INVALID_PARAMETER;
+        }
+        let mut exit_code = 0u32;
+        let queried = unsafe { GetExitCodeProcess(query_handle, &mut exit_code) };
+        unsafe {
+            CloseHandle(query_handle);
+        }
+        queried != 0 && exit_code != STILL_ACTIVE as u32
+    };
+
+    // Terminate leaf/descendant processes in reverse order so children are terminated before parents.
+    // Continue cleanup across the remaining descendant tree, recording the first failure.
+    for &pid in descendants.iter().rev() {
+        let process = unsafe { OpenProcess(PROCESS_TERMINATE, 0, pid) };
+        if process.is_null() {
+            let err = unsafe { GetLastError() };
+            if err == ERROR_INVALID_PARAMETER {
+                // The process already exited.
+                continue;
+            }
+            if err == ERROR_ACCESS_DENIED && is_process_exited(pid) {
+                // Verified already exited race despite access denied on terminate open.
+                continue;
+            }
+            let os_err = std::io::Error::from_raw_os_error(err as i32);
+            if first_error.is_none() {
+                first_error = Some(format!("OpenProcess failed for PID {pid}: {os_err}"));
+            }
+            continue;
+        }
+        let term_res = unsafe { TerminateProcess(process, 1) };
+        if term_res == 0 {
+            let err = unsafe { GetLastError() };
+            if err == ERROR_INVALID_PARAMETER {
+                // The process already exited.
+            } else if err == ERROR_ACCESS_DENIED && is_process_exited(pid) {
+                // Verified already exited race.
+            } else if first_error.is_none() {
+                let os_err = std::io::Error::from_raw_os_error(err as i32);
+                first_error = Some(format!("TerminateProcess failed for PID {pid}: {os_err}"));
+            }
+        }
+        unsafe {
+            CloseHandle(process);
+        }
+    }
+
+    if let Some(err) = first_error {
+        Err(err)
+    } else {
+        Ok(())
+    }
+}
+
+#[cfg(all(windows, test))]
+pub(crate) fn terminate_windows_process_tree_for_test(root_pid: u32) -> Result<(), String> {
+    terminate_windows_process_tree(root_pid)
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]

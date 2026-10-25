@@ -887,4 +887,223 @@ mod tests {
         let st = state.lock().await;
         assert_eq!(st.background_tasks.running_count(), 0);
     }
+
+    /// On Windows, stopping a background task must terminate any child processes
+    /// spawned by the shell runner, not only the top-level shell, including
+    /// multi-level descendant trees.
+    #[cfg(windows)]
+    #[tokio::test]
+    async fn stop_terminates_descendant_processes_on_windows() {
+        let dir = tempfile::tempdir().unwrap();
+        let child_pid_file = dir.path().join("child_pid.txt");
+        let grandchild_pid_file = dir.path().join("grandchild_pid.txt");
+        let child_pid_file_str = child_pid_file.to_str().unwrap().replace('\\', "/");
+        let grandchild_pid_file_str = grandchild_pid_file.to_str().unwrap().replace('\\', "/");
+
+        let child_script = dir.path().join("child.ps1");
+        let grandchild_script = dir.path().join("grandchild.ps1");
+
+        // Grandchild script: writes grandchild PID and sleeps
+        std::fs::write(
+            &grandchild_script,
+            format!(
+                "[System.IO.File]::WriteAllText('{grandchild_pid_file_str}', $PID); Start-Sleep -Seconds 60"
+            ),
+        )
+        .unwrap();
+
+        // Child script: writes child PID, spawns grandchild script, and sleeps
+        let grandchild_script_str = grandchild_script.to_str().unwrap().replace('\\', "/");
+        std::fs::write(
+            &child_script,
+            format!(
+                "[System.IO.File]::WriteAllText('{child_pid_file_str}', $PID); \
+                 Start-Process powershell -ArgumentList '-NoProfile','-ExecutionPolicy','Bypass','-File','{grandchild_script_str}'; \
+                 Start-Sleep -Seconds 60"
+            ),
+        )
+        .unwrap();
+
+        // Top-level command executed by the runner shell: spawns child script and sleeps
+        let child_script_str = child_script.to_str().unwrap().replace('\\', "/");
+        let command = format!(
+            "Start-Process powershell -ArgumentList '-NoProfile','-ExecutionPolicy','Bypass','-File','{child_script_str}'; Start-Sleep -Seconds 60"
+        );
+
+        let state = tokio::sync::Mutex::new(crate::state::AppState::open(dir.path()).unwrap());
+        let session_id = {
+            let st = state.lock().await;
+            new_session(&st)
+        };
+        let id = spawn_background_task_detached(
+            &state,
+            &session_id,
+            &command,
+            crate::tools::shell::default_shell_id(),
+            dir.path(),
+            None,
+        )
+        .await
+        .unwrap();
+
+        // Wait for both child and grandchild PIDs to be recorded
+        let mut child_pid = None;
+        let mut grandchild_pid = None;
+        for _ in 0..100 {
+            tokio::time::sleep(Duration::from_millis(50)).await;
+            if child_pid.is_none() {
+                if let Ok(content) = std::fs::read_to_string(&child_pid_file) {
+                    if let Ok(pid) = content.trim().parse::<u32>() {
+                        child_pid = Some(pid);
+                    }
+                }
+            }
+            if grandchild_pid.is_none() {
+                if let Ok(content) = std::fs::read_to_string(&grandchild_pid_file) {
+                    if let Ok(pid) = content.trim().parse::<u32>() {
+                        grandchild_pid = Some(pid);
+                    }
+                }
+            }
+            if child_pid.is_some() && grandchild_pid.is_some() {
+                break;
+            }
+        }
+        let child_pid = child_pid.expect("descendant child powershell process must write its PID");
+        let grandchild_pid =
+            grandchild_pid.expect("descendant grandchild powershell process must write its PID");
+
+        // Verify descendant processes are alive
+        use windows_sys::Win32::Foundation::{CloseHandle, STILL_ACTIVE};
+        use windows_sys::Win32::System::Threading::{
+            GetExitCodeProcess, OpenProcess, PROCESS_QUERY_LIMITED_INFORMATION,
+        };
+        for pid in [child_pid, grandchild_pid] {
+            let handle = unsafe { OpenProcess(PROCESS_QUERY_LIMITED_INFORMATION, 0, pid) };
+            assert!(
+                !handle.is_null(),
+                "descendant process {pid} should be running before stop"
+            );
+            let mut exit_code = 0u32;
+            unsafe {
+                GetExitCodeProcess(handle, &mut exit_code);
+                CloseHandle(handle);
+            }
+            assert_eq!(exit_code, STILL_ACTIVE as u32);
+        }
+
+        // Now stop the task
+        {
+            let st = state.lock().await;
+            assert!(stop_task(&st.background_tasks, &id).await.unwrap());
+        }
+
+        // Wait for task to settle to Stopped
+        let mut settled = false;
+        for _ in 0..100 {
+            tokio::time::sleep(Duration::from_millis(50)).await;
+            let st = state.lock().await;
+            if st.background_tasks.running_count() == 0 {
+                settled = true;
+                break;
+            }
+        }
+        assert!(settled, "background task settled");
+
+        // Both child and grandchild must be dead
+        for pid in [child_pid, grandchild_pid] {
+            let mut alive = true;
+            for _ in 0..60 {
+                let handle = unsafe { OpenProcess(PROCESS_QUERY_LIMITED_INFORMATION, 0, pid) };
+                if handle.is_null() {
+                    alive = false;
+                    break;
+                }
+                let mut exit_code = 0u32;
+                let queried = unsafe { GetExitCodeProcess(handle, &mut exit_code) };
+                unsafe {
+                    CloseHandle(handle);
+                }
+                if queried == 0 || exit_code != STILL_ACTIVE as u32 {
+                    alive = false;
+                    break;
+                }
+                tokio::time::sleep(Duration::from_millis(50)).await;
+            }
+            assert!(
+                !alive,
+                "descendant process {pid} must be terminated when background task stops"
+            );
+        }
+    }
+
+    /// When a descendant process cannot be terminated (e.g. system service or
+    /// denied access while still alive), stop/cleanup must propagate the failure
+    /// rather than reporting false success with an escaped live process.
+    #[cfg(windows)]
+    #[tokio::test]
+    async fn stop_propagates_access_denied_when_descendant_remains_alive() {
+        // Find a live system or elevated process that ordinary user processes
+        // cannot open with PROCESS_TERMINATE (returning ERROR_ACCESS_DENIED).
+        use windows_sys::Win32::Foundation::{GetLastError, ERROR_ACCESS_DENIED};
+        use windows_sys::Win32::System::Diagnostics::ToolHelp::{
+            CreateToolhelp32Snapshot, Process32FirstW, Process32NextW, PROCESSENTRY32W,
+            TH32CS_SNAPPROCESS,
+        };
+        use windows_sys::Win32::System::Threading::{OpenProcess, PROCESS_TERMINATE};
+
+        let snapshot = unsafe { CreateToolhelp32Snapshot(TH32CS_SNAPPROCESS, 0) };
+        assert!(snapshot != windows_sys::Win32::Foundation::INVALID_HANDLE_VALUE);
+
+        let mut entry: PROCESSENTRY32W = unsafe { std::mem::zeroed() };
+        entry.dwSize = std::mem::size_of::<PROCESSENTRY32W>() as u32;
+
+        let mut denied_pid = None;
+        if unsafe { Process32FirstW(snapshot, &mut entry) } != 0 {
+            loop {
+                let pid = entry.th32ProcessID;
+                if pid > 4 {
+                    let handle = unsafe { OpenProcess(PROCESS_TERMINATE, 0, pid) };
+                    if handle.is_null() {
+                        let err = unsafe { GetLastError() };
+                        if err == ERROR_ACCESS_DENIED {
+                            denied_pid = Some(pid);
+                            break;
+                        }
+                    } else {
+                        unsafe {
+                            windows_sys::Win32::Foundation::CloseHandle(handle);
+                        }
+                    }
+                }
+                if unsafe { Process32NextW(snapshot, &mut entry) } == 0 {
+                    break;
+                }
+            }
+        }
+        unsafe {
+            windows_sys::Win32::Foundation::CloseHandle(snapshot);
+        }
+
+        let Some(target_pid) = denied_pid else {
+            // In an environment where all processes can be terminated (unlikely), skip.
+            return;
+        };
+
+        // Verifying terminate_windows_process_tree directly for root_pid of the denied process:
+        // A synthetic parent PID that owns target_pid, or calling terminate_windows_process_tree
+        // on the parent of target_pid will attempt to terminate target_pid and fail.
+        // Even simpler: test that terminating a tree containing target_pid propagates Err.
+        let result = crate::tools::terminate_windows_process_tree_for_test(target_pid);
+        assert!(
+            result.is_err(),
+            "tree termination must fail when a live descendant cannot be terminated: {:?}",
+            result
+        );
+        let err_msg = result.unwrap_err();
+        assert!(
+            err_msg.contains("OpenProcess failed") || err_msg.contains("TerminateProcess failed"),
+            "unexpected error message: {err_msg}"
+        );
+    }
 }
