@@ -318,6 +318,39 @@ describe("classifyAgentError", () => {
     });
   });
 
+  // Spending, credit, billing, and disk quotas do not recover by backing off.
+  // A bare "quota" match used to mark them PROVIDER_RATE_LIMITED and retriable.
+  it.each([
+    "Your organization has exceeded its monthly spending quota",
+    "Your credit quota is exhausted. Please top up.",
+    "Billing quota exceeded for this project",
+    "disk quota exceeded",
+  ])("does not retry exhausted account or disk quota: %s", (message) => {
+    const classified = classifyAgentError(new Error(message));
+    expect(classified).not.toMatchObject({
+      code: "PROVIDER_RATE_LIMITED",
+      retriable: true,
+    });
+    expect(classified).toMatchObject({
+      code: "PROVIDER_ERROR",
+      retriable: false,
+    });
+  });
+
+  it.each([
+    "Rate limit exceeded",
+    "insufficient_quota",
+    "Too many requests",
+    "quota exceeded",
+    "insufficient_quota: You exceeded your current quota, please check your plan and billing details.",
+    "insufficient_quota: Billing quota exceeded",
+  ])("keeps throughput quota wording retryable: %s", (message) => {
+    expect(classifyAgentError(new Error(message))).toMatchObject({
+      code: "PROVIDER_RATE_LIMITED",
+      retriable: true,
+    });
+  });
+
   it("keeps context checkpoint failures distinct from provider failures", () => {
     expect(
       classifyAgentError(

@@ -36,8 +36,27 @@ const CONTEXT_PATTERN =
  * reports its tokens-per-minute throttle as "Throttling error: Too many tokens,
  * please wait before trying again.", which `CONTEXT_PATTERN` would otherwise
  * read as an overflow (pi-ai's `isContextOverflow` excludes it the same way).
+ *
+ * A bare `quota` must not be included. It also matches account and filesystem
+ * exhaustion ("monthly spending quota", "credit quota is exhausted", "Billing
+ * quota exceeded", "disk quota exceeded"). Those failures do not recover by
+ * backing off, but `/quota/` classified them as `PROVIDER_RATE_LIMITED` and
+ * the runtime retried them up to about ten times. Throughput quotas stay
+ * here: `insufficient_quota`, plus `quota exceeded` after
+ * `EXHAUSTED_QUOTA_PATTERN` has taken the account and disk phrases.
  */
-const RATE_LIMIT_PATTERN = /rate.?limit|too many requests|quota|overloaded|throttl/i;
+const RATE_LIMIT_PATTERN =
+  /rate.?limit|too many requests|insufficient_quota|quota.?exceeded|overloaded|throttl/i;
+
+/**
+ * Spending, credit, billing, and disk quotas are terminal. Checked before
+ * `RATE_LIMIT_PATTERN` so "quota exceeded" inside those phrases is not read
+ * as a throughput throttle. `insufficient_quota` does not match this
+ * pattern: the underscore is a word character, so the provider code alone
+ * is not an account or disk failure.
+ */
+const EXHAUSTED_QUOTA_PATTERN =
+  /\b(?:billing|spending|credit|disk)\s+quotas?\b/i;
 
 /**
  * Whether a provider message reports a context overflow.
@@ -530,6 +549,14 @@ export function classifyAgentError(err: unknown): ClassifiedAgentError {
 
   if (/invalid[ _]api[ _]key|api key not valid|unauthorized|authentication|permission denied/i.test(rawMessage)) {
     return result("PROVIDER_UNAUTHORIZED", false);
+  }
+  // Account and disk exhaustion cannot be repaired by the rate-limit budget.
+  // `insufficient_quota` is a throughput code and wins when both appear.
+  if (
+    EXHAUSTED_QUOTA_PATTERN.test(rawMessage) &&
+    !/insufficient_quota/i.test(rawMessage)
+  ) {
+    return result("PROVIDER_ERROR", false);
   }
   if (RATE_LIMIT_PATTERN.test(rawMessage)) {
     return result("PROVIDER_RATE_LIMITED", true);
