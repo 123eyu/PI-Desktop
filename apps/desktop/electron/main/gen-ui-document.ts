@@ -1,6 +1,8 @@
 import {
   GEN_UI_ERROR_MESSAGE,
   GEN_UI_KEY_MESSAGE,
+  GEN_UI_MAX_SCRIPT_ERROR_LENGTH,
+  GEN_UI_SCRIPT_ERROR_MESSAGE,
   GEN_UI_READY_MESSAGE,
   GEN_UI_SIZE_MESSAGE,
   GEN_UI_THEME_MESSAGE,
@@ -124,6 +126,8 @@ const RUNTIME_SCRIPT = `(() => {
   const VIEW = ${JSON.stringify(GEN_UI_VIEW_MESSAGE)};
   const READY = ${JSON.stringify(GEN_UI_READY_MESSAGE)};
   const KEY = ${JSON.stringify(GEN_UI_KEY_MESSAGE)};
+  const SCRIPT_ERROR = ${JSON.stringify(GEN_UI_SCRIPT_ERROR_MESSAGE)};
+  const MAX_ERROR = ${GEN_UI_MAX_SCRIPT_ERROR_LENGTH};
   const NAME = ${THEME_VAR_NAME.toString()};
   const MAX_VARS = ${MAX_THEME_VARS};
   const MAX_VALUE = ${MAX_THEME_VALUE_LENGTH};
@@ -152,6 +156,22 @@ const RUNTIME_SCRIPT = `(() => {
     if (event.key !== "Escape") return;
     parent.postMessage({ type: KEY, key: "Escape" }, "*");
   });
+  // A fragment script that throws usually leaves the chart blank, and the
+  // console is out of the user's reach. Report the first failure so the card
+  // can say why; later errors are typically consequences of the first.
+  let reportedError = false;
+  const reportError = (reason) => {
+    if (reportedError) return;
+    reportedError = true;
+    let message = "";
+    try {
+      message = String(reason && typeof reason === "object" && "message" in reason ? reason.message : reason);
+    } catch {}
+    message = message.replace(/\\s+/g, " ").trim().slice(0, MAX_ERROR);
+    parent.postMessage({ type: SCRIPT_ERROR, message }, "*");
+  };
+  addEventListener("error", (event) => reportError(event.error ?? event.message));
+  addEventListener("unhandledrejection", (event) => reportError(event.reason));
   addEventListener("message", (event) => {
     if (event.source !== parent) return;
     const data = event.data;

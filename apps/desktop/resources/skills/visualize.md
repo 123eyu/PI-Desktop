@@ -26,7 +26,8 @@ Read this file in full before authoring. Copy into every compaction summary:
 ## Hard rules
 
 - One `Write`, then the reply. Do not verify the fragment: no Bash or shell
-  command, no browser, no screenshot, no reading it back.
+  command, no browser, no screenshot, no reading it back. The Write result
+  checks it; if that lists problems, fix them with one `Edit`, then reply.
 - Do not open the kit, stylesheet, or helper source to look things up; the
   classes and `viz` API you need are in this skill. Anything missing goes in
   the reply, not in another tool call.

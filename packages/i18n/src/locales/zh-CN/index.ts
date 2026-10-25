@@ -664,6 +664,7 @@ export const zhCN = {
       unavailableNotFragment: "该文件是完整的 HTML 文档，而非片段。",
       unavailableRuntime: "可视化运行时不可用。",
       loadPrompt: "加载可视化",
+      scriptError: "可视化脚本运行出错，部分内容可能无法显示。",
       frameTitle: "可视化：{{title}}",
     },
     model: "模型",

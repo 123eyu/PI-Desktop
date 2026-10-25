@@ -668,6 +668,7 @@ export const tr = {
       unavailableNotFragment: "Dosya bir parça değil, tam bir HTML belgesi.",
       unavailableRuntime: "Görselleştirme çalışma zamanı kullanılamıyor.",
       loadPrompt: "Görselleştirmeyi yükle",
+      scriptError: "Bu görselleştirmenin betiği başarısız oldu; bir kısmı eksik olabilir.",
       frameTitle: "Görselleştirme: {{title}}",
     },
     model: "Model",

@@ -126,6 +126,7 @@ import {
   GEN_UI_SKILL_ID,
 } from "@pi-desktop/shared";
 import { createStreamCoalescer, type StreamCoalescer } from "./stream-coalescer.js";
+import { checkGenUiFragment, genUiFragmentCheckNote, isGenUiFragmentPath } from "./gen-ui-fragment-check.js";
 import type { RuntimeHost } from "./host-client.js";
 import { classifyAgentError } from "./agent-errors.js";
 import {
@@ -3855,6 +3856,17 @@ Do not invent objections or turn speculative risks into blockers. Stop when the 
           text = JSON.stringify(rawContent, null, 2);
         }
         if (!result.ok) this.failedHostToolCalls.add(toolCallId);
+        // A visualization fragment gets one cheap static check in its Write
+        // result, so a broken card is fixed in one Edit instead of left blank.
+        if (
+          toolName === "Write" &&
+          result.ok &&
+          typeof recordParams?.content === "string" &&
+          isGenUiFragmentPath(recordParams.path, this.visualizationsDir)
+        ) {
+          const issues = checkGenUiFragment(recordParams.content);
+          if (issues.length > 0) text += `\n${genUiFragmentCheckNote(issues)}`;
+        }
         return {
           content: [{ type: "text", text }, ...imageBlocks],
           details,

@@ -12,6 +12,7 @@
   const root = document.documentElement;
   const reducedMotion = window.matchMedia("(prefers-reduced-motion: reduce)");
   const charts = new Set();
+  const mounts = new WeakMap();
   const DEFAULT_MARGIN = { top: 16, right: 20, bottom: 48, left: 64 };
 
   const resolveElement = (target) => {
@@ -40,7 +41,17 @@
    */
   function chart(target, draw, options = {}) {
     const container = resolveElement(target);
-    const svg = d3.select(container).append("svg").attr("role", "img");
+    // Drawing again into the same container (e.g. on a button click) replaces
+    // the previous chart instead of stacking a second SVG and observer.
+    mounts.get(container)?.destroy();
+    const svg = d3
+      .select(container)
+      .append("svg")
+      .attr("role", "img")
+      // Sized by the viewBox alone so a flex or grid container can still shrink.
+      .style("display", "block")
+      .style("width", "100%")
+      .style("height", "auto");
     if (options.label) svg.attr("aria-label", options.label);
     let lastWidth = 0;
     let frame = 0;
@@ -53,7 +64,7 @@
         typeof options.height === "function"
           ? options.height(width)
           : (options.height ?? defaultHeight(width));
-      svg.attr("viewBox", `0 0 ${width} ${height}`).attr("width", width).attr("height", height);
+      svg.attr("viewBox", `0 0 ${width} ${height}`);
       if (!options.keep) svg.selectAll("*").remove();
       draw({ svg, width, height, compact: width < 480, reducedMotion: reducedMotion.matches });
     };
@@ -68,11 +79,18 @@
       svg,
       redraw: render,
       destroy() {
+        if (!charts.has(handle)) return;
         observer.disconnect();
+        if (frame) cancelAnimationFrame(frame);
+        frame = 0;
         charts.delete(handle);
+        if (mounts.get(container) === handle) mounts.delete(container);
+        svg.remove();
+        options.onDestroy?.();
       },
     };
     charts.add(handle);
+    mounts.set(container, handle);
     // First draw runs once the fragment script finishes, so state declared or
     // computed after the `viz.chart` call is ready; `redraw()` stays synchronous.
     queueMicrotask(() => {
@@ -188,7 +206,10 @@
       const group = g.append("g").attr("class", "viz-axis viz-axis-y").call(axis);
       pruneOverlaps(group.selectAll(".tick text"), 2, true);
       if (yLabel) {
-        g.append("text").attr("class", "viz-axis-title").attr("transform", "rotate(-90)").attr("x", -innerHeight / 2).attr("y", -48).attr("text-anchor", "middle").text(yLabel);
+        // Sit just outside the widest tick label so long numbers don't run into it.
+        const widest = d3.max(group.selectAll(".tick text").nodes(), (node) => node.getBBox?.().width ?? 0) ?? 0;
+        const offset = Math.max(36, Math.ceil(widest) + 16);
+        g.append("text").attr("class", "viz-axis-title").attr("transform", "rotate(-90)").attr("x", -innerHeight / 2).attr("y", -offset).attr("text-anchor", "middle").text(yLabel);
       }
       result.y = group;
     }
@@ -228,8 +249,23 @@
   // fields map to x / y / color, and the helpers derive scales, axes, legend,
   // tooltips, and value labels. Custom visuals keep using `viz.chart`.
 
+  // Date-only strings ("2025-03-14", "2025-03") are calendar dates in local
+  // time; `new Date("2025-03-14")` would read them as UTC midnight and shift
+  // every point (and its label) by the zone offset.
+  const DATE_ONLY = /^\d{4}-\d{2}(?:-\d{2})?$/;
+  const parseDay = d3.timeParse("%Y-%m-%d");
+  const parseMonth = d3.timeParse("%Y-%m");
+  const toDate = (v) => {
+    if (v instanceof Date) return v;
+    if (typeof v === "string" && DATE_ONLY.test(v)) return (v.length === 7 ? parseMonth(v) : parseDay(v)) ?? new Date(Number.NaN);
+    return new Date(v);
+  };
   const isDateLike = (v) =>
-    v instanceof Date || (typeof v === "string" && /^\d{4}-\d{2}-\d{2}/.test(v) && !Number.isNaN(Date.parse(v)));
+    v instanceof Date || (typeof v === "string" && /^\d{4}-\d{2}/.test(v) && !Number.isNaN(+toDate(v)));
+  const isMidnight = (d) => !(d.getHours() || d.getMinutes() || d.getSeconds());
+  // Whole numbers that read as years render without a thousands separator.
+  const isYearLike = (values) =>
+    values.length > 0 && values.every((v) => Number.isInteger(v) && v >= 1000 && v <= 2999);
   const keyOf = (v) => (v instanceof Date ? +v : v);
   const uniq = (values) => [...new Map(values.map((v) => [keyOf(v), v])).values()];
   const normalize = (enc) => (enc == null ? null : typeof enc === "object" ? enc : { field: enc });
@@ -255,21 +291,26 @@
     const enc = normalize(input);
     if (!enc) return null;
     const read = accessor(enc.field);
-    const type = enc.type ?? inferType(data.map(read));
-    const get = type === "time" ? (d) => new Date(read(d)) : read;
-    let tick = enc.format ? formatter(enc.format, type) : undefined;
+    const values = data.map(read);
+    const type = enc.type ?? inferType(values);
+    const get = type === "time" ? (d) => toDate(read(d)) : read;
+    const year = type === "linear" && !enc.format && isYearLike(values);
+    const format = enc.format ?? (year ? "d" : undefined);
+    let tick = format ? formatter(format, type) : undefined;
     if (!tick && type === "time") {
       // D3's default multi-scale time ticks mix "November" with "2026"; use one numeric format instead.
-      const [lo, hi] = d3.extent(data, get);
+      const dates = data.map(get).filter((d) => !Number.isNaN(+d));
+      const [lo, hi] = d3.extent(dates);
       const days = lo && hi ? (hi - lo) / 864e5 : 0;
-      tick = d3.timeFormat(days > 730 ? "%Y" : days > 60 ? "%Y-%m" : days > 2 ? "%m-%d" : "%H:%M");
+      const dateOnly = dates.length > 0 && dates.every(isMidnight);
+      tick = d3.timeFormat(days > 730 ? "%Y" : days > 60 ? "%Y-%m" : days > 2 || dateOnly ? "%m-%d" : "%H:%M");
     }
     return {
       ...enc,
       type,
       get,
       title: enc.title ?? (typeof enc.field === "string" ? enc.field : ""),
-      fmt: formatter(enc.format, type),
+      fmt: formatter(format, type),
       tick,
     };
   }
@@ -326,7 +367,7 @@
         const row = rows[index.get(keyOf(cat.get(d)))];
         if (row) row[s.seriesOf(d)] += Number(val.get(d)) || 0;
       }
-      layers = d3.stack().keys(s.keys)(rows);
+      layers = d3.stack().keys(s.keys).offset(d3.stackOffsetDiverging)(rows);
       values = layers.flatMap((layer) => layer.flatMap((p) => [p[0], p[1]]));
     }
     const v = d3.scaleLinear(val.domain ?? extent(values, (x) => x, { zero: true }), horizontal ? [0, w] : [h, 0]);
@@ -496,7 +537,7 @@
     const value = s.value;
     const [min, max] = value.domain ?? d3.extent(s.data, value.get);
     const opacity = d3.scaleLinear([min ?? 0, max ?? 1], [0.08, 1]).clamp(true);
-    axes(g, { x, y, innerWidth: w, innerHeight: h, xLabel: s.x.title, xFormat: s.x.tick, yFormat: s.y.tick });
+    axes(g, { x, y, innerWidth: w, innerHeight: h, xLabel: s.x.title, yLabel: s.y.title, xFormat: s.x.tick, yFormat: s.y.tick });
     const marks = g.append("g");
     for (const d of s.data) {
       marks
@@ -552,6 +593,14 @@
     setLegend(legend, s.keys.length > 1 && spec.mark !== "arc" ? s.keys.map((key) => ({ label: key, color: s.colorOf(key) })) : null);
     if (spec.mark === "arc") {
       s.theta = channel(spec.theta ?? spec.y ?? spec.value, data);
+      if (!s.theta) throw new Error("viz.render: mark arc needs theta (or y)");
+      // Models often name the category as `x`; without any category the
+      // slices would be labelled by index.
+      if (!color && spec.x != null) {
+        const category = channel(spec.x, data);
+        s.seriesOf = (d) => String(category.get(d));
+        s.keys = uniq(data.map(s.seriesOf));
+      }
       drawArc(svg, s, width, height, legend);
       return;
     }
@@ -562,9 +611,12 @@
       s.x = { ...s.x, type: "band" };
       s.y = { ...s.y, type: "band" };
       s.value = channel(spec.value ?? spec.color, data);
+      if (!s.value) throw new Error("viz.render: mark heatmap needs value");
     }
     const bandY = s.y.type === "band";
-    const left = bandY ? Math.min(Math.round(width * 0.35), Math.max(40, 16 + labelWidth(uniq(data.map(s.y.get)), s.y.fmt))) : undefined;
+    // Band y labels set the left margin; a heatmap also keeps room for its y title.
+    const titleRoom = spec.mark === "heatmap" && s.y.title ? 20 : 0;
+    const left = bandY ? Math.min(Math.round(width * 0.35), Math.max(40, 16 + labelWidth(uniq(data.map(s.y.get)), s.y.fmt)) + titleRoom) : undefined;
     const { g, innerWidth, innerHeight } = plot(svg, width, height, left === undefined ? {} : { left });
     if (spec.mark === "bar") drawBars(g, s, innerWidth, innerHeight, compact);
     else if (spec.mark === "heatmap") drawHeatmap(g, s, innerWidth, innerHeight, legend);
@@ -578,6 +630,8 @@
    */
   function render(target, initial) {
     const container = resolveElement(target);
+    // Tear down an earlier chart here first, so its legend goes with it.
+    mounts.get(container)?.destroy();
     let spec = { ...initial };
     const legend = document.createElement("div");
     legend.className = "viz-legend";
@@ -587,7 +641,11 @@
       typeof spec.height === "function"
         ? spec.height(width)
         : (spec.height ?? (spec.mark === "arc" ? Math.min(320, Math.max(220, width * 0.5)) : defaultHeight(width)));
-    const handle = chart(container, (ctx) => drawSpec(ctx, spec, legend), { label: spec.label ?? spec.title, height });
+    const handle = chart(container, (ctx) => drawSpec(ctx, spec, legend), {
+      label: spec.label ?? spec.title,
+      height,
+      onDestroy: () => legend.remove(),
+    });
     return {
       svg: handle.svg,
       redraw: handle.redraw,
