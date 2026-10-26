@@ -31,3 +31,24 @@ test("plugin workspace containment keeps the prefix boundary", () => {
   // Trailing separators on either side do not break the comparison.
   assert.equal(pluginWorkspaceContains("/home/dev/repo/", "/home/dev/repo/plugin"), true);
 });
+
+test("a filesystem-root workspace still contains its plugin folders", () => {
+  // Normalizing a bare root away would make it contain nothing at all, while
+  // the prefix check it replaced matched every absolute path.
+  assert.equal(pluginWorkspaceContains("/", "/tmp/plugins/example"), true);
+  assert.equal(pluginWorkspaceContains("/", "/"), true);
+  assert.equal(pluginWorkspaceContains("///", "/tmp/plugins/example"), true);
+  assert.equal(pluginWorkspaceContains("/", "tmp/plugins/example"), false);
+
+  // Drive roots keep their shape through the fold, so containment is the same
+  // test as for any other folder.
+  assert.equal(pluginWorkspaceContains("C:\\", "C:\\dev\\repo\\plugins\\p"), true);
+  assert.equal(pluginWorkspaceContains("C:/", "C:/dev/repo/plugins/p"), true);
+  assert.equal(pluginWorkspaceContains("C:/", "C:"), true);
+  assert.equal(pluginWorkspaceContains("C:/", "D:/dev/repo/plugins/p"), false);
+  // The verbatim drive root folds to the same root.
+  assert.equal(pluginWorkspaceContains("//?/C:/", "C:\\dev\\repo\\plugins\\p"), true);
+  // A root still respects the sibling boundary: nothing outranks it, but a
+  // relative path is not inside it.
+  assert.equal(pluginWorkspaceContains("C:/", "C:/dev"), true);
+});
