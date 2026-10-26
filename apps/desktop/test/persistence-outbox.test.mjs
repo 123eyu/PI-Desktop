@@ -1,4 +1,5 @@
 import assert from "node:assert/strict";
+import { spawnSync } from "node:child_process";
 import { mkdtemp, readFile, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
@@ -604,4 +605,104 @@ test("mutation waits for active append and refuses a backed-off target without d
   await assert.rejects(outbox.prepareSessionMutation("s", () => host), (error) => error.errorCode === "HOST_UNAVAILABLE");
   const stored = JSON.parse(await readFile(join(dir, "session-message-outbox.json"), "utf8"));
   assert.equal(stored[0].message.id, "m");
+});
+
+
+for (const failure of ["PERMISSION_DENIED: invalid provenance", "FOREIGN KEY constraint failed"]) {
+  test(`strict mutation preserves a pending append rejected with ${failure}`, async () => {
+    const dir = await mkdtemp(join(tmpdir(), "pi-outbox-strict-reject-"));
+    const outbox = new PersistenceOutbox(dir, silent);
+    const entry = { key: "message:s:m", sessionId: "s", message: { id: "m", content: "must survive" } };
+    let started;
+    let release;
+    const called = new Promise((resolve) => { started = resolve; });
+    const blocked = new Promise((resolve) => { release = resolve; });
+    const host = mockHost(async () => { started(); await blocked; throw new Error(failure); });
+    await outbox.enqueue(entry, () => host);
+    await called;
+    const preparing = assert.rejects(outbox.prepareSessionMutation("s", () => host), (error) => error.errorCode === "HOST_UNAVAILABLE");
+    release();
+    await preparing;
+    assert.equal(outbox.size(), 1);
+    assert.deepEqual(JSON.parse(await readFile(join(dir, "session-message-outbox.json"), "utf8")), [entry]);
+    // The old non-mutation flush policy still owns permanent-error disposal.
+    await outbox.flush(() => host);
+    assert.equal(outbox.size(), 0);
+  });
+}
+
+test("strict mutation retains the fifth transient failure instead of quarantining it", async () => {
+  const dir = await mkdtemp(join(tmpdir(), "pi-outbox-strict-quarantine-"));
+  const now = { value: 0 };
+  const outbox = new PersistenceOutbox(dir, silent, { now: () => now.value });
+  const entry = { key: "message:s:m", sessionId: "s", message: { id: "m", content: "must survive" } };
+  let attempts = 0;
+  const host = mockHost(async () => { attempts++; throw new Error("unclassified refusal"); });
+  await outbox.enqueue(entry, () => host);
+  await outbox.flush(() => host);
+  for (let attempt = 1; attempt < 4; attempt++) {
+    now.value += 60_000;
+    await outbox.flush(() => host);
+  }
+  assert.equal(attempts, 4);
+  now.value += 60_000;
+  await assert.rejects(outbox.prepareSessionMutation("s", () => host), (error) => error.errorCode === "HOST_UNAVAILABLE");
+  assert.equal(attempts, 5);
+  assert.equal(outbox.size(), 1);
+  assert.deepEqual(JSON.parse(await readFile(join(dir, "session-message-outbox.json"), "utf8")), [entry]);
+  await assert.rejects(readFile(join(dir, DEAD_LETTER_FILE)), (error) => error.code === "ENOENT");
+});
+
+test("concurrent strict drains preserve all target sessions across an active normal flush", async () => {
+  const dir = await mkdtemp(join(tmpdir(), "pi-outbox-strict-concurrent-"));
+  const outbox = new PersistenceOutbox(dir, silent);
+  const entries = ["a", "b"].map((sessionId) => ({ key: `message:${sessionId}:m`, sessionId, message: { id: sessionId } }));
+  for (const entry of entries) await outbox.enqueue(entry, () => null);
+  let started;
+  let release;
+  let calls = 0;
+  const called = new Promise((resolve) => { started = resolve; });
+  const blocked = new Promise((resolve) => { release = resolve; });
+  const host = mockHost(async () => { calls++; started(); await blocked; throw new Error("PERMISSION_DENIED: refusal"); });
+  const ordinary = outbox.flush(() => host);
+  await called;
+  const preparing = entries.map((entry) => assert.rejects(outbox.prepareSessionMutation(entry.sessionId, () => host), (error) => error.errorCode === "HOST_UNAVAILABLE"));
+  release();
+  await Promise.all([ordinary, ...preparing]);
+  assert.equal(calls, 1, "strict drain never retries the refused append or advances past it");
+  assert.equal(outbox.size(), 2);
+  assert.deepEqual(JSON.parse(await readFile(join(dir, "session-message-outbox.json"), "utf8")), entries);
+});
+
+test("strict mutation accepts duplicate message IDs as durable acknowledgements", async () => {
+  const dir = await mkdtemp(join(tmpdir(), "pi-outbox-strict-duplicate-"));
+  const outbox = new PersistenceOutbox(dir, silent);
+  await outbox.enqueue({ key: "message:s:m", sessionId: "s", message: { id: "m" } }, () => null);
+  await outbox.prepareSessionMutation("s", () => mockHost(async () => { throw new Error("UNIQUE constraint failed: messages.id"); }));
+  assert.equal(outbox.size(), 0);
+});
+
+test("delayed consumption of a rejected outbox load stays observed and fails closed", async () => {
+  const dir = await mkdtemp(join(tmpdir(), "pi-outbox-load-observer-"));
+  await writeFile(join(dir, "session-message-outbox.json"), "invalid JSON");
+  const moduleUrl = new URL("../electron/main/persistence-outbox.ts", import.meta.url).href;
+  const source = `
+    import assert from "node:assert/strict";
+    import { PersistenceOutbox } from ${JSON.stringify(moduleUrl)};
+    const unhandled = [];
+    process.on("unhandledRejection", (error) => unhandled.push(String(error)));
+    let loaded;
+    const loadReported = new Promise((resolve) => { loaded = resolve; });
+    const logs = [];
+    const outbox = new PersistenceOutbox(${JSON.stringify(dir)}, (level, message) => { logs.push({ level, message }); loaded(); });
+    await loadReported;
+    await new Promise(setImmediate);
+    await new Promise(setImmediate);
+    assert.deepEqual(unhandled, [], "constructor must observe load rejection before a later caller awaits it");
+    assert.ok(logs.some((entry) => entry.level === "error"), "load rejection remains observable");
+    await assert.rejects(outbox.flush(() => null), SyntaxError);
+    await assert.rejects(outbox.enqueue({ key: "new", sessionId: "s", message: { id: "new" } }, () => null), SyntaxError);
+  `;
+  const child = spawnSync(process.execPath, ["--input-type=module", "-e", source], { encoding: "utf8" });
+  assert.equal(child.status, 0, child.stderr || child.stdout);
 });

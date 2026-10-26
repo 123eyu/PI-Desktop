@@ -61,6 +61,7 @@ export class PersistenceOutbox {
   private entries: MessageAppend[] = [];
   private deadLetters: QuarantinedAppend[] = [];
   private flushing: Promise<void> | null = null;
+  private readonly mutationDrains = new Map<string, number>();
   private persistChain = Promise.resolve();
   private headRetry: {
     entry: MessageAppend;
@@ -79,6 +80,10 @@ export class PersistenceOutbox {
     this.now = options.now ?? Date.now;
     this.maxDeadLetters = options.maxDeadLetters ?? MAX_DEAD_LETTERS;
     this.loaded = this.load();
+    // Observe startup failures immediately while preserving rejection for every caller.
+    void this.loaded.catch((error: unknown) => {
+      this.logger("error", "session persistence outbox recovery failed", String(error));
+    });
   }
 
   async enqueue(
@@ -150,11 +155,20 @@ export class PersistenceOutbox {
     sessionId: string,
     getHost: () => HostProcess | null,
   ): Promise<void> {
-    await this.flush(getHost);
-    if (this.entries.some((entry) => entry.sessionId === sessionId)) {
-      throw Object.assign(new Error("Session mutation requires pending transcript appends to reach the host"), {
-        errorCode: ErrorCodes.HOST_UNAVAILABLE,
-      });
+    // Register before awaiting an existing flush so its in-flight failure cannot
+    // discard a target append while this caller waits for a durable acknowledgement.
+    this.mutationDrains.set(sessionId, (this.mutationDrains.get(sessionId) ?? 0) + 1);
+    try {
+      await this.flush(getHost);
+      if (this.entries.some((entry) => entry.sessionId === sessionId)) {
+        throw Object.assign(new Error("Session mutation requires pending transcript appends to reach the host"), {
+          errorCode: ErrorCodes.HOST_UNAVAILABLE,
+        });
+      }
+    } finally {
+      const remaining = (this.mutationDrains.get(sessionId) ?? 1) - 1;
+      if (remaining) this.mutationDrains.set(sessionId, remaining);
+      else this.mutationDrains.delete(sessionId);
     }
   }
 
@@ -184,6 +198,14 @@ export class PersistenceOutbox {
           turnId: current.turnId,
         });
       } catch (error) {
+        if (this.mutationDrains.has(current.sessionId) && !isDuplicateMessageIdError(error)) {
+          this.logger("warn", "session persistence mutation drain paused", {
+            key: current.key,
+            sessionId: current.sessionId,
+            data: String(error),
+          });
+          return;
+        }
         // A duplicate message id means the host already has the row; drop it
         // and keep draining (D318/#560).
         if (isDuplicateMessageIdError(error)) {
