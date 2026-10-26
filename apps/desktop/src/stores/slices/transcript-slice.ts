@@ -53,6 +53,9 @@ export function createTranscriptSlice({
   | "rollbackWorkspaceChange"
   | "abort"
 > {
+  // Keep each delete's read/optimistic update/Host result together. Main's
+  // mutation lock alone cannot prevent a second renderer read of old history.
+  const pendingMessageDeletes = new Map<string, Promise<void>>();
   const canEdit = () => {
     const state = get();
     return sessionAllows(state.sessions.find((session) => session.id === state.activeSessionId)
@@ -360,72 +363,85 @@ export function createTranscriptSlice({
       if (!canEdit()) return;
       const sessionId = get().activeSessionId;
       if (!sessionId || get().isRunning) return;
-      const fullMessages = await runtime.loadFullSessionMessages(sessionId);
-      // Re-read the store after the reload: writes that landed during the
-      // await (an aborted turn's final message_end, a late tool_end) exist
-      // only here, so merging the pre-await snapshot would erase them
-      // (#1614) — the same post-await read abort() below relies on. A turn
-      // that started during the reload also bails: no rewrite under a live
-      // stream.
-      if (
-        !fullMessages ||
-        get().activeSessionId !== sessionId ||
-        get().isRunning
-      ) {
-        return;
-      }
-      const merged = mergeLiveSessionMessages(fullMessages, get().messages);
-      set((current) =>
-        current.activeSessionId === sessionId
-          ? {
-              messages: merged,
-              sessionHistory: {
-                ...current.sessionHistory,
-                [sessionId]: { messageStart: 0, hasMoreBefore: false },
-              },
-            }
-          : {},
-      );
-      const state = get();
-      const index = state.messages.findIndex((message) => message.id === messageId);
-      if (index < 0) return;
-      const target = state.messages[index];
-      let end = index + 1;
-      if (target.role === "user") {
-        while (
-          end < state.messages.length &&
-          state.messages[end].role !== "user"
-        ) {
-          end += 1;
-        }
-      }
-      const previous = state.messages;
-      const next = [...previous.slice(0, index), ...previous.slice(end)];
-      const fullWindow = { messageStart: 0, hasMoreBefore: false };
-      runtime.cacheSessionTranscript(sessionId, next, fullWindow);
-      set((current) => ({
-        messages: next,
-        sessionHistory: { ...current.sessionHistory, [sessionId]: fullWindow },
-        error: null,
-        errorCode: null,
-      }));
+      const previousDelete = pendingMessageDeletes.get(sessionId);
+      let releaseDelete!: () => void;
+      const completion = new Promise<void>((resolve) => { releaseDelete = resolve; });
+      pendingMessageDeletes.set(sessionId, completion);
       try {
-        await api.deleteSessionMessage({ sessionId, messageId });
-      } catch (error) {
-        const current = get();
-        const rollback = mergeLiveSessionMessages(
-          previous,
+        await previousDelete;
+        if (get().activeSessionId !== sessionId || get().isRunning || !canEdit()) return;
+        const fullMessages = await runtime.loadFullSessionMessages(sessionId);
+        // Re-read the store after the reload: writes that landed during the
+        // await (an aborted turn's final message_end, a late tool_end) exist
+        // only here, so merging the pre-await snapshot would erase them
+        // (#1614) — the same post-await read abort() below relies on. A turn
+        // that started during the reload also bails: no rewrite under a live
+        // stream.
+        if (
+          !fullMessages ||
+          get().activeSessionId !== sessionId ||
+          get().isRunning
+        ) {
+          return;
+        }
+        const merged = mergeLiveSessionMessages(fullMessages, get().messages);
+        set((current) =>
           current.activeSessionId === sessionId
-            ? current.messages
-            : runtime.sessionTranscriptCache.get(sessionId) ?? [],
+            ? {
+                messages: merged,
+                sessionHistory: {
+                  ...current.sessionHistory,
+                  [sessionId]: { messageStart: 0, hasMoreBefore: false },
+                },
+              }
+            : {},
         );
-        runtime.cacheSessionTranscript(sessionId, rollback, fullWindow);
+        const state = get();
+        const index = state.messages.findIndex((message) => message.id === messageId);
+        if (index < 0) return;
+        const target = state.messages[index];
+        let end = index + 1;
+        if (target.role === "user") {
+          while (
+            end < state.messages.length &&
+            state.messages[end].role !== "user"
+          ) {
+            end += 1;
+          }
+        }
+        const previous = state.messages;
+        const next = [...previous.slice(0, index), ...previous.slice(end)];
+        const fullWindow = { messageStart: 0, hasMoreBefore: false };
+        runtime.cacheSessionTranscript(sessionId, next, fullWindow);
         set((current) => ({
-          messages:
-            current.activeSessionId === sessionId ? rollback : current.messages,
-          error: error instanceof Error ? error.message : String(error),
-          errorCode: (error as { code?: string })?.code ?? null,
+          messages: next,
+          sessionHistory: { ...current.sessionHistory, [sessionId]: fullWindow },
+          error: null,
+          errorCode: null,
         }));
+        try {
+          await api.deleteSessionMessage({ sessionId, messageId });
+        } catch (error) {
+          const current = get();
+          const rollback = mergeLiveSessionMessages(
+            previous,
+            current.activeSessionId === sessionId
+              ? current.messages
+              : runtime.sessionTranscriptCache.get(sessionId) ?? [],
+          );
+          runtime.cacheSessionTranscript(sessionId, rollback, fullWindow);
+          set((current) => ({
+            messages:
+              current.activeSessionId === sessionId ? rollback : current.messages,
+            error: error instanceof Error ? error.message : String(error),
+            errorCode: (error as { code?: string })?.code ?? null,
+          }));
+        }
+      } finally {
+        releaseDelete();
+        if (pendingMessageDeletes.get(sessionId) === completion) {
+          pendingMessageDeletes.delete(sessionId);
+        }
       }
     },
 

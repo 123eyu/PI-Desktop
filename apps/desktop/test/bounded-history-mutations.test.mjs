@@ -222,3 +222,75 @@ test("a completed smart stop updates its own cache and restores its session draf
   assert.equal(h.state().composerPrefill?.sessionId, "s");
   assert.equal(h.state().composerPrefill?.text, "second");
 });
+
+function deferred() {
+  let resolve;
+  const promise = new Promise((res) => { resolve = res; });
+  return { promise, resolve };
+}
+
+for (const firstFails of [false, true]) {
+  test(`consecutive deletes serialize their reads and release the session queue after ${firstFails ? "failure" : "success"}`, async () => {
+    const firstStarted = deferred();
+    const firstResponse = deferred();
+    let durable = [...previous];
+    let loads = 0;
+    const calls = [];
+    let h;
+    h = harness({ runtime: { loadFullSessionMessages: async () => { loads++; return [...durable]; } }, api: {
+      deleteSessionMessage: async (input) => {
+        calls.push(input);
+        if (input.messageId === "u1") {
+          firstStarted.resolve();
+          await firstResponse.promise;
+          if (firstFails) throw new Error("first delete failed");
+          durable = durable.filter((message) => ["u2", "a2", "u3", "late"].includes(message.id));
+        } else {
+          durable = durable.filter((message) => !["u2", "a2"].includes(message.id));
+        }
+        return { ok: true, deleted: true };
+      },
+    } });
+    const first = h.actions.deleteMessage("u1");
+    await firstStarted.promise;
+    const second = h.actions.deleteMessage("u2");
+    // A callback from the surviving turn arrives while the first request waits.
+    const late = [row("u3", "user"), row("late", "assistant")];
+    durable = [...durable, ...late];
+    h.update({ messages: [...h.state().messages, ...late] });
+    assert.equal(loads, 1, "the second delete cannot reload pre-mutation durable history");
+    firstResponse.resolve();
+    await Promise.all([first, second]);
+    assert.deepEqual(calls, [{ sessionId: "s", messageId: "u1" }, { sessionId: "s", messageId: "u2" }]);
+    assert.deepEqual(h.state().messages.map((message) => message.id), firstFails ? ["u1", "t1", "a1", "u3", "late"] : ["u3", "late"]);
+    assert.deepEqual(h.state().messages, durable);
+  });
+}
+
+test("a queued delete cannot switch to a different active session and releases its queue", async () => {
+  const firstStarted = deferred();
+  const firstResponse = deferred();
+  let durable = [...previous];
+  const calls = [];
+  let h;
+  h = harness({ runtime: { loadFullSessionMessages: async () => [...durable] }, api: {
+    deleteSessionMessage: async (input) => {
+      calls.push(input);
+      if (input.messageId === "u1") { firstStarted.resolve(); await firstResponse.promise; }
+      durable = durable.filter((message) => input.messageId === "u1" ? ["u2", "a2"].includes(message.id) : !["u2", "a2"].includes(message.id));
+      return { ok: true, deleted: true };
+    },
+  } });
+  const first = h.actions.deleteMessage("u1");
+  await firstStarted.promise;
+  const queued = h.actions.deleteMessage("u2");
+  h.update({ activeSessionId: "other", messages: [row("other", "user")] });
+  firstResponse.resolve();
+  await Promise.all([first, queued]);
+  assert.deepEqual(calls, [{ sessionId: "s", messageId: "u1" }]);
+  assert.equal(h.state().messages[0].id, "other");
+  h.update({ activeSessionId: "s", messages: [...durable] });
+  await h.actions.deleteMessage("u2");
+  assert.deepEqual(calls.at(-1), { sessionId: "s", messageId: "u2" });
+  assert.deepEqual(h.state().messages, []);
+});
