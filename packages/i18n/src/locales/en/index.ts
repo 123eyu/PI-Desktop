@@ -325,6 +325,7 @@ export const en = {
     sessionMissing: "That session no longer exists",
   },
   chat: {
+    promptRetractionFailed: "Could not safely restore the draft. Your conversation has been preserved.",
     tableActions: "Table actions",
     markdownPlainTextFallback: "Large response shown as plain text to keep the conversation responsive.",
     largeTextPageControls: "Large output pages",

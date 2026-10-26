@@ -318,6 +318,7 @@ export const es = {
     sessionMissing: "Esa sesión ya no existe",
   },
   "chat": {
+    promptRetractionFailed: "No se pudo restaurar el borrador de forma segura. Se ha conservado la conversación.",
     "tableActions": "Acciones de tabla",
     "markdownPlainTextFallback": "La respuesta extensa se muestra como texto sin formato para mantener la fluidez.",
     "largeTextPageControls": "Páginas de la salida extensa",

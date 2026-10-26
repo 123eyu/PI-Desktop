@@ -327,6 +327,7 @@ export const ko = {
     sessionMissing: "해당 세션이 더 이상 존재하지 않습니다",
   },
   chat: {
+    promptRetractionFailed: "초안을 안전하게 복원하지 못했습니다. 대화 내용은 보존되었습니다.",
     tableActions: "표 작업",
     markdownPlainTextFallback: "긴 응답은 화면의 반응성을 유지하기 위해 일반 텍스트로 표시됩니다.",
     largeTextPageControls: "대용량 출력 페이지",

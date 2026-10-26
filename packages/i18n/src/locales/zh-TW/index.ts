@@ -320,6 +320,7 @@ export const zhTW = {
     sessionMissing: "該對話已不存在",
   },
   chat: {
+    promptRetractionFailed: "無法安全恢復草稿。對話內容已保留。",
     tableActions: "表格操作",
     markdownPlainTextFallback: "內容較長，為維持介面回應速度，現以純文字顯示。",
     largeTextPageControls: "大型輸出分頁",

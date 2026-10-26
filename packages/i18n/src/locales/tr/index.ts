@@ -327,6 +327,7 @@ export const tr = {
     sessionMissing: "Bu oturum artık mevcut değil",
   },
   chat: {
+    promptRetractionFailed: "Taslak güvenli biçimde geri yüklenemedi. Konuşmanız korundu.",
     tableActions: "Tablo işlemleri",
     markdownPlainTextFallback: "Büyük yanıtlar arayüzün duyarlı kalması için düz metin olarak gösterilir.",
     largeTextPageControls: "Büyük çıktı sayfaları",
