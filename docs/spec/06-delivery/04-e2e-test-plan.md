@@ -4779,13 +4779,16 @@ window; opening a normal panel afterward must still work.
   context. 2) Open two distinct file artifacts, the same first file again,
   a URL preview, and a completed Bash row. 3) Verify the header is a tablist:
   open enough tabs to overflow it, confirm only the strip scrolls and the `+`
-  trigger stays visible, activate the scrolled-away tab, and close tabs with
-  hover/focus `×` and middle-click. Drag a tab across another tab and verify
-  the before/after drop indicator, resulting order, and unchanged active tab;
-  hold a drag at each strip edge until hidden tabs scroll into view, then verify
-  the indicator follows the newly visible targets. Repeat with
-  `Alt+ArrowLeft`/`Alt+ArrowRight`. With only one or two tabs, drag unused
-  header space to move the native window; tab and action clicks must still
+  trigger stays visible, and activate the scrolled-away tab. Right-click an
+  inactive tab and choose Close Other Tabs; verify the pointed-to tab remains
+  and becomes active, and that the action is disabled with one tab. Reopen
+  multiple artifacts, then right-click and choose Close All Tabs; confirm the
+  panel remains open on the New launcher. Reopen resources before checking
+  hover/focus `×`, middle-click, drag reorder, insertion indicators, and edge
+  auto-scroll. Open a tab menu with Shift+F10, navigate its items with arrows,
+  and press Escape to leave the tabs unchanged. With only one or two tabs, drag
+  unused header space to move the native window; tab and action clicks must
+  still work without moving it.
   work without moving it. 4) Click `+` twice and verify each click
   creates and activates a separate New launcher tab. Confirm the launcher body
   contains Review plus each in-scope plugin view exactly once as clickable rows;
@@ -4830,17 +4833,22 @@ window; opening a normal panel afterward must still work.
   opacity/slide, so MainChat reflows continuously without a pre-animation jump.
   Opening the panel, collapsing it, or committing a divider resize updates the
   presentation without a native-window jump. The header is a horizontally
+  Opening the panel, collapsing it, or committing a divider resize updates the
+  presentation without a native-window jump. The header is a horizontally
   scrollable tablist with stable `92px–180px` tabs, visible spacing, and a
   fixed `+`; labels stay readable instead of shrinking into one cluster, the
   strip alone scrolls, active tabs scroll into view, and close selects the
-  right neighbor then left. New launcher tabs expose Review and in-scope plugin
-  views as body buttons, with no popup to overlap or shift the panel. Dragging a
-  tab shows a before/after insertion indicator, edge-holding scrolls the strip
-  toward hidden tabs, and reorders only the tab array; the active resource stays
-  active. `Alt+ArrowLeft`/`Alt+ArrowRight` provides the same reorder path from
-  the focused tab. Clicking a launcher row replaces
-  that New tab with the destination or activates its existing singleton.
-  Closing the last tab leaves the panel open on New. Collapse
+  right neighbor then left. A localized, keyboard-navigable tab context menu
+  offers Close Tab, Close Other Tabs, and Close All Tabs. Close Other Tabs
+  retains and activates its target and is disabled for one tab; Close All Tabs
+  closes Browser resources and leaves the panel open on New. New launcher tabs
+  expose Review and in-scope plugin views as body buttons, with no popup to
+  overlap or shift the panel. Dragging a tab shows a before/after insertion
+  indicator, edge-holding scrolls the strip toward hidden tabs, and reorders
+  only the tab array; the active resource stays active. `Alt+ArrowLeft`/
+  `Alt+ArrowRight` provides the same reorder path from the focused tab. Clicking
+  a launcher row replaces that New tab with the destination or activates its
+  existing singleton.
   retains runtime tabs but hides the panel until another artifact reopens it.
   Width follows the shared three-column budget with no fixed pixel cap and
   previews its current/minimum/maximum values through the panel separator. The
@@ -4872,7 +4880,9 @@ window; opening a normal panel afterward must still work.
 - **Milestone**: M5
 - **Status**: Unit-covered (`work-panel-resize.test.mjs`,
   `work-panel-window.test.mjs`, `work-panel-presentation.test.mjs`,
-  `work-panel.test.mjs`); full UI scenario Draft
+  `work-panel-tabs.test.mjs`, `browser-tab-restore.test.mjs`,
+  `work-panel.test.mjs`); isolated Electron context-menu user path and close
+  geometry in `scripts/e2e-work-panel-tab-close.mjs`; full UI scenario Draft
 
 #### E2E-057: Message-owned review history survives commits and rolls back safely
 

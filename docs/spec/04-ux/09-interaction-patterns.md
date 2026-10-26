@@ -570,6 +570,10 @@ may be retained while exactly one workspace supplies the visible shell context.
   then the left. Selecting a launcher row replaces that New tab with the
   destination or activates its existing singleton. Shortcut labels appear only
   for bindings that actually exist.
+- Right-clicking a tab or invoking the context-menu key on the focused tab opens
+  Close Tab, Close Other Tabs, and Close All Tabs. Close Other Tabs activates the
+  targeted tab and closes every other tab; it is disabled for a single tab.
+  Close All Tabs closes Browser resources and leaves the panel open on New.
 - Activating a tool that is already open activates its existing resource instead
   of replacing it, so Browser keeps its URL and Files its selection (D173).
 - Every resource can be closed from its tab. Closing the active resource selects
