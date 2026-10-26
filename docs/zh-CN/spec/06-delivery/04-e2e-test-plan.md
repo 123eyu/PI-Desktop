@@ -489,7 +489,7 @@ task-candidate E2E 从请求工作树运行，但使用主工作区已经准备�
 
 - **前提条件**：已配置一个 Base URL 不含 `deepseek.com` 的 OpenAI 兼容提供商，模型 ID 属于 DeepSeek 系（例如硅基流动 `deepseek-ai/DeepSeek-V3.2`），并开启思考模式。
 - **步骤**：1) 在思考模式下开始会话。2) 完成若干回合，其中至少一条助手回复没有思考文本。3) 再发一条提示，使历史被回放到提供商。
-- **预期**：后续 Completions 请求的每条 assistant 消息都带推理字段。官方 `api.deepseek.com` 行对无思考内容的回合仍可使用 `""`。非官方 DeepSeek 系中转在可用时回传保留的真实思考，否则使用 ADR 0256 文档化的非空占位符——压缩后不得静默回填空串。请求不会携带通用 OpenAI 的 `reasoning_effort` 字段，因为 DeepSeek 端点不接受它；已选的思考模式仍按端点自身线路发送。不会仅因模型 ID 含 `"deepseek"` 就把 `thinkingFormat` 改成 `"deepseek"`。官方 `api.deepseek.com` 行仍使用 pi-ai 按 URL 检测的 DeepSeek `thinkingFormat`。
+- **预期**：后续 Completions 请求的每条 assistant 消息都带推理字段。官方 `api.deepseek.com` 行对无思考内容的回合仍可使用 `""`。非官方 DeepSeek 系中转在可用时回传保留的真实思考，否则使用 ADR 0256 文档化的非空占位符——压缩后不得静默回填空串。中转请求不携带通用 OpenAI 的 `reasoning_effort` 字段，因为有中转被报告拒绝它（#1664）；官方 `api.deepseek.com` 请求同时发送 `thinking: {type: "enabled"}` 与所选的 `reasoning_effort`（#1821）。不会仅因模型 ID 含 `"deepseek"` 就把 `thinkingFormat` 改成 `"deepseek"`。官方 `api.deepseek.com` 行仍使用 pi-ai 按 URL 检测的 DeepSeek `thinkingFormat`。
 - **链接规格**：`03-runtime/11-provider-model-system.md`、
   `03-runtime/12-provider-config-schema.md`
 - **验收**：B（提供商 Completions 兼容）
@@ -9951,6 +9951,10 @@ host-created files. The full app's file-preview viewer is covered separately.
 可选参数 `<built-file-manager-directory>` 可选择配套插件重新构建的 `views/` 或官方
 PluginPack 产物的解包目录，仅用于开发验证。验收 #1711 前需更新内置正式版本、
 上游标签与提交及各文件校验值，再对更新后的 PR 集成候选运行默认路径。
+
+开发集成可在实际内置目录验证 Desktop 热修复，并在 `UPSTREAM.md` 中如实记录固定
+源码提交、本地补丁和产物校验值。热修复路径通过，不代表配套上游正式发布或维护者
+最终验收已经完成。
 `PI_FILE_MANAGER_QA_DIR` 可指向已有、提供 Playwright 的插件 `tests/electron` 环境；
 `PI_ELECTRON_BINARY` 选择兼容的已有 Electron；`PI_E2E_ARTIFACTS` 可保留截图。
 
@@ -9959,3 +9963,21 @@ PluginPack 产物的解包目录，仅用于开发验证。验收 #1711 前需�
 检查嵌套目录、文本/图片、凭据隐藏、编辑器/保存/菜单只读、断线错误和刷新恢复，
 以及切换项目后拒绝延迟预览和祖先打开请求，并恢复本地编辑、Browser 和编辑器探测。
 不使用模型、用户 profile 或外部 SSH；真实 SSH 及 Windows/Linux 原生行为需另行平台验收。
+
+#### E2E-PROVIDER-reasoning-effort-override: Preserve an explicit gateway reasoning parameter
+
+- **Setup:** A custom Chat Completions provider with a DeepSeek-family model;
+  start with a legacy binding that omits `supportsReasoningEffort`.
+- **Steps:** In English, Chinese and German at 850/1000/1400px widths, open model settings, confirm Auto, select
+  Send, save and reopen; repeat for Do not send and Auto. Switch to Responses
+  and Anthropic and confirm the Completions-only control is hidden.
+- **Expected:** Each saved binding retains true, false, or null respectively.
+  With High selected, the real Completions adapter sends `reasoning_effort: high`
+  only when enabled; Auto keeps the existing DeepSeek compatibility default.
+  Responses continues using its own reasoning contract. Provider creation,
+  update/read, copying, and sync preserve the explicit override.
+- **Automation:** `node scripts/e2e-provider-api-style.mjs --reasoning-effort` exercises real
+  React/Chromium controls and captures the Host API payload (the IPC boundary is
+  stubbed). Rust provider tests independently verify real SQLite persistence;
+  `provider-reasoning-effort.test.ts` captures requests from the real pi-ai
+  adapter with fixture SSE responses. No live gateway credentials are required.

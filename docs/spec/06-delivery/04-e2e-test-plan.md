@@ -1255,7 +1255,7 @@ identify the platform validation still needed.
 #### E2E-005: Add a provider and save API key
 
 - **Preconditions**: App running; no provider configured; the models.dev snapshot ships with the build.
-- **Steps**: 1) Open Settings → Model configuration and choose Add provider. 2) Confirm the searchable service chooser opens. Filter and select a built-in API-key service or **Custom endpoint**; the selection must open its matching form, never the plugin-only “selected service unavailable” state. Confirm the form has no stepper or Next/Back buttons. For **Custom endpoint**, Name and Base URL appear on one row with no helper paragraph under the URL (placeholder only), API Key and API format appear side by side on the next row (not behind Advanced), and a focused field plus its 2px accent ring stays fully inside the dialog, including on a window narrower than 1040px. The custom form's **No API key required** switch starts off; enabling it clears and disables the key field. 3) Enter a name and a base URL for a service that publishes a `/models` route, then paste an API key. Confirm the models section fills with the models THAT SERVICE returned without requiring a key for discovery; confirm a model the deployment does not host is absent. Also exercise the no-auth path with a custom endpoint: leave the key empty, enable **No API key required**, select a discovered model, and save. 4) Type in the filter box and confirm the list narrows client-side with no network request per keystroke. 5) Confirm each row shows the models.dev-derived context/output for models the catalog knows, that its compact text tracks the published value instead of a coarser rounded one (a 1,050,000 window reads `1.05M`, never `1.1M`), and that a model with no catalog match still lists with generic defaults. 6) Select two models with the checkboxes. 7) Expand Advanced on one chosen row, override its limits and toggle thinking chips; confirm each numeric field has a five-chip preset ladder for common values, clicking a chip writes the value, hand editing remains possible, and a non-preset value leaves the ladder unselected. Set max output to 8,192 while its context window still follows the catalog. On a model whose published image input is enabled, toggle image input off and then back on before saving, so the explicit choice equals the current catalog value. Confirm the label and optional hint sit above one compact grouped control and do not force the options onto a second row at normal dialog width; confirm all seven canonical levels are available, that published levels start selected for a known reasoning model, and that a non-reasoning or unknown row shows the same chips unselected with the manual-override hint; enable one level on that row and confirm the other row is unaffected. 8) Open the form-level Advanced and confirm the API format is present but pre-derived. 9) Add a free-form model ID the service did not return; confirm it is added with 128,000 / 8,192 / no-thinking defaults, then enable a thinking level if the endpoint supports it; confirm re-adding the same ID in different letter case is rejected as already added. 10) Save.
+- **Steps**: 1) Open Settings → Model configuration and choose Add provider. 2) Confirm the searchable service chooser opens. Filter and select a built-in API-key service or **Custom endpoint**; the selection must open its matching form, never the plugin-only “selected service unavailable” state. Confirm the form has no stepper or Next/Back buttons. For **Custom endpoint**, Name and Base URL appear on one row with no helper paragraph under the URL (placeholder only), API Key and API format appear side by side on the next row (not behind Advanced), and a focused field plus its 2px accent ring stays fully inside the dialog, including on a window narrower than 1040px. The custom form has no authentication-mode switch; the API key is optional and its input stays enabled. 3) Enter a name and a base URL for a service that publishes a `/models` route, then paste an API key. Confirm the models section fills with the models THAT SERVICE returned without requiring a key for discovery; confirm a model the deployment does not host is absent. Also exercise the no-auth path with a custom endpoint: leave the key empty, select a discovered model, and save. 4) Type in the filter box and confirm the list narrows client-side with no network request per keystroke. 5) Confirm each row shows the models.dev-derived context/output for models the catalog knows, that its compact text tracks the published value instead of a coarser rounded one (a 1,050,000 window reads `1.05M`, never `1.1M`), and that a model with no catalog match still lists with generic defaults. 6) Select two models with the checkboxes. 7) Expand Advanced on one chosen row, override its limits and toggle thinking chips; confirm each numeric field has a five-chip preset ladder for common values, clicking a chip writes the value, hand editing remains possible, and a non-preset value leaves the ladder unselected. Set max output to 8,192 while its context window still follows the catalog. On a model whose published image input is enabled, toggle image input off and then back on before saving, so the explicit choice equals the current catalog value. Confirm the label and optional hint sit above one compact grouped control and do not force the options onto a second row at normal dialog width; confirm all seven canonical levels are available, that published levels start selected for a known reasoning model, and that a non-reasoning or unknown row shows the same chips unselected with the manual-override hint; enable one level on that row and confirm the other row is unaffected. 8) Open the form-level Advanced and confirm the API format is present but pre-derived. 9) Add a free-form model ID the service did not return; confirm it is added with 128,000 / 8,192 / no-thinking defaults, then enable a thinking level if the endpoint supports it; confirm re-adding the same ID in different letter case is rejected as already added. 10) Save.
 - **Expected**: The service is asked first and models.dev only enriches the answer and seeds known-model defaults. The no-auth custom path saves `authKind: "none"`, omits `secretValue`, and makes the configured provider available anywhere an enabled no-auth provider is selectable; named cloud preset behavior stays unchanged. Newly fetched or checked model rows stay collapsed until the user opens Advanced, so every selected model ID remains visible in the right pane after a multi-select. The settings picker always offers the seven canonical thinking levels, and the Composer later renders the explicit levels saved in the same model binding; an empty or `off`-only binding resolves to `off`. Discovery is debounced ~600 ms, does not mark loading until that window elapses, and a slow reply from an earlier keystroke never replaces a newer list; named add-path discovery waits for an API key, while an unsaved custom provider is probed with the typed base URL (and key, if any) before it exists. Preset ladders cover common context/output limits while preserving hand-edited values. The explicitly selected 8,192 output remains pinned independently of the catalog-sourced context window, and the image-input choice remains explicitly enabled after it is toggled back to the published value; neither is reinterpreted as "follow catalog" on save/reopen. Later catalog corrections change only values whose own source is `catalog`. Limit text renders through one shared compact formatter, so neighbouring published windows stay distinguishable (`1M` / `1.05M` / `1.1M`) and a compact limit never reads above its published value. Custom endpoint keeps API format beside the key and omits Base URL helper copy; named endpoints do not show format. Point the same custom form at an unreachable or unauthorized URL and confirm one classified sentence reaches the app toast while the left pane keeps its single “no list” label (not a raw JSON/HTML dump and not a second “no models” empty state); with cached rows from a later edit the same reason is toasted while the rows stay. Point a second provider at a base URL with no `/models` route and confirm the list falls back to the catalog, is labelled as coming from models.dev rather than the service, and still saves. The provider appears as a row with its host, model count and secret badge; the key is stored securely (not in plaintext config); `models` contains both bindings and `models[0]` remains the provider default.
 - **Specs linked**: `03-runtime/11-provider-model-system.md`, `03-runtime/12-provider-config-schema.md`, `03-runtime/13-model-catalog-and-selection.md`, `03-runtime/14-secrets-storage.md`, `04-ux/06-settings-ia.md`
 - **Acceptance**: B (multi-model provider configuration, save key)
@@ -1265,9 +1265,9 @@ identify the platform validation still needed.
 #### E2E-PROVIDER-custom-endpoint-no-api-key: Configure a custom service without credentials
 
 - **Preconditions**: Isolated settings profile and a local OpenAI-compatible fixture that lists a model without credentials; no live or paid provider.
-- **Steps**: 1) Open Settings → Model configuration → Add provider → Custom endpoint. 2) Enter a name and the fixture URL; check **No API key required**. 3) Confirm model discovery succeeds without a key, select the returned model, and save. 4) Confirm the provider and model are offered by chat/default-model and subagent selectors. 5) Edit an API-key provider, select **No API key required**, save, and inspect the provider's stored auth kind and credential state. 6) Send a request through the no-auth provider fixture.
-- **Expected**: The custom form remains in API-key mode by default. The explicit no-key selection saves `authKind: "none"` without `secretValue`; editing to this mode removes the provider's existing API key. The enabled provider with `hasSecret: false` remains selectable for chat, defaults, subagents, and image generation where its model supports that operation. Runtime requests contain no API-key or Authorization credentials.
-- **Automation**: `pnpm test:e2e:provider-api-style` renders the production setup form in English and Simplified Chinese with a stubbed model-discovery/API boundary and verifies create/update payloads and chat/default/subagent selector eligibility. `pnpm --filter @pi-desktop/agent-runtime test -- provider-binding.test.ts` verifies request headers; `apps/desktop/test/image-generation-default.test.mjs` covers no-auth image-model availability; `cargo test -p host-core --locked switching_provider_to_no_auth_clears_its_api_key` verifies Host persistence and secret removal.
+- **Steps**: 1) Open Settings → Model configuration → Add provider → Custom endpoint. 2) Enter a name and the fixture URL; leave the optional API key empty, without selecting an authentication mode. 3) Confirm model discovery succeeds without a key, select the returned model, and save. 4) Reopen and save without changes, then type a key and save; confirm API-key authentication is restored. 5) Edit an API-key provider and save with a blank input; confirm its key is retained. Reopen and confirm **Clear saved API key** is an icon-only button to the right of the input on the same row, with a localized accessible name and tooltip. Activate it, confirm focus returns to the input, and confirm subsequent discovery does not reuse the stored key. Close without saving and confirm no credential changed. Repeat Clear followed by Save, and Clear followed by a replacement key and Save. 6) Confirm the no-auth provider and model are offered by chat/default-model and subagent selectors. 7) Send a request through the no-auth provider fixture.
+- **Expected**: The custom form has no no-key switch and keeps the key input enabled. An empty or whitespace-only key with no saved credential automatically saves `authKind: "none"` without `secretValue`; a supplied key uses API-key authentication. A blank edit retains an existing key. Clear is staged until Save and a replacement key takes precedence over removal. The enabled no-auth provider with `hasSecret: false` remains selectable for chat, defaults, subagents, and image generation where its model supports that operation. Named cloud presets remain unchanged. Runtime requests contain no API-key or Authorization credentials.
+- **Automation**: `node --test apps/desktop/test/custom-provider-no-api-key-user-path.test.mjs` covers empty/whitespace keys, keyed creation, save/reopen, preservation, staged removal/cancellation, discovery without the old secret, and replacement. `pnpm test:e2e:provider-api-style` renders the production setup form in English and Simplified Chinese with a stubbed model-discovery/API boundary and verifies create/update payloads and chat/default/subagent selector eligibility. `pnpm --filter @pi-desktop/agent-runtime exec vitest run src/provider-binding.test.ts` verifies request headers; `apps/desktop/test/image-generation-default.test.mjs` covers no-auth image-model availability; `cargo test -p host-core --locked switching_provider_to_no_auth_clears_its_api_key` verifies Host persistence and secret removal.
 - **Specs linked**: `03-runtime/11-provider-model-system.md`, `03-runtime/12-provider-config-schema.md`, `03-runtime/13-model-catalog-and-selection.md`, `04-ux/06-settings-ia.md`.
 - **Acceptance**: B (model configuration), F (provider persistence), Security.
 - **Milestone**: M2.
@@ -1732,9 +1732,10 @@ identify the platform validation still needed.
   turns that had no thinking. Non-official DeepSeek-family relays use real
   retained thinking when available, otherwise the documented non-empty
   placeholder from ADR 0256 — never a silent empty string after compaction.
-  The request omits the generic OpenAI `reasoning_effort` field because
-  DeepSeek endpoints do not accept it, while the selected thinking mode still
-  follows the endpoint's own wire format.
+  Relay requests omit the generic OpenAI `reasoning_effort` field because
+  relays were reported rejecting it (#1664). Official `api.deepseek.com`
+  requests send `thinking: {type: "enabled"}` together with the selected
+  `reasoning_effort` (#1821).
   The request does not switch `thinkingFormat` to `"deepseek"` solely because
   the model id contains `"deepseek"`. Official `api.deepseek.com` rows keep
   URL-based DeepSeek `thinkingFormat` from pi-ai.
@@ -3232,6 +3233,11 @@ identify the platform validation still needed.
   is replaced by the deterministic test title after the completed turn; after a
   manual rename, a later plugin completion cannot replace it. A session without
   the plugin keeps its prompt fallback, and a second prompt never changes it.
+- **Upgrade regression**: In an isolated v22 fixture, manually rename a session
+  to lowercase `new task` before opening it in the current build. After upgrade,
+  the title remains `new task` with source `legacy`; first-prompt derivation and
+  plugin title writes cannot replace it. New sessions still derive titles.
+  Host regression: `v22_database_migrates_session_title_sources_without_losing_titles`.
 - **Specs linked**: `03-runtime/01-ipc-protocol.md`,
   `03-runtime/04-data-storage.md`, `03-runtime/06-host-rpc-protocol.md`,
   `03-runtime/02-agent-runtime.md`, `07-plugins/03-plugin-api.md`,
@@ -6150,12 +6156,15 @@ must keep splitting are covered by `markdown-blocks.test.mjs`.
 - **Steps**: 1) Open sessions A, B, and C in that order, scrolling each one up a
   measured amount. 2) Switch back to A, then B, and confirm each returns to its
   own offset. 3) Open D and then E, so A and B fall outside the retained budget.
-  4) Return to A. 5) Return to E, then D, and confirm they are still warm. 6)
-  Repeat the whole cycle once more and watch for a stuck progress track, an error
-  toast, or a blank chat area.
+  4) Return to A and scroll to the lower boundary of the restored range without
+  clicking any load control. 5) Return to E, then D, and confirm they are still
+  warm. 6) Repeat the whole cycle once more and watch for a stuck progress track,
+  an error toast, or a blank chat area.
 - **Expected**: Only the visible pane and the two most recently visited ones are
   retained; visiting beyond that budget evicts the oldest pane. A warm return
-  paints the retained frame and offset immediately. Returning to an evicted
+  paints the retained frame and offset immediately. The returned pane keeps the
+  page that already holds its anchor, so a warm return never offers to load later
+  messages for rows that page already had. Returning to an evicted
   session restores the message and viewport offset recorded before eviction,
   including explicit expanded content, using a bounded historical read if the
   latest page no longer contains the anchor. If the anchor is already loaded but
@@ -6167,6 +6176,14 @@ must keep splitting are covered by `markdown-blocks.test.mjs`.
   dimmed at any point, hidden panes stay non-interactive and out of the
   accessibility tree, and repeated cycling neither leaks a growing number of
   mounted transcripts nor leaves a pane showing another session's rows.
+  A restored historical range has no Load later messages button: reaching its
+  lower boundary automatically reads bounded newer pages without moving the
+  visible anchor. Short ranges fill the viewport automatically; hidden panes do
+  not initiate reads. Pending reads coalesce, obsolete results cannot replace
+  a newer navigation, and failures do not cause automatic retry loops. After
+  continuation reaches the tail, live updates resume without adding older
+  cached rows above the reading position. Explicit search still uses manual
+  later-message paging.
 - **Specs linked**: `04-ux/08-component-spec.md` §1.6 / §3.5 / §7,
   `04-ux/09-interaction-patterns.md` §5, ADR 0130, ADR 0137
 - **Acceptance**: C (switch sessions), Quality
@@ -9750,14 +9767,17 @@ must keep splitting are covered by `markdown-blocks.test.mjs`.
      actions are absent, the default-app action is disabled, and editor choices
      remain available.
   5. Open a text file, edit it, and save. Confirm the file on disk changed and
-     the editor keeps the saved content. Change the same file outside the app,
-     edit and save again, and confirm the conflict is reported instead of the
-     external change being overwritten. Click the binary file and confirm it
-     reports as unsupported rather than printing replacement characters; open
-     the image, the CSV, and the Markdown file and confirm each gets its own
-     viewer. Switch the app to Simplified Chinese and confirm the tree, viewer,
-     and context menu are localized. Switch projects and confirm the tree
-     updates without waiting on a poll.
+     the editor keeps the saved content. In dark appearance, press `Ctrl/Cmd+F`
+     and confirm the find text, replace text, and action labels remain readable
+     against their themed fields and buttons; repeat after switching to light
+     appearance. Change the same file outside the app, edit and save again, and
+     confirm the conflict is reported instead of the external change being
+     overwritten. Click the binary file and confirm it reports as unsupported
+     rather than printing replacement characters; open the image, the CSV, and
+     the Markdown file and confirm each gets its own viewer. Switch the app to
+     Simplified Chinese and confirm the tree, viewer, and context menu are
+     localized. Switch projects and confirm the tree updates without waiting on
+     a poll.
   6. Click a project file path in the conversation. Confirm it opens in this
      view on that file — a chat click now prefers the file view over the host
      `file:` tab.
@@ -9782,15 +9802,19 @@ must keep splitting are covered by `markdown-blocks.test.mjs`.
   ADR 0169, ADR 0241, ADR 0249, ADR 0263, ADR 0330
 - **Acceptance**: G (plugins), D (workspace), Security, Quality
 - **Milestone**: M6+
-- **Status**: Unit coverage in `apps/desktop/test/bundled-plugins.test.mjs`
-  (manifest contract, public-bridge-only page, vendored checksums),
-  `apps/desktop/test/plugin-fs-scope.test.mjs` (`fs.openDefault`,
-  `fs.openInBrowser`, and `fs.reveal` guards),
-  `apps/desktop/test/browser-preview-tool.test.mjs` (Browser resource-tab event
-  routing), `apps/desktop/test/plugin-work-panel-views.test.mjs` (docked-view
-  event broadcast), and host-core
-  `bundled_plugins_refresh_from_disk_but_keep_user_state`; the packaged journey
-  is Draft (run only in a capable environment when this surface changes)
+- **Status**: `pnpm test:e2e:file-manager-theme` loads the shipped plugin view
+  in Electron, opens a text file through a fixture public bridge, invokes
+  `Ctrl/Cmd+F`, and checks the rendered find/replace fields and actions in dark
+  and light appearances. `apps/desktop/test/bundled-plugins.test.mjs` also
+  covers the manifest contract, public-bridge-only page, vendored checksums,
+  and themed CodeMirror controls. `apps/desktop/test/plugin-fs-scope.test.mjs`
+  covers `fs.openDefault`, `fs.openInBrowser`, and `fs.reveal` guards;
+  `apps/desktop/test/browser-preview-tool.test.mjs` covers Browser resource-tab
+  event routing; `apps/desktop/test/plugin-work-panel-views.test.mjs` covers
+  docked-view event broadcast; and host-core covers
+  `bundled_plugins_refresh_from_disk_but_keep_user_state`. The remaining
+  packaged journey is Draft (run only in a capable environment when this
+  surface changes).
 
 #### E2E-PLUGIN-file-view-collapse-persists
 
@@ -17410,12 +17434,15 @@ plugin-form fixtures in an isolated temporary directory at runtime.
   stay inside their groups and only ordinary assistant progress text splits a
   group, so the middle progress paragraph ends the preceding group and the
   following activity starts a new one. A group appears only with at least two
-  visible items; a singleton has no group. Active groups stay open while the turn
-  runs; after completion, groups with at most four visible items and Task topology
-  groups remain open, while larger ordinary groups start closed. Thinking rows
-  default expanded in every mode when `Show thinking` is on.
+  visible items; a singleton has no group. Every group stays open while its turn
+  runs; after completion, groups with at most four visible items, Task topology
+  groups and groups that still render a Thinking row remain open, while larger
+  ordinary groups of plain tool rows start closed. Thinking rows default
+  expanded in every mode when `Show thinking` is on.
   Explicit user choices persist and are restored when the enclosing disclosure is
-  reopened; group defaults do not depend on `Show thinking`. The header
+  reopened, and never pin an ancestor; an automatic close is deferred only while
+  focus or a selection remains inside. Apart from visible reasoning, group
+  defaults do not depend on `Show thinking`. The header
   reports running, finished, stopped, or failed with failure and stop outranking
   a normal finish, reads `Thinking` while the live step is reasoning, names
   compaction and recovery while those stages are live, omits a duration the
@@ -17445,10 +17472,14 @@ plugin-form fixtures in an isolated temporary directory at runtime.
   group presentation only; precise item-level transcript search targeting is out
   of scope and keeps the existing message-level search behavior.
 - **Automation:** `pnpm test:e2e:transcript` covers the command-first and
-  fully-folded layouts and active-to-completed process disclosure behavior;
-  `pnpm test:e2e:transcript-disclosure` verifies manual-open retention and
-  viewport anchoring; `apps/desktop/test/turn-process.test.mjs` covers mode
-  segmentation, `apps/desktop/test/transcript-display-modes-ui.test.mjs` covers
+  fully-folded layouts, active-to-completed process disclosure behavior, the
+  automatic folding and reading-hold transitions, and the activity issue
+  counter's inline layout at 320/800px and 100%/150% zoom in English and
+  Simplified Chinese; `pnpm test:e2e:transcript-disclosure` verifies manual-open
+  retention and viewport anchoring; `apps/desktop/test/turn-process.test.mjs`
+  covers mode segmentation, `apps/desktop/test/activity-group-folding.test.mjs`
+  covers the settled group defaults and the issue-counter contract,
+  `apps/desktop/test/transcript-display-modes-ui.test.mjs` covers
   the renderer's mode wiring, Thinking defaults and TextShimmer,
   `apps/desktop/test/turn-process-header.test.mjs` covers the top-level header's
   status/duration/tool-count composition and the absence of issue counts,
@@ -18667,6 +18698,11 @@ plugin's rebuilt `views/` or unpacked official PluginPack artifact for developme
 validation only. Before accepting #1711, update the bundled release, its upstream
 tag/commit and per-file checksums, then rerun the default path on the updated PR
 integration candidate.
+
+A development integration may exercise a Desktop hotfix in that actual bundled
+directory, with its immutable source commit, local patch and artifact checksums
+recorded honestly in `UPSTREAM.md`. A passing hotfix journey does not claim that
+the companion upstream release or the maintainer's final acceptance is complete.
 `PI_FILE_MANAGER_QA_DIR` may point to an existing plugin `tests/electron`
 installation providing Playwright; `PI_ELECTRON_BINARY` selects an existing
 compatible Electron runtime. `PI_E2E_ARTIFACTS` optionally preserves screenshots.
@@ -18683,10 +18719,13 @@ Windows/Linux behavior require their separate platform acceptance.
 
 ### E2E-GENUI-inline-visualization-card: a visualization renders inline and stays sandboxed
 
-- **Preconditions**: The app is running with a local Agent session and the
-  builtin `pi-desktop/visualize` skill enabled. A second session uses a remote
+- **Preconditions**: The app is running with a local Agent session, Settings →
+  AI → Inline visualizations switched on, and the builtin
+  `pi-desktop/visualize` skill enabled. A second session uses a remote
   workspace.
-- **Steps**: 1) Ask for an interactive chart (for example "show a slider that
+- **Steps**: 0) With the switch off (the default), ask for a chart and confirm
+  no directory, skill, or card appears; then switch it on. 1) Ask for an
+  interactive chart (for example "show a slider that
   changes a sine wave's frequency"). 2) Wait for the turn to finish, then drag
   the slider. 3) Switch the app theme between light and dark. 4) Press the
   card's expand button, then Esc. 5) Ask the model to write a non-`.html` file
@@ -18724,3 +18763,21 @@ Windows/Linux behavior require their separate platform acceptance.
   Rust visualization RPC/lifecycle/fork tests
   cover authorization, deletion safety, Windows path spelling, and relocation.
 - **Status**: Automated without a paid provider or a user's running instance.
+
+#### E2E-PROVIDER-reasoning-effort-override: Preserve an explicit gateway reasoning parameter
+
+- **Setup:** A custom Chat Completions provider with a DeepSeek-family model;
+  start with a legacy binding that omits `supportsReasoningEffort`.
+- **Steps:** In English, Chinese and German at 850/1000/1400px widths, open model settings, confirm Auto, select
+  Send, save and reopen; repeat for Do not send and Auto. Switch to Responses
+  and Anthropic and confirm the Completions-only control is hidden.
+- **Expected:** Each saved binding retains true, false, or null respectively.
+  With High selected, the real Completions adapter sends `reasoning_effort: high`
+  only when enabled; Auto keeps the existing DeepSeek compatibility default.
+  Responses continues using its own reasoning contract. Provider creation,
+  update/read, copying, and sync preserve the explicit override.
+- **Automation:** `node scripts/e2e-provider-api-style.mjs --reasoning-effort` exercises real
+  React/Chromium controls and captures the Host API payload (the IPC boundary is
+  stubbed). Rust provider tests independently verify real SQLite persistence;
+  `provider-reasoning-effort.test.ts` captures requests from the real pi-ai
+  adapter with fixture SSE responses. No live gateway credentials are required.

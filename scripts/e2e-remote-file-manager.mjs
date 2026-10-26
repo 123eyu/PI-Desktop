@@ -37,6 +37,11 @@ async function waitForSignal(promise, message) {
     })]);
   } finally { clearTimeout(timer); }
 }
+async function capture(page, name) {
+  if (!process.env.PI_E2E_ARTIFACTS) return;
+  await mkdir(process.env.PI_E2E_ARTIFACTS, { recursive: true });
+  await page.screenshot({ path: join(process.env.PI_E2E_ARTIFACTS, name) });
+}
 try {
   const remotePath = join(temp, "remote-repository");
   const localPath = join(temp, "local-control");
@@ -139,9 +144,11 @@ app.whenReady().then(async()=>{
   await page.keyboard.press("Escape");
   assert.equal(await page.locator('[data-path=".env"]').count(), 0);
   checks.push("remote nested navigation, real text, credentials hidden, editor/save/menu read-only");
+  await capture(page, "remote-files-text.png");
   await page.locator('[data-path="pixel.png"]').click();
   await page.waitForFunction(() => [...document.images].some(image => image.complete && image.naturalWidth === 1));
   checks.push("real remote image bytes decoded in Chromium");
+  await capture(page, "remote-files-image.png");
 
   await adapter.close();
   await page.getByRole("banner").getByRole("button", { name: "Refresh", exact: true }).click();
@@ -160,7 +167,16 @@ app.whenReady().then(async()=>{
   await page.waitForFunction(() => document.querySelector(".cm-content")?.textContent.includes("LOCAL CONTROL"));
   assert.equal(await page.locator(".cm-content").getAttribute("contenteditable"), "true");
   assert.equal((await page.locator("body").textContent()).includes("LATE REMOTE CONTENT"), false);
-  checks.push("project switch rejects late remote contents and restores local editing");
+  await page.locator(".cm-content").click();
+  await page.keyboard.press("ControlOrMeta+End");
+  await page.keyboard.type("\nLOCAL EDIT VERIFIED");
+  await page.getByRole("button", { name: "Save", exact: true }).click();
+  await page.waitForFunction(async () => {
+    const result = await window.pluginBridge.invoke("fm.read", { path: "local.txt" });
+    return result.text?.includes("LOCAL EDIT VERIFIED");
+  });
+  assert((await readFile(join(localPath, "local.txt"), "utf8")).includes("LOCAL EDIT VERIFIED"));
+  checks.push("project switch rejects late remote contents and restores real local editing and saving");
   await page.locator('[data-path="page.html"]').click({ button: "right" });
   await page.getByRole("menuitem", { name: /^Open with/ }).hover();
   await page.getByRole("menuitem", { name: /browser/i }).waitFor();
@@ -187,10 +203,7 @@ app.whenReady().then(async()=>{
   assert(calls.some(call => call.operation === "preview" && call.ref === "pixel.png"));
   assert(calls.every(call => call.path === remotePath && JSON.stringify(call.scope) === '["**"]'));
   assert.deepEqual(errors, []);
-  if (process.env.PI_E2E_ARTIFACTS) {
-    await mkdir(process.env.PI_E2E_ARTIFACTS, { recursive: true });
-    await page.screenshot({ path: join(process.env.PI_E2E_ARTIFACTS, "remote-files-local-control.png") });
-  }
+  await capture(page, "remote-files-local-control.png");
   console.log("REMOTE_FILE_MANAGER_E2E " + JSON.stringify({ ok: true, pluginDir, checks, remoteRequests: calls.length }));
 } catch (error) {
   if (application && process.env.PI_E2E_ARTIFACTS) {

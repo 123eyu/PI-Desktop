@@ -42,7 +42,12 @@ This service carries neither models nor provider credentials.
 The independently maintained File Manager must consume the SDK instead of
 Node filesystem calls for remote projects. Its release and the bundled plugin
 update are separate delivery steps; this Host change alone does not close
-#1711. Pinned bundled sources and their upstream checksums remain unchanged.
+#1711. The integration candidate now includes the consumer in the actual bundled
+directory as Desktop hotfix `0.9.1-pi.1`, pinned to the companion contribution
+commit with its local theme patch and shipped checksums in `UPSTREAM.md`.
+Default-directory tests exercise that exact process and view. This does not
+claim the companion proposal has been accepted or published; its official
+release and the maintainer's final delivery acceptance remain separate.
 
 The alternative of exposing the broader owner file service was rejected
 because it does not preserve plugin policy. Remote editing, filesystem search,
