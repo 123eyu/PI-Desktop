@@ -1752,13 +1752,20 @@ merging to the user, and how to resolve a merge conflict).
 | tools | sequential by default |
 | `Task` calls in one assistant message | parallel; 10 running delegates per session (ADR 0089) |
 
-Tool concurrency is expressed through pi execution modes: every catalog tool is
-`sequential` and `Task` alone is `parallel`, and pi runs a batch sequentially as
-soon as it contains one sequential tool. So an all-`Task` batch is the only batch
-that fans out, and every other ordering guarantee is unchanged. Delegates issue
+Tool concurrency is expressed through pi execution modes. In the parallel read batches,
+`Read`, `Glob` and `Grep` are parallel candidates; all other catalog tools remain
+sequential. Task-only batches retain parallel fan-out, while a batch that mixes
+`Task` with any of those file-reading tools is kept sequential: a read before
+`Task` finishes before the delegate starts, and a read after a writable `Task`
+waits for that delegate to settle before dispatching to Host, while `Task` stays
+non-blocking inside that batch too (ADR 0089). Parent and delegate path
+instruction updates happen during ordered preparation before parallel execution,
+and mutate only their own prompt.
+Delegates issue
 host calls independently, and host-core's one-mutation-per-session admission
 keeps writes from tearing but leaves two same-path mutations unordered, so the
-sidecar serializes `Write`/`Edit` calls that target the same normalized path
+sidecar serializes `Write`/`Edit` calls (and coordinates `Read` against in-flight
+`Write`/`Edit` on the same workspace path) that target the same normalized path
 before they reach the host; calls on different paths never wait on each other.
 This is what keeps the per-path edit-recovery rules of
 `03-tools-and-permissions.md` §4d meaningful under fan-out.
