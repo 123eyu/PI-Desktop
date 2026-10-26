@@ -2192,3 +2192,31 @@ fn migrates_v21_to_v22_replaces_session_index() {
         "idx_sessions_updated_id should be created"
     );
 }
+
+#[test]
+fn v24_model_discovery_upgrade_preserves_rows_and_reopens() {
+    let dir = tempfile::tempdir().unwrap();
+    let path = dir.path().join("pi.sqlite");
+    {
+        let db = Database::open(&path).unwrap();
+        db.conn().execute_batch("ALTER TABLE models DROP COLUMN discovery_state;
+            INSERT INTO providers(id, name, type, protocol, auth_kind, config_json, created_at, updated_at)
+            VALUES ('fixture', 'Fixture', 'openai_compatible', 'openai_compatible', 'none', '{}', 1, 1);
+            INSERT INTO models(provider_id, model_id, display_name, source, updated_at)
+            VALUES ('fixture', 'known', 'Known', 'discovered', 1), ('fixture', 'manual', 'Manual', 'user', 1);
+            PRAGMA user_version = 24;").unwrap();
+    }
+    let db = Database::open(&path).unwrap();
+    assert_eq!(schema_version(db.conn()), SCHEMA_VERSION);
+    assert!(migration_backup_path(&path, 24).exists());
+    let models = crate::providers::list_models(&db, Some("fixture")).unwrap();
+    assert_eq!(models.len(), 2);
+    assert_eq!(models[0].discovery_state.as_deref(), Some("published"));
+    assert!(models[1].discovery_state.is_none());
+    drop(db);
+    let db = Database::open(&path).unwrap();
+    assert_eq!(
+        crate::providers::list_models(&db, Some("fixture")).unwrap(),
+        models
+    );
+}
