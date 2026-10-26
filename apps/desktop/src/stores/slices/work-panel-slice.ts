@@ -412,7 +412,11 @@ export function createWorkPanelSlice({
     );
     if (!hasBrowser) {
       if (/^https?:\/\//i.test(url.trim())) {
-        void api.browserOpenExternal(url.trim());
+        // `shell.openExternal` rejects when the OS has no handler or a policy
+        // blocks the URL; without this the click looked like a no-op.
+        void api
+          .browserOpenExternal(url.trim())
+          .catch((error) => get().showToast(String(error), { variant: "error" }));
       }
       return;
     }
