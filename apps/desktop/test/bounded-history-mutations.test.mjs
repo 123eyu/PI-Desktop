@@ -294,3 +294,55 @@ test("a queued delete cannot switch to a different active session and releases i
   assert.deepEqual(calls.at(-1), { sessionId: "s", messageId: "u2" });
   assert.deepEqual(h.state().messages, []);
 });
+
+test("a missing durable delete target restores the optimistic user-turn projection and cache", async () => {
+  const durable = previous.filter((message) => message.id !== "u1");
+  const cached = new Map();
+  const h = harness({ runtime: {
+    loadFullSessionMessages: async () => durable,
+    sessionTranscriptCache: cached,
+    cacheSessionTranscript: (id, messages) => cached.set(id, messages),
+  }, api: { deleteSessionMessage: async () => ({ ok: true, deleted: false, deletedCount: 0 }) } });
+  await h.actions.deleteMessage("u1");
+  assert.deepEqual(h.state().messages, previous, "a Host no-op cannot hide durable replies after a live-only prompt");
+  assert.deepEqual(cached.get("s"), previous);
+  assert.equal(h.state().error, null, "a missing target is an acknowledged no-op, not an RPC failure");
+});
+
+for (const outcome of ["no-op", "failure"]) {
+  for (const switchSession of [false, true]) {
+    test(`${outcome} delete restores its own projection while preserving a new turn, late terminal update, and ${switchSession ? "session switch" : "active session"}`, async () => {
+      const started = deferred();
+      const response = deferred();
+      const cached = new Map();
+      const initial = previous.map((message) => message.id === "a2"
+        ? { ...message, content: "partial reply", status: "streaming" } : message);
+      const h = harness({ state: { messages: initial }, runtime: {
+        loadFullSessionMessages: async () => initial,
+        sessionTranscriptCache: cached,
+        cacheSessionTranscript: (id, messages) => cached.set(id, messages),
+      }, api: { deleteSessionMessage: async () => {
+        started.resolve();
+        await response.promise;
+        if (outcome === "failure") throw new Error("delete failed");
+        return { ok: true, deleted: false, deletedCount: 0 };
+      } } });
+      const deleting = h.actions.deleteMessage("u1");
+      await started.promise;
+      const completed = { ...row("a2", "assistant"), content: "late completed reply" };
+      const live = [row("u2", "user"), completed, row("u3", "user"), { ...row("a3", "assistant"), status: "streaming" }];
+      const other = [row("other", "user")];
+      cached.set("s", live);
+      h.update({ activeSessionId: switchSession ? "other" : "s", messages: switchSession ? other : live,
+        isRunning: true, runningSessions: { s: true, ...(switchSession ? { other: true } : {}) } });
+      response.resolve();
+      await deleting;
+      const restored = [...previous.slice(0, 3), ...live];
+      assert.deepEqual(cached.get("s"), restored);
+      assert.deepEqual(h.state().messages, switchSession ? other : restored);
+      assert.equal(h.state().isRunning, true);
+      assert.equal(h.state().runningSessions.s, true);
+      assert.equal(h.state().error, outcome === "failure" ? "delete failed" : null);
+    });
+  }
+}

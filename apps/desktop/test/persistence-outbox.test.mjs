@@ -418,9 +418,13 @@ test("quarantined appends survive a restart without being replayed (#1560)", asy
     0,
   );
   const before = calls.length;
+  const retained = await readFile(join(dir, DEAD_LETTER_FILE), "utf8");
   await reopened.flush(() => host);
-  assert.equal(calls.length, before, "no replay against the host");
-  const dead = JSON.parse(await readFile(join(dir, DEAD_LETTER_FILE), "utf8"));
+  await reopened.prepareSessionMutation("s1", () => host);
+  await reopened.flush(() => host);
+  assert.equal(calls.length, before, "neither restart nor mutation preparation replays a dead letter");
+  assert.equal(await readFile(join(dir, DEAD_LETTER_FILE), "utf8"), retained, "manual recovery retains the original payload");
+  const dead = JSON.parse(retained);
   assert.deepEqual(
     dead.map((entry) => entry.key),
     ["message:s1:torn"],

@@ -420,23 +420,31 @@ export function createTranscriptSlice({
           errorCode: null,
         }));
         try {
-          await api.deleteSessionMessage({ sessionId, messageId });
+          const result = await api.deleteSessionMessage({ sessionId, messageId });
+          if (result.deleted) return;
         } catch (error) {
-          const current = get();
-          const rollback = mergeLiveSessionMessages(
-            previous,
-            current.activeSessionId === sessionId
-              ? current.messages
-              : runtime.sessionTranscriptCache.get(sessionId) ?? [],
-          );
-          runtime.cacheSessionTranscript(sessionId, rollback, fullWindow);
-          set((current) => ({
-            messages:
-              current.activeSessionId === sessionId ? rollback : current.messages,
+          set({
             error: error instanceof Error ? error.message : String(error),
             errorCode: (error as { code?: string })?.code ?? null,
-          }));
+          });
         }
+        // A missing durable target is a Host no-op, so undo the optimistic
+        // removal just as on failure. Keep callbacks received during the RPC,
+        // including completed updates, rather than restoring their old values.
+        const current = get();
+        const live = current.activeSessionId === sessionId
+          ? current.messages
+          : runtime.sessionTranscriptCache.get(sessionId) ?? [];
+        const liveById = new Map(live.map((message) => [message.id, message]));
+        const rollback = mergeLiveSessionMessages(
+          previous.map((message) => liveById.get(message.id) ?? message),
+          live,
+        );
+        runtime.cacheSessionTranscript(sessionId, rollback, fullWindow);
+        set((current) => ({
+          messages:
+            current.activeSessionId === sessionId ? rollback : current.messages,
+        }));
       } finally {
         releaseDelete();
         if (pendingMessageDeletes.get(sessionId) === completion) {
