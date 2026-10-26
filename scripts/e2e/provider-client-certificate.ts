@@ -3,7 +3,7 @@ import { X509Certificate } from "node:crypto";
 import { once } from "node:events";
 import { readFileSync } from "node:fs";
 import { createServer as createHttpsServer } from "node:https";
-import { createServer as createHttpServer } from "node:http";
+import { createServer as createHttpServer, request as httpRequest } from "node:http";
 import { connect, type Socket } from "node:net";
 import { join } from "node:path";
 import { getCACertificates, setDefaultCACertificates, type TLSSocket } from "node:tls";
@@ -14,6 +14,12 @@ import { probeModelList, probeProviderEndpoint } from "../../apps/desktop/electr
 app.setPath("userData", process.argv[2]);
 app.commandLine.appendSwitch("ozone-platform", "headless");
 app.disableHardwareAcceleration();
+// Electron otherwise displays asynchronous fixture assertions and leaves the
+// process running until the wrapper kills it. Preserve an immediate failure.
+process.on("uncaughtException", (error) => {
+  console.error(error);
+  app.exit(1);
+});
 const fixture = process.argv[3];
 const cert = readFileSync(join(fixture, "localhost-cert.pem"), "utf8");
 const key = readFileSync(join(fixture, "localhost-key.pem"), "utf8");
@@ -37,9 +43,15 @@ const server = createHttpsServer({ key, cert, ca: cert, requestCert: true, rejec
 const proxy = createHttpServer();
 let tunnels = 0;
 proxy.on("connect", (req, client, head) => {
-  assert.equal(req.headers["proxy-authorization"], `Basic ${Buffer.from("fixture:password").toString("base64")}`);
   const target = new URL(`http://${req.url}`);
-  assert.equal(target.hostname, "localhost");
+  const address = server.address();
+  // This proxy only serves the local TLS fixture. Chromium background traffic
+  // is unrelated to provider discovery and must never be forwarded to it.
+  if (!address || typeof address === "string" || target.hostname !== "localhost" || Number(target.port) !== address.port) {
+    client.end("HTTP/1.1 502 Bad Gateway\r\nConnection: close\r\n\r\n");
+    return;
+  }
+  assert.equal(req.headers["proxy-authorization"], `Basic ${Buffer.from("fixture:password").toString("base64")}`);
   tunnels++;
   const upstream = connect({ host: "127.0.0.1", port: Number(target.port) });
   sockets.add(upstream);
@@ -74,6 +86,19 @@ void app.whenReady().then(async () => {
     const proxyAddress = proxy.address();
     assert.ok(address && typeof address !== "string" && proxyAddress && typeof proxyAddress !== "string");
     const baseUrl = `https://localhost:${address.port}/v1`;
+    // Chromium can make background requests through this session's proxy.
+    // They must be denied, never forwarded or counted as fixture traffic.
+    const background = httpRequest({
+      host: "127.0.0.1", port: proxyAddress.port, method: "CONNECT",
+      path: "background.invalid:443",
+      headers: { "proxy-authorization": `Basic ${Buffer.from("fixture:password").toString("base64")}` },
+    });
+    const rejected = once(background, "connect");
+    background.end();
+    const [response, socket] = await rejected;
+    assert.equal(response.statusCode, 502);
+    socket.destroy();
+    assert.equal(tunnels, 0, "background traffic must not count as a fixture tunnel");
     await applyNetworkProxy({ mode: "direct" });
     let baselineTimer: ReturnType<typeof setTimeout> | undefined;
     const baselineTimeout = new Promise<{ kind: "timeout" }>((resolve) => {
