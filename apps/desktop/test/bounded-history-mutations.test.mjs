@@ -148,6 +148,16 @@ test("refused conditional retraction rolls back its fence so late old-turn callb
   assert.deepEqual(h.events.slice(-2), [["rollback"], ["release"]]);
 });
 
+test("new ID mutations preserve the existing remote read-only capability boundary", () => {
+  const { guardRemoteInvocation } = load("../src/lib/remote-ipc-safety.ts", {
+    "@pi-desktop/shared": { IPC }, i18next: { default: { t: () => "Remote history is read-only" } },
+  });
+  for (const channel of [IPC.invoke.sessionDeleteMessage, IPC.invoke.sessionRetractPendingPrompt]) {
+    assert.throws(() => guardRemoteInvocation(channel, { sessionId: "remote:host:session", messageId: "m" }), { code: "CAPABILITY_UNAVAILABLE" });
+    assert.doesNotThrow(() => guardRemoteInvocation(channel, { sessionId: "local-session", messageId: "m" }));
+  }
+});
+
 test("the real store/API/preload/IPC path uploads bounded ids with more than 64 MiB retained history", async () => {
   const huge = [...previous];
   huge[1] = { ...huge[1], content: "A".repeat(65 * 1024 * 1024) };
