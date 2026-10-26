@@ -8,6 +8,23 @@
 
 ## 1. Goals
 
+### E2E model discovery membership
+
+- **Entry:** `node scripts/e2e-model-discovery-state.mjs` after building Host,
+  shared, agent-runtime and host-runtime in the task worktree.
+- **Environment:** Real isolated Host process and SQLite; production provider
+  IPC and Composer selection; simulated HTTP only, no credentials/live app.
+- **Sequence:** Discover two configured models and retain a never-discovered
+  manual id; remove one; refresh offline; restart Host; read cache; republish;
+  change id casing; send partial, malformed, and empty lists; change endpoint.
+- **Expected:** Missing previously published models leave normal/recent choices
+  without deleting bindings or changing defaults. Offline/restart cannot
+  resurrect them. Reappearance restores them. Manual ids and partial refreshes
+  remain safe; old endpoint state does not contaminate the new endpoint.
+- **Component coverage:** `provider-model-list-refresh.test.mjs` also renders
+  the actual settings panes and verifies saved bindings remain editable.
+
+
 ### E2E-PI-130-kernel-upgrade
 
 - **Preconditions:** Exact Pi 1.3.0 pins and migrated patches in a dedicated
