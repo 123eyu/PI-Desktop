@@ -703,7 +703,8 @@ Frontmatter 新增 `permission: inherit | ask | accept-edits | auto`（默认
   （D328）—— 等待返回心跳（谁、状态、已用时、轮数、最后工具）以及已完成的
   报告。运行时会保持父级回合打开，并在它们完成时把剩余报告交回，即使父级已经
   停止调用工具。只有 `TaskStop` 或用户 Stop 才会中止委托。
-- `TaskList()` — 报告会话的每个委托及其状态和运行中心跳。
+- `TaskList()` — 报告会话的每个委托及其状态和运行中心跳，并给出父级可用
+  `Task(resume: ...)` 继续的可复用链（`details.resumable`）；这是该清单唯一的读取路径（ADR 0337）。
 - `TaskStop(delegationIds?)` — 停止正在运行的委托（默认全部）；等待每次
   中止结算后，在 `details.stopped[]` 上持久化 `status: "stopped"` 与
   `completedAt`。被停止的委托读作 `stopped`。
@@ -787,10 +788,11 @@ fallbacks, session inheritance, and current override grants; other definitions'
 private pins are excluded. A denied known key never selects another account by
 model id (#841).
 
-父级通过系统提示发现可复用的链：那里列出每条链最新的 `delegationId`、它的目标，以及它
-读过的文件最多 `MAX_RESUMABLE_LISTED_FILES`（8）个（超出部分带 `(+N more)` 后缀）。
-清单会在委托结算时围绕既有的提示段落重新组装。对 `MAX_SUBAGENT_CONCURRENCY`、
-`TaskWait`、`TaskList`、`TaskStop` 以及生命周期快照而言，恢复来的运行就是一个普通
+父级通过 `TaskList` 发现可复用的链：它的结果列出每条链最新的 `delegationId`、它的目标，
+以及它读过的文件最多 `MAX_RESUMABLE_LISTED_FILES`（8）个（超出部分带 `(+N more)` 后缀）。
+这份清单**不进系统提示**：它每次结算都会变，而中途改写指令会使 provider 缓存的请求前缀失效
+（ADR 0337）。对 `MAX_SUBAGENT_CONCURRENCY`、`TaskWait`、`TaskList`、`TaskStop`
+以及生命周期快照而言，恢复来的运行就是一个普通委托。
 委托。`Task` 的立即返回结果与生命周期 details 会增加 `resumedFrom` 以便追溯；
 transcript 把一条链渲染成它最新 `Task` 卡片下的一段连续多轮对话，不带单独的
 “已恢复”标记。

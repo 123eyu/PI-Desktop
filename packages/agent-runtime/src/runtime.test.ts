@@ -9252,6 +9252,33 @@ describe("DesktopAgentRuntime subagents", () => {
     await runtime.dispose();
   });
 
+  it("keeps a running delegation out of the resumable list TaskList reports", async () => {
+    const runtime = createRuntime({ subagents: [explorer] });
+    const internals = runtime as any;
+    subagentRuns.calls.length = 0;
+    subagentRuns.instances.length = 0;
+    subagentRuns.deferred = true;
+    subagentRuns.resolveRun = undefined;
+    const started = await internals.agent.state.tools
+      .find((candidate: { name: string }) => candidate.name === "Task")
+      .execute("task-1", { agent: "explorer", task: "Find it." });
+    const delegationId = (started.details as { delegationId: string }).delegationId;
+
+    const listed = await internals.agent.state.tools
+      .find((candidate: { name: string }) => candidate.name === "TaskList")
+      .execute("list-1", {});
+    // The running delegation is reported as progress, never as a resume target:
+    // resuming it is a tool error the parent must not be lured into.
+    expect(listed.details.delegations).toContainEqual(
+      expect.objectContaining({ delegationId, status: "running" }),
+    );
+    expect(listed.details.resumable).toEqual([]);
+    expect(listed.content[0].text).not.toContain("Reusable subagent sessions");
+
+    subagentRuns.deferred = false;
+    await runtime.dispose();
+  });
+
   it("scopes a mutating delegate's tool calls with its permission", async () => {
     const mutator: SubagentDefinition = {
       name: "fixer",
@@ -9554,8 +9581,9 @@ describe("DesktopAgentRuntime subagents", () => {
       await runtime.dispose();
     });
 
-    it("lists a settled delegation in the parent's system prompt", async () => {
+    it("lists a settled delegation through TaskList, not in the system prompt", async () => {
       const runtime = createRuntime({ subagents: [explorer] });
+      const internals = runtime as any;
       subagentRuns.calls.length = 0;
       subagentRuns.deferred = true;
       const started = await startTask(runtime, "task-1", {
@@ -9564,6 +9592,7 @@ describe("DesktopAgentRuntime subagents", () => {
         description: "find the bug",
       });
       const delegationId = (started.details as any).delegationId as string;
+      const promptWhileRunning = internals.composedSystemPrompt;
       subagentRuns.resolveRun?.({
         agentName: "explorer",
         status: "completed",
@@ -9571,11 +9600,29 @@ describe("DesktopAgentRuntime subagents", () => {
         turns: 1,
         toolCalls: 0,
       });
+      // ADR 0337: a settlement must not rewrite the request prefix providers
+      // cache on, so the instructions stay byte-identical and the list is read
+      // on demand instead.
       await vi.waitFor(() => {
-        expect((runtime as any).agent.state.systemPrompt).toContain(
-          `explorer / ${delegationId}: find the bug`,
-        );
+        expect(internals.delegations.get(delegationId)?.status).toBe("completed");
       });
+      expect(internals.composedSystemPrompt).toBe(promptWhileRunning);
+      expect(internals.agent.state.systemPrompt).toBe(promptWhileRunning);
+      expect(internals.agent.state.systemPrompt).not.toContain(delegationId);
+
+      const listed = await internals.agent.state.tools
+        .find((tool: any) => tool.name === "TaskList")
+        .execute("list-1", {});
+      expect(listed.content[0].text).toContain(
+        `explorer / ${delegationId}: find the bug`,
+      );
+      expect(listed.details.resumable).toContainEqual(
+        expect.objectContaining({
+          agent: "explorer",
+          delegationId,
+          objective: "find the bug",
+        }),
+      );
       subagentRuns.deferred = false;
       await runtime.dispose();
     });
@@ -9746,13 +9793,26 @@ describe("DesktopAgentRuntime subagents", () => {
         turns: 1,
         toolCalls: 1,
       });
+      // The resumable list moved out of the system prompt into `TaskList`
+      // (ADR 0337): the instructions must not change when a delegation settles,
+      // or every settlement would invalidate the cached request prefix.
+      const promptBeforeSettlement = internals.composedSystemPrompt;
       await vi.waitFor(() => {
-        expect(internals.agent.state.systemPrompt).toContain(
-          "Files read: src/deep.ts",
-        );
+        expect(internals.agent.state.systemPrompt).toBe(promptBeforeSettlement);
       });
       expect(internals.agent.state.systemPrompt).not.toContain(
-        "Files read: none recorded",
+        "Files read: src/deep.ts",
+      );
+      const listed = await internals.agent.state.tools
+        .find((tool: any) => tool.name === "TaskList")
+        .execute("list-1", {});
+      expect(listed.content[0].text).toContain("Files read: src/deep.ts");
+      expect(listed.details.resumable).toContainEqual(
+        expect.objectContaining({
+          agent: "explorer",
+          delegationId,
+          files: ["src/deep.ts"],
+        }),
       );
       expect(
         internals.delegationChains

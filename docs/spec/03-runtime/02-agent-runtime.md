@@ -964,7 +964,9 @@ core set rather than the on-demand catalog of §7.1:
   reports when they finish, even if the parent already stopped calling tools.
   Only `TaskStop` or user Stop aborts a delegate.
 - `TaskList()` — reports every delegation of the session with status and a
-  running heartbeat.
+  running heartbeat, plus the resumable chains (`details.resumable`) the parent
+  can continue with `Task(resume: ...)`; this is the only read path for that
+  list (ADR 0337).
 - `TaskStop(delegationIds?)` — stops running delegations (defaults to all);
   waits for each abort to settle, then persists `status: "stopped"` with
   `completedAt` on `details.stopped[]`. Stopped delegations read as `stopped`.
@@ -1106,11 +1108,12 @@ a non-resumable status, an over-budget chain, and a chain whose rows are gone
 each return a tool error naming the reason and, for an unknown id, the reusable
 ids when there are any.
 
-The parent discovers reusable chains through the system prompt, which lists
+The parent discovers reusable chains through `TaskList`, whose result lists
 each chain's latest `delegationId`, its objective, and up to
 `MAX_RESUMABLE_LISTED_FILES` (8) of the files it read (with a `(+N more)`
-suffix past that). The list is recomposed when a delegation settles, around the
-existing prompt sections. A resumed run is an ordinary delegation for
+suffix past that). The list never enters the system prompt: it changes on every
+settlement, and rewriting instructions mid-session invalidates the request
+prefix providers cache on (ADR 0337). A resumed run is an ordinary delegation for
 `MAX_SUBAGENT_CONCURRENCY`, `TaskWait`, `TaskList`, `TaskStop`, and lifecycle
 snapshots. The immediate `Task` result and the lifecycle details add
 `resumedFrom` for audit; the transcript renders a chain as one continuous
