@@ -91,6 +91,45 @@
   compaction, and terminal Task snapshots through the real React rendering.
   The headless command does not replace the rendered Electron check above.
 
+### E2E-TOOLS-parallel-read-batches: ordered preparation and parallel reads
+
+- Isolate data/project paths; never run against production profiles.
+- A local provider fixture emits two Read calls. Gate real tool-execution
+  entrypoints until both enter, release them in reverse order, then inspect the
+  follow-up model request: results must retain source toolCallId order and final
+  sibling rules must follow preparation order. Repeat with a delegated reader
+  and verify parent instructions and permission scope are isolated.
+- Add Bash or Edit to the batch: all tools must execute sequentially. Stop
+  before execution must skip unstarted calls; running file calls must drain.
+- Add Task with a delegate that edits a fixture file alongside a parent Read;
+  the batch must stay sequential, Task keeps reporting a started delegation
+  (ADR 0089), and the parent Read must not enter Host until the writable
+  shared-workspace delegate settles its mutation. Task-only batches must still
+  fan out.
+- Automated coverage: runtime.test.ts uses the production Runtime and pi loop
+  with deterministic Host response barriers, including mixed Bash/Write/Edit
+  batches and Stop, plus the mixed Task/read regression in both model orders:
+  the Task result stays a started notice, the parent read waits for the writable
+  shared-workspace delegate's mutation to settle before entering Host, and a
+  failed delegate still releases the batch. `scripts/e2e-task-read-batches.mjs`
+  runs the same contract end to end with a real delegate loop: it asserts the
+  Host dispatch order `write:start`, `write:end`, `read:start`, `read:end`, that
+  the parent reads the written content, and that the Task tool result stays a
+  background acknowledgement. subagent.test.ts checks conservative policy
+  inheritance.
+- Run `node scripts/e2e-parallel-read-batches.mjs` after building agent-runtime,
+  shared and host-core. Set `PI_DESKTOP_HOST_BIN` when reusing a shared target.
+  It uses a local HTTP provider, real parent/delegate loops and a real Host in
+  temporary directories. A gated response proves overlapping Read dispatch;
+  actual Read/Glob/Grep results, source-order model results and parent prompt
+  isolation are checked. This does not measure blocking filesystem-body overlap,
+  production throughput or Electron UI behavior. UI-only project-edit E2E is
+  not evidence for agent Edit scheduling.
+- Run `node scripts/e2e-task-read-batches.mjs` under the same build and
+  `PI_DESKTOP_HOST_BIN` preconditions. Against the pre-fix implementation it
+  fails with `read:start` before `write:start`, which is the regression the
+  maintainer asked for.
+
 ### E2E-STORAGE-custom-location-and-maintenance
 
 - **Preconditions:** Dedicated request worktree, current remote-main base, shared
@@ -2120,6 +2159,27 @@ identify the platform validation still needed.
 - **Acceptance**: C (switch sessions)
 - **Milestone**: M2
 - **Status**: Source-level regression covered; full visual scenario Draft
+
+#### E2E-TRANSCRIPT-restored-live-tail-status
+
+- **Preconditions**: An isolated renderer with two retained session panes, a
+  running turn with tool output, and the real Composer and SessionPane.
+- **Steps**: Restore a bookmark during selection revalidation; append live
+  output; switch away and reveal the running pane; inspect an unread history
+  range and an explicit search at the tail; settle and abort the turn.
+- **Expected**: The restored live tail keeps a running process header while
+  Stop is available. Content updates and pane reveal do not falsely show
+  Finished. The restored range and scroll offset remain owned by the reader.
+  Another session, unread pages, and explicit search do not inherit live
+  status. Terminal completion and abort show Finished and Stopped respectively.
+  An empty restored range stays historical, an ordinary empty canonical range
+  shows the initial wait, and a restored navigation-parent copy with the same
+  message id keeps the running presentation.
+- **Automation**: `node scripts/e2e-transcript-reading-position.mjs`
+  (`transcriptLiveTailProbe`).
+- **Specs linked**: `04-ux/09-interaction-patterns.md` §2.4
+- **Acceptance**: C (session switching and running status)
+- **Status**: Automated isolated Electron regression
 
 #### E2E-207: Open large and long sessions through bounded transcript windows
 
