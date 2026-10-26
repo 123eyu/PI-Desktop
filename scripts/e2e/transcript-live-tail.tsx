@@ -87,7 +87,13 @@ globalThis.transcriptLiveTailProbe = async () => {
       "restored live tail must not hide an actionable approval");
     assert(!host.querySelector('[data-session-pane="live-tail"] .transcript-runtime-status > *'),
       "approval replaces generic running feedback");
-    set({ pendingPermissions: {} });
+    set({ pendingPermissions: {}, pendingAsks: { "live-tail": [{
+      sessionId: "live-tail", requestId: "question", toolCallId: "question-call",
+      questions: [{ question: "Continue?", options: ["Yes", "No"] }],
+    }] } });
+    assert(!host.querySelector('[data-session-pane="live-tail"] .transcript-runtime-status > *'),
+      "a question replaces generic running feedback in a restored live tail");
+    set({ pendingAsks: {} });
     const reading = useAppStore.getState().transcriptViews["live-tail"];
     const scroll = host.querySelector<HTMLElement>('[data-session-pane="live-tail"] .thread-scroll')!;
     assert(scroll.scrollHeight > scroll.clientHeight + 200, "exercise an overflowing transcript");
