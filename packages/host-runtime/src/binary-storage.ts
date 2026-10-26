@@ -4,7 +4,9 @@ type JsonObject = Record<string, unknown>;
 type ImageRef = { path: Path; image: number };
 type Escape = { at: number; raw: string };
 type ImagePart = { image: number; escapes?: Escape[] };
-type TextRef = { path: Path; parts: (string | ImagePart)[] };
+type MirrorPart = { text: number };
+type TextRef = { path: Path; parts: (string | ImagePart | MirrorPart)[] };
+type Mirror = { path: Path; value: string; parsed: unknown; tokens: Token[] };
 type Envelope = { version: 1; data: string[]; refs: ImageRef[]; texts: TextRef[] };
 type Token = { path: Path; start: number; end: number; value: string };
 
@@ -149,12 +151,6 @@ function stringTokens(text: string): Token[] {
   value([]);
   return tokens;
 }
-function imageTokens(text: string, parsed: unknown): Token[] {
-  const positions = new Set(imagePositions(parsed).map(pathKey));
-  return stringTokens(text).filter(
-    (token) => positions.has(pathKey(token.path)) && isBase64(token.value),
-  );
-}
 function imagePart(text: string, token: Token, image: number): ImagePart {
   const spelling = text.slice(token.start + 1, token.end - 1);
   const escapes: Escape[] = [];
@@ -168,6 +164,37 @@ function imagePart(text: string, token: Token, image: number): ImagePart {
     rawOffset += length;
   }
   return { image, ...(escapes.length ? { escapes } : {}) };
+}
+
+function mirrorPositions(value: unknown): Map<string, string> {
+  const positions = new Map<string, string>();
+  walk(value, (parent, path) => {
+    for (const key of ["content", "text"]) {
+      const text = parent[key];
+      if (typeof text === "string" && matchesSibling(parent, parseMirror(text))) {
+        positions.set(pathKey([...path, key]), text);
+      }
+    }
+  });
+  return positions;
+}
+
+function collectMirrors(value: unknown): Mirror[] {
+  const mirrors: Mirror[] = [];
+  walk(value, (parent, path) => {
+    for (const key of ["content", "text"]) {
+      const text = parent[key];
+      if (typeof text !== "string") continue;
+      const parsed = parseMirror(text);
+      if (
+        matchesSibling(parent, parsed) &&
+        imagePositions(parsed).some((path) => isBase64(valueAt(parsed, path)))
+      ) {
+        mirrors.push({ path: [...path, key], value: text, parsed, tokens: stringTokens(text) });
+      }
+    }
+  });
+  return mirrors;
 }
 
 export function encodeBinaryStorage(value: unknown): unknown {
@@ -190,24 +217,37 @@ export function encodeBinaryStorage(value: unknown): unknown {
     if (isBase64(dataString)) refs.push({ path, image: indexOf(dataString) });
   }
   if (!refs.length) return value;
-  const texts: TextRef[] = [];
-  walk(value, (parent, path) => {
-    for (const key of ["content", "text"]) {
-      const text = parent[key];
-      if (typeof text !== "string") continue;
-      const parsed = parseMirror(text);
-      if (!matchesSibling(parent, parsed)) continue;
-      const tokens = imageTokens(text, parsed);
-      if (!tokens.length) continue;
-      const parts: TextRef["parts"] = [];
-      let start = 0;
-      for (const token of tokens) {
-        parts.push(text.slice(start, token.start), imagePart(text, token, indexOf(token.value)));
-        start = token.end;
+  const mirrors = collectMirrors(value);
+  const mirrorIndexes = new Map<string, number>();
+  mirrors.forEach((mirror, index) => {
+    if (!mirrorIndexes.has(mirror.value)) mirrorIndexes.set(mirror.value, index);
+  });
+  const texts = mirrors.map((mirror): TextRef => {
+    const images = new Set(imagePositions(mirror.parsed).map(pathKey));
+    const nested = mirrorPositions(mirror.parsed);
+    const parts: TextRef["parts"] = [];
+    let start = 0;
+    for (const token of mirror.tokens) {
+      let part: ImagePart | MirrorPart;
+      if (images.has(pathKey(token.path)) && isBase64(token.value)) {
+        part = imagePart(mirror.value, token, indexOf(token.value));
+      } else {
+        const text = mirrorIndexes.get(token.value);
+        // A canonical complete string token can be rendered without storing its
+        // escaped copy. Other spellings remain literal to preserve every byte.
+        if (
+          text === undefined ||
+          nested.get(pathKey(token.path)) !== token.value ||
+          mirror.value.slice(token.start, token.end) !== JSON.stringify(token.value)
+        )
+          continue;
+        part = { text };
       }
-      parts.push(text.slice(start));
-      texts.push({ path: [...path, key], parts });
+      parts.push(mirror.value.slice(start, token.start), part);
+      start = token.end;
     }
+    parts.push(mirror.value.slice(start));
+    return { path: mirror.path, parts };
   });
   const occurrences =
     refs.length +
@@ -243,14 +283,14 @@ function parsePath(value: unknown): Path {
   if (value[0] === "binaryStorage") invalid("placeholder inside envelope");
   return value as Path;
 }
-function tableIndex(value: unknown, data: string[]): number {
+function tableIndex(value: unknown, data: readonly unknown[], kind = "image"): number {
   if (
     typeof value !== "number" ||
     !Number.isSafeInteger(value) ||
     value < 0 ||
     value >= data.length
   )
-    invalid("invalid image index");
+    invalid(`invalid ${kind} index`);
   return value;
 }
 function parseEnvelope(value: unknown): Envelope {
@@ -280,10 +320,16 @@ function parseEnvelope(value: unknown): Envelope {
       invalid("invalid text parts");
     for (const part of text.parts)
       if (typeof part !== "string") {
-        if (!isObject(part)) invalid("invalid image part");
-        exactKeys(part, ["image"], ["escapes"]);
-        tableIndex(part.image, value.data);
-        if (part.escapes !== undefined && !Array.isArray(part.escapes)) invalid("invalid escapes");
+        if (!isObject(part)) invalid("invalid text part");
+        if (own(part, "text")) {
+          exactKeys(part, ["text"]);
+          tableIndex(part.text, value.texts, "text");
+        } else {
+          exactKeys(part, ["image"], ["escapes"]);
+          tableIndex(part.image, value.data);
+          if (part.escapes !== undefined && !Array.isArray(part.escapes))
+            invalid("invalid escapes");
+        }
       }
   }
   return value as unknown as Envelope;
@@ -337,21 +383,40 @@ function renderImage(part: ImagePart, data: string): string {
   chunks.push(data.slice(start), '"');
   return chunks.join("");
 }
-function restoreText(
-  text: TextRef,
-  data: string[],
-): { value: string; spans: { start: number; end: number; image: number }[] } {
-  const chunks: string[] = [];
-  const spans: { start: number; end: number; image: number }[] = [];
-  let length = 0;
-  for (const part of text.parts) {
-    const chunk = typeof part === "string" ? part : renderImage(part, data[part.image]);
-    if (typeof part !== "string")
-      spans.push({ start: length, end: length + chunk.length, image: part.image });
-    chunks.push(chunk);
-    length += chunk.length;
-  }
-  return { value: chunks.join(""), spans };
+type RestoredMirror = {
+  value: string;
+  spans: { start: number; end: number; part: ImagePart | MirrorPart }[];
+};
+
+/** Memoized dependency traversal rejects cycles before rendering any business value. */
+function restoreTexts(envelope: Envelope): RestoredMirror[] {
+  const restored = new Map<number, RestoredMirror>();
+  const visiting = new Set<number>();
+  const resolve = (index: number): RestoredMirror => {
+    const previous = restored.get(index);
+    if (previous) return previous;
+    if (visiting.has(index)) invalid("text dependency cycle");
+    visiting.add(index);
+    const chunks: string[] = [];
+    const spans: RestoredMirror["spans"] = [];
+    let length = 0;
+    for (const part of envelope.texts[index].parts) {
+      const chunk =
+        typeof part === "string"
+          ? part
+          : "text" in part
+            ? JSON.stringify(resolve(part.text).value)
+            : renderImage(part, envelope.data[part.image]);
+      if (typeof part !== "string") spans.push({ start: length, end: length + chunk.length, part });
+      chunks.push(chunk);
+      length += chunk.length;
+    }
+    const mirror = { value: chunks.join(""), spans };
+    visiting.delete(index);
+    restored.set(index, mirror);
+    return mirror;
+  };
+  return envelope.texts.map((_text, index) => resolve(index));
 }
 
 export function decodeBinaryStorage(value: unknown): unknown {
@@ -371,7 +436,8 @@ export function decodeBinaryStorage(value: unknown): unknown {
     used.add(ref.image);
   }
   // Restore all mirrors before comparing, since nested mirror siblings can reference one another.
-  const mirrors = envelope.texts.map((text) => ({ text, ...restoreText(text, envelope.data) }));
+  const restored = restoreTexts(envelope);
+  const mirrors = envelope.texts.map((text, index) => ({ text, ...restored[index] }));
   for (const mirror of mirrors) setAt(decoded, mirror.text.path, mirror.value);
   for (const mirror of mirrors) {
     const { parent, key } = parentAt(decoded, mirror.text.path);
@@ -382,18 +448,29 @@ export function decodeBinaryStorage(value: unknown): unknown {
       !matchesSibling(parent, parsed)
     )
       invalid("text is not an exact result mirror");
-    const tokens = imageTokens(mirror.value, parsed);
+    const tokens = stringTokens(mirror.value);
+    const images = new Set(imagePositions(parsed).map(pathKey));
+    const nested = mirrorPositions(parsed);
     for (const span of mirror.spans) {
-      if (
-        !tokens.some(
-          (token) =>
-            token.start === span.start &&
-            token.end === span.end &&
-            token.value === envelope.data[span.image],
-        )
-      )
-        invalid("text reference is not a binary token");
-      used.add(span.image);
+      const token = tokens.find((token) => token.start === span.start && token.end === span.end);
+      if ("text" in span.part) {
+        if (
+          !token ||
+          token.value !== restored[span.part.text].value ||
+          nested.get(pathKey(token.path)) !== token.value
+        ) {
+          invalid("text reference is not a proven mirror token");
+        }
+      } else {
+        if (
+          !token ||
+          !images.has(pathKey(token.path)) ||
+          token.value !== envelope.data[span.part.image]
+        ) {
+          invalid("text reference is not a binary token");
+        }
+        used.add(span.part.image);
+      }
     }
   }
   if (used.size !== envelope.data.length) invalid("unused data table entry");

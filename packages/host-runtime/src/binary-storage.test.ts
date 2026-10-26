@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
-import golden from "./fixtures/binary-storage.json";
 import { decodeBinaryStorage, encodeBinaryStorage } from "./binary-storage.js";
+import golden from "./fixtures/binary-storage.json";
+import nestedGolden from "./fixtures/binary-storage-nested.json";
 
 const image = (data = "A/B=") => ({ type: "image", mimeType: "image/png", data });
 const record = () => {
@@ -180,5 +181,110 @@ describe("corrupt binary storage is an explicit error", () => {
     ],
   ])("rejects %s", (_name, mutate) => {
     expect(() => decodeBinaryStorage(corrupted(mutate))).toThrow(/binary storage/i);
+  });
+});
+
+function nestedMirror(depth: number): Record<string, unknown> {
+  let result: Record<string, unknown> = { source: "中文😀", content: [image()] };
+  for (let level = 0; level < depth; level++) {
+    const text = JSON.stringify(result);
+    result = { source: `层${level}😀`, nested: { result, text } };
+  }
+  return { toolResult: result, content: JSON.stringify(result) };
+}
+
+type StoredMirror = {
+  binaryStorage: {
+    texts: {
+      path: (string | number)[];
+      parts: (string | { image: number } | { text: number })[];
+    }[];
+  };
+};
+
+describe("nested proven JSON mirrors", () => {
+  it("matches the shared nested envelope with exact original text spellings", () => {
+    expect(encodeBinaryStorage(nestedGolden.original)).toEqual(nestedGolden.encoded);
+    expect(decodeBinaryStorage(nestedGolden.encoded)).toEqual(nestedGolden.original);
+  });
+
+  it.each([1, 2, 3])("stores images once through %i nested mirror levels", (depth) => {
+    const original = nestedMirror(depth);
+    const encoded = encodeBinaryStorage(original);
+    expect(JSON.stringify(encoded).split("A/B=").length - 1).toBe(1);
+    expect(decodeBinaryStorage(JSON.parse(JSON.stringify(encoded)))).toEqual(original);
+    const stored = encoded as StoredMirror;
+    expect(
+      stored.binaryStorage.texts.some((text) =>
+        text.parts.some((part) => typeof part !== "string" && "text" in part),
+      ),
+    ).toBe(true);
+  });
+
+  it("preserves inner source spelling and escapes through canonical outer string tokens", () => {
+    const inner =
+      '{"source":"earlier","source":"中文😀","content":[{"type":"image","mimeType":"image/png","data":"\\u0041\\/B="}]}';
+    const result = {
+      nested: { result: JSON.parse(inner) as unknown, text: inner },
+      exponent: 1,
+      fraction: 1,
+    };
+    const original = {
+      toolResult: result,
+      content: JSON.stringify(result)
+        .replace('"exponent":1', '"exponent":1e0')
+        .replace('"fraction":1', '"fraction":1.0'),
+    };
+    const encoded = encodeBinaryStorage(original);
+    expect(JSON.stringify(encoded).split("A/B=").length - 1).toBe(1);
+    expect(JSON.stringify(encoded).split("earlier").length - 1).toBe(1);
+    expect(decodeBinaryStorage(encoded)).toEqual(original);
+  });
+
+  it("retains noncanonical outer string-token spelling literally and losslessly", () => {
+    const original = nestedMirror(1);
+    original.content = (original.content as string).replace('"text":"', '"text":"\\u0020');
+    original.toolResult = JSON.parse(original.content as string) as unknown;
+    const encoded = encodeBinaryStorage(original);
+    expect(decodeBinaryStorage(encoded)).toEqual(original);
+  });
+
+  it.each(["missing", "self cycle", "mutual cycle"])(
+    "rejects %s text dependencies explicitly",
+    (kind) => {
+      const encoded = encodeBinaryStorage(nestedMirror(2)) as StoredMirror;
+      const texts = encoded.binaryStorage.texts;
+      const owner = texts.findIndex((text) =>
+        text.parts.some((part) => typeof part !== "string" && "text" in part),
+      );
+      const part = texts[owner].parts.find((part) => typeof part !== "string" && "text" in part);
+      if (typeof part === "string" || !part || !("text" in part))
+        throw new Error("Missing nested text reference");
+      if (kind === "missing") part.text = texts.length;
+      else if (kind === "self cycle") part.text = owner;
+      else {
+        const child = part.text;
+        texts[child].parts = [{ text: owner }];
+      }
+      expect(() => decodeBinaryStorage(encoded)).toThrow(/binary storage.*(?:index|cycle)/i);
+    },
+  );
+
+  it("rejects a text reference used for an ordinary narrative token", () => {
+    const original = nestedMirror(1);
+    const result = original.toolResult as { nested: { text: string } };
+    Object.assign(result, { narrative: result.nested.text });
+    original.content = JSON.stringify(result);
+    const encoded = encodeBinaryStorage(original) as StoredMirror;
+    const owner = encoded.binaryStorage.texts.find((text) => text.path.length === 1);
+    const nested = encoded.binaryStorage.texts.findIndex((text) => text.path.at(-1) === "text");
+    if (!owner) throw new Error("Missing outer mirror");
+    const rawToken = JSON.stringify(result.nested.text);
+    owner.parts = owner.parts.flatMap((part) => {
+      if (typeof part !== "string" || !part.includes(`"narrative":${rawToken}`)) return [part];
+      const [before, after] = part.split(rawToken);
+      return [before, { text: nested }, after];
+    });
+    expect(() => decodeBinaryStorage(encoded)).toThrow(/binary storage.*text.*token/i);
   });
 });
