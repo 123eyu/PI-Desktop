@@ -1108,6 +1108,16 @@ export const api = {
     ),
   replaceSessionMessages: (sessionId: string, messages: UiMessage[]) =>
     invoke(IPC.invoke.sessionReplaceMessages, { sessionId, messages }),
+  deleteSessionMessage: (input: { sessionId: string; messageId: string }) =>
+    invoke<{ ok: true; deleted: boolean; deletedCount: number }>(IPC.invoke.sessionDeleteMessage, input),
+  retractPendingSessionPrompt: (input: {
+    sessionId: string;
+    userMessageId: string;
+    turnId?: string;
+  }) =>
+    invoke<{ ok: true; retracted: boolean; removedCount: number; reason?: string }>(
+      IPC.invoke.sessionRetractPendingPrompt, input,
+    ),
   saveSessionRevision: (input: {
     sessionId: string;
     rootUserId: string;
@@ -1124,7 +1134,8 @@ export const api = {
     sessionId: string;
     rootUserId: string;
     revisionIndex: number;
-    prefix: UiMessage[];
+    prefix?: UiMessage[];
+    requireCanonicalPrefix?: boolean;
   }) =>
     invoke<{ messages: UiMessage[] }>(IPC.invoke.sessionActivateRevision, input),
   steer: (req: AgentSteerRequest) =>
