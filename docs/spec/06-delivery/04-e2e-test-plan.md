@@ -4792,14 +4792,14 @@ window; opening a normal panel afterward must still work.
   4) Click `+` twice and verify each creates and activates a separate New
   launcher tab. Confirm its body lists Review and each in-scope plugin view
   exactly once. Open Browser and confirm its native surface opens at unchanged
-  bounds. Open that tab's context menu and verify it appears above Browser
-  chrome while the native view is hidden; Escape closes the menu and restores
-  the view without changing bounds. 5) Close active middle and edge tabs,
-  verify neighbor selection, then close the final tab and confirm New remains.
-  6) Collapse/reopen the panel and trigger another artifact. In session A, leave
-  Browser open; switch to B and create another tab set, then switch repeatedly
-  between sessions and select a project without a conversation. Generate a
-  background artifact in the non-visible session. 7) Drag the inner divider
+  bounds. Open its context menu and verify the native popup appears above Browser
+  chrome while the page remains visible. Escape closes it without hiding the page
+  or changing bounds. 5) Close active middle/edge tabs, verify neighbor selection,
+  then close the final tab and confirm New remains. 6) Collapse/reopen the panel
+  and trigger an artifact. In session A, leave Browser open; switch to B and
+  create another tab set, then switch repeatedly between sessions and select a
+  project without an active conversation. Generate a background artifact. 7)
+  Drag the inner divider
   pointer-down does not jump the divider or resize the native window, cancel one
   gesture with Escape, then focus the handle and exercise Arrow/Shift+Arrow/Home/End.
   Commit a different panel width with Browser active, double-click the divider and
@@ -4836,9 +4836,9 @@ window; opening a normal panel afterward must still work.
   right neighbor then left. A localized, keyboard-navigable tab context menu
   offers Close Tab, Close Other Tabs, and Close All Tabs. Close Other Tabs
   retains and activates its target and is disabled for one tab; Close All Tabs
-  closes Browser resources and leaves the panel open on New. The Browser tab's
-  native view is hidden while its context menu is open, placing the menu above
-  Browser chrome; closing the menu restores the view without changing bounds.
+  closes Browser resources and leaves the panel open on New. For an active
+  Browser/plugin view, the tab context menu is a Main-owned native popup above
+  Browser chrome; the page stays visible and its bounds do not change.
   New launcher tabs expose Review and plugin views as body buttons, with no
   overlapping popup. Dragging a tab shows a before/after insertion indicator;
   edge-holding scrolls toward hidden tabs, and reordering leaves the active
@@ -4873,10 +4873,11 @@ window; opening a normal panel afterward must still work.
   D357
 - **Acceptance**: F (persistence), Quality
 - **Milestone**: M5
+- **Status**: Unit-covered (`work-panel-resize.test.mjs`,
   `work-panel-window.test.mjs`, `work-panel-presentation.test.mjs`,
   `work-panel-tabs.test.mjs`, `browser-tab-restore.test.mjs`,
   `work-panel.test.mjs`, `plugin-work-panel-views.test.mjs`); isolated Electron
-  tab-menu, Browser visibility, and close-geometry path in
+  tab-menu, Browser native-menu page visibility, and close geometry in
   `scripts/e2e-work-panel-tab-close.mjs`; full UI scenario Draft
 
 #### E2E-057: Message-owned review history survives commits and rolls back safely

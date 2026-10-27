@@ -4,7 +4,7 @@ import { createInstance } from "i18next";
 import { I18nextProvider } from "react-i18next";
 import { catalogs } from "@pi-desktop/i18n";
 import { WorkPanel } from "../../apps/desktop/src/components/workpanel/WorkPanel";
-import { IPC } from "@pi-desktop/shared";
+import { IPC, type WorkPanelTabMenuAction, type WorkPanelTabMenuRequest } from "@pi-desktop/shared";
 import { pluginWorkPanelTab } from "../../apps/desktop/src/lib/work-panel-tabs";
 import { useAppStore } from "../../apps/desktop/src/stores/app-store";
 
@@ -41,8 +41,9 @@ type TabContextMenuPathResult = {
 
 type PluginViewMenuLayerResult = {
   stage: "plugin-view-menu-layer";
-  hiddenWhileMenuOpen: boolean;
-  restoredAfterMenuClose: boolean;
+  pageRemainsVisibleWhileMenuOpen: boolean;
+  pageRemainsVisibleAfterMenuClose: boolean;
+  nativeMenuRequested: boolean;
 };
 declare global {
   var tabCloseProbe: (stage: string) => Promise<CloseGeometry | TabContextMenuPathResult | PluginViewMenuLayerResult>;
@@ -62,11 +63,25 @@ const ready = i18n.init({
   resources: { en: { translation: catalogs.en } },
   interpolation: { escapeValue: false },
 });
+const nativeMenuRequests: WorkPanelTabMenuRequest[] = [];
+const nativeMenuSelections: (WorkPanelTabMenuAction | null)[] = [];
+let deferNextNativeMenu = false;
+let finishNativeMenu: (() => void) | null = null;
 const pluginViewVisibility: boolean[] = [];
 window.piDesktop = {
   channels: IPC,
   platform: "darwin",
   invoke: async (channel, ...args) => {
+    if (channel === IPC.invoke.workPanelTabMenu) {
+      nativeMenuRequests.push(args[0] as WorkPanelTabMenuRequest);
+      if (deferNextNativeMenu) {
+        deferNextNativeMenu = false;
+        return await new Promise((resolve) => {
+          finishNativeMenu = () => resolve({ ok: true, data: null });
+        });
+      }
+      return { ok: true, data: nativeMenuSelections.shift() ?? null };
+    }
     if (channel === IPC.invoke.pluginViewSetVisible) {
       const payload = args[0] as { visible?: boolean } | undefined;
       if (typeof payload?.visible === "boolean") pluginViewVisibility.push(payload.visible);
@@ -264,8 +279,11 @@ async function runTabContextMenuUserPath(): Promise<TabContextMenuPathResult> {
 
 async function runPluginViewMenuLayerPath(): Promise<PluginViewMenuLayerResult> {
   const tab = pluginWorkPanelTab("pi.browser", "browser");
-  pluginViewVisibility.length = 0;
+  nativeMenuRequests.length = 0;
+  deferNextNativeMenu = true;
+  finishNativeMenu = null;
   host.style.width = "1000px";
+  pluginViewVisibility.length = 0;
   flushSync(() => {
     useAppStore.setState({
       activeSessionId: "tab-close-plugin",
@@ -303,26 +321,38 @@ async function runPluginViewMenuLayerPath(): Promise<PluginViewMenuLayerResult> 
     clientY: 32,
   });
   flushSync(() => tabWrapper!.dispatchEvent(event));
-  assert(event.defaultPrevented, "Browser tab menu did not open");
-  await rendered();
-  assert(document.body.querySelector('[role="menu"]'), "Browser tab menu is missing");
-  const hiddenWhileMenuOpen = pluginViewVisibility.at(-1) === false;
-  assert(hiddenWhileMenuOpen, "native Browser view remained above the tab menu");
+  assert(event.defaultPrevented, "Browser tab did not invoke the native menu");
+  assert(nativeMenuRequests.length === 1, "Browser tab did not request the native menu");
+  const menuRequest = nativeMenuRequests[0];
+  assert(menuRequest?.canCloseOthers === false, "native menu request has incorrect close-other state");
+  const pageRemainsVisibleWhileMenuOpen = pluginViewVisibility.at(-1) === true;
+  assert(pageRemainsVisibleWhileMenuOpen, "Browser page disappeared while its native menu was open");
+  assert(!document.body.querySelector('[role="menu"]'), "native tab menu must not render underneath the Browser view");
 
-  window.dispatchEvent(new KeyboardEvent("keydown", {
-    key: "Escape",
+  const cancelNativeMenu = finishNativeMenu;
+  assert(cancelNativeMenu, "native menu test boundary did not open");
+  cancelNativeMenu!();
+  await rendered();
+  const pageRemainsVisibleAfterMenuClose = pluginViewVisibility.at(-1) === true;
+  assert(pageRemainsVisibleAfterMenuClose, "Browser page disappeared after cancelling its native menu");
+  nativeMenuSelections.push("closeTab");
+  const closeEvent = new MouseEvent("contextmenu", {
     bubbles: true,
     cancelable: true,
-  }));
+    clientX: 32,
+    clientY: 32,
+  });
+  flushSync(() => tabWrapper!.dispatchEvent(closeEvent));
+  assert(closeEvent.defaultPrevented, "native menu action could not be reopened");
   await rendered();
-  assert(!document.body.querySelector('[role="menu"]'), "Escape did not close the Browser tab menu");
-  const restoredAfterMenuClose = pluginViewVisibility.at(-1) === true;
-  assert(restoredAfterMenuClose, "native Browser view did not return after menu close");
+  assert(useAppStore.getState().workPanelTabs.length === 0, "native Close Tab action was not applied");
+
 
   return {
     stage: "plugin-view-menu-layer",
-    hiddenWhileMenuOpen,
-    restoredAfterMenuClose,
+    pageRemainsVisibleWhileMenuOpen,
+    pageRemainsVisibleAfterMenuClose,
+    nativeMenuRequested: nativeMenuRequests.length === 2,
   };
 }
 

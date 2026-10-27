@@ -110,9 +110,10 @@ app.whenReady().then(async () => {
       continue;
     }
     if (result.stage === "plugin-view-menu-layer") {
-      assert.equal(result.hiddenWhileMenuOpen, true, "native Browser view was not hidden behind the menu");
-      assert.equal(result.restoredAfterMenuClose, true, "native Browser view was not restored after closing the menu");
-      console.log("plugin view menu layer: PASS");
+      assert.equal(result.nativeMenuRequested, true, "Browser tab did not request the native menu");
+      assert.equal(result.pageRemainsVisibleWhileMenuOpen, true, "Browser page disappeared while the menu was open");
+      assert.equal(result.pageRemainsVisibleAfterMenuClose, true, "Browser page disappeared after menu close");
+      console.log("native menu preserves Browser page: PASS");
       continue;
     }
     console.log(
