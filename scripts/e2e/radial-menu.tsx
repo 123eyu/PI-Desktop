@@ -24,8 +24,8 @@ type ProbeState = {
 
 const state: ProbeState = { calls: [], closes: 0, disabledCalls: [] };
 
-const items = (disabledLeft = false): RadialMenuSlot[] => [
-  { id: "up", label: "Copy conversation", icon: <span>U</span>, onSelect: () => state.calls.push("up") },
+const items = (disabledLeft = false, disabledUp = false): RadialMenuSlot[] => [
+  { id: "up", label: "Copy conversation", icon: <span>U</span>, disabled: disabledUp, onSelect: () => state.calls.push("up") },
   { id: "right", label: "Select text", icon: <span>R</span>, onSelect: () => state.calls.push("right") },
   { id: "down", label: "Jump to latest", icon: <span>D</span>, onSelect: () => state.calls.push("down") },
   {
@@ -37,12 +37,12 @@ const items = (disabledLeft = false): RadialMenuSlot[] => [
   },
 ];
 
-function Probe({ disabledLeft }: { disabledLeft: boolean }) {
+function Probe({ disabledLeft, disabledUp }: { disabledLeft: boolean; disabledUp: boolean }) {
   const [open, setOpen] = React.useState(true);
   return open ? (
     <RadialMenu
       point={{ x: 420, y: 340 }}
-      items={items(disabledLeft)}
+      items={items(disabledLeft, disabledUp)}
       label="Transcript ring"
       onClose={() => {
         state.closes += 1;
@@ -54,12 +54,12 @@ function Probe({ disabledLeft }: { disabledLeft: boolean }) {
   );
 }
 
-const mount = (disabledLeft = false) => {
+const mount = (disabledLeft = false, disabledUp = false) => {
   document.body.replaceChildren();
   const host = document.createElement("div");
   document.body.append(host);
   const root = createRoot(host);
-  flushSync(() => root.render(<Probe disabledLeft={disabledLeft} />));
+  flushSync(() => root.render(<Probe disabledLeft={disabledLeft} disabledUp={disabledUp} />));
   const menu = document.querySelector<HTMLElement>(".radial-menu");
   check(!!menu, "ring did not mount");
   return menu as HTMLElement;
@@ -147,7 +147,22 @@ Object.assign(globalThis, {
     await settle();
     check(state.calls.at(-1) === "right", `Enter path ran ${state.calls.at(-1)}`);
 
-    // 7. Escape closes the ring.
+    // 7. An empty first slot still leaves the keyboard path on an enabled action.
+    menu = mount(false, true);
+    await settle();
+    const firstFocusable = document.activeElement as HTMLButtonElement | null;
+    check(firstFocusable?.getAttribute("aria-label") === "Select text", `disabled first slot kept focus on ${firstFocusable?.tagName}`);
+    flushSync(() =>
+      firstFocusable?.dispatchEvent(new KeyboardEvent("keydown", { key: "ArrowRight", bubbles: true })),
+    );
+    await settle();
+    const nextFocusable = document.activeElement as HTMLButtonElement | null;
+    check(nextFocusable?.getAttribute("aria-label") === "Jump to latest", `arrow key did not skip the disabled first slot: ${nextFocusable?.getAttribute("aria-label")}`);
+    flushSync(() => nextFocusable?.click());
+    await settle();
+    check(state.calls.at(-1) === "down", `keyboard action ran ${state.calls.at(-1)}`);
+
+    // 8. Escape closes the ring.
     menu = mount();
     flushSync(() =>
       window.dispatchEvent(new KeyboardEvent("keydown", { key: "Escape", bubbles: true })),

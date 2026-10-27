@@ -42,7 +42,7 @@ import {
   useChatTextActions,
   useTranscriptMenu,
 } from "./TranscriptMenu";
-import { conversationMenuItems } from "./menu-items";
+import { conversationMenuItems, hasConversationToCopy } from "./menu-items";
 import { browserPluginTab } from "../../../lib/work-panel-tabs";
 import { isRemoteSession } from "../../../lib/remote-session-safety";
 import {
@@ -266,6 +266,13 @@ function TranscriptBody({
     }
   };
 
+  const canCopyConversation = hasConversationToCopy({
+    sessionId,
+    hasMoreBefore,
+    hasMoreAfter,
+    messages,
+  });
+
   /* The newest settled answer, for the ring's optional copy slot. */
   const lastAnswer = useMemo(() => {
     for (let index = messages.length - 1; index >= 0; index -= 1) {
@@ -289,7 +296,13 @@ function TranscriptBody({
       const label = t(RADIAL_MENU_ACTION_LABEL_KEYS[action]);
       switch (action) {
         case "copy-conversation":
-          return { id, label, icon: <IconCopy size={18} />, onSelect: () => void copyConversation() };
+          return {
+            id,
+            label,
+            icon: <IconCopy size={18} />,
+            disabled: !canCopyConversation,
+            onSelect: () => void copyConversation(),
+          };
         case "select-conversation":
           return {
             id,
@@ -376,9 +389,7 @@ function TranscriptBody({
       label: t("chat.conversationMenu"),
       items: conversationMenuItems({
         t,
-        canCopy: Boolean(sessionId) && (hasMoreBefore || hasMoreAfter || messages.some(
-          (message) => (message.role === "user" || message.role === "assistant") && message.content.trim(),
-        )),
+        canCopy: canCopyConversation,
         onCopyConversation: () => void copyConversation(),
         scrollRef,
         contentRef,

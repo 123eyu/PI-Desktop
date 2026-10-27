@@ -92,6 +92,8 @@ export function RadialMenu({
   const [activeIndex, setActiveIndex] = useState<number | null>(null);
   const [open, setOpen] = useState(false);
 
+  const firstEnabledIndex = items.findIndex((item) => !item.disabled);
+
   // The right-click interrupted whatever owned focus; closing puts it back so
   // the ring never strands focus on `<body>`.
   useEffect(() => {
@@ -153,11 +155,16 @@ export function RadialMenu({
     };
   }, [onClose]);
 
-  // The ring owns the pointer, so the first item takes focus for the keyboard
-  // path and the hover fill follows whichever slot is active.
+  // Focus the first actionable item; when every slot is empty, focus the menu
+  // itself so keyboard dismissal remains available.
   useEffect(() => {
-    itemRefs.current[0]?.focus({ preventScroll: true });
-  }, []);
+    const firstEnabledItem = itemRefs.current[firstEnabledIndex];
+    if (firstEnabledItem) {
+      firstEnabledItem.focus({ preventScroll: true });
+    } else {
+      rootRef.current?.focus({ preventScroll: true });
+    }
+  }, [firstEnabledIndex]);
 
   useEffect(() => {
     if (activeIndex === null) return;
@@ -177,9 +184,21 @@ export function RadialMenu({
           : 0;
     if (!step) return;
     event.preventDefault();
-    setActiveIndex((current) =>
-      ((current ?? 0) + step + items.length) % items.length,
+    if (!items.length) return;
+    const focusedIndex = itemRefs.current.findIndex(
+      (item) => item === document.activeElement,
     );
+    setActiveIndex((current) => {
+      const cursor = current ?? focusedIndex;
+      const startIndex =
+        cursor >= 0 ? cursor : step > 0 ? items.length - 1 : 0;
+      for (let distance = 1; distance <= items.length; distance += 1) {
+        const index =
+          (startIndex + step * distance + items.length) % items.length;
+        if (!items[index]?.disabled) return index;
+      }
+      return current;
+    });
   };
 
   const width = OUTER_RADIUS * 2;
@@ -209,6 +228,7 @@ export function RadialMenu({
       style={{ top: `${top}px`, left: `${left}px`, width, height: width }}
       role="menu"
       aria-label={label}
+      tabIndex={-1}
       onKeyDown={onKeyDown}
       onPointerMove={(event) => {
         const rect = event.currentTarget.getBoundingClientRect();
