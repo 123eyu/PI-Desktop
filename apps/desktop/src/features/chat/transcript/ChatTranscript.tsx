@@ -7,7 +7,16 @@ import { RadialMenu, type RadialMenuSlot } from "../../../components/RadialMenu"
 import { PermissionCard } from "../../../components/PermissionCard";
 import { TooltipButton } from "../../../components/ui";
 import { TurnOutcomeCard } from "../../../components/TurnOutcomeCard";
-import { IconArrowDown, IconArrowUp, IconChat, IconCopy, IconTextSelect } from "../../../components/icons";
+import {
+  IconArrowDown,
+  IconArrowUp,
+  IconBrowser,
+  IconChat,
+  IconCopy,
+  IconFolder,
+  IconPanel,
+  IconTextSelect,
+} from "../../../components/icons";
 import { useAppStore } from "../../../stores/app-store";
 import type { PendingPermission } from "../../../lib/pending-permissions";
 import { TRANSCRIPT_SKELETON_ROWS } from "../../../lib/transcript-settle";
@@ -34,6 +43,8 @@ import {
   useTranscriptMenu,
 } from "./TranscriptMenu";
 import { conversationMenuItems } from "./menu-items";
+import { browserPluginTab } from "../../../lib/work-panel-tabs";
+import { isRemoteSession } from "../../../lib/remote-session-safety";
 import {
   RADIAL_MENU_ACTION_LABEL_KEYS,
   RADIAL_MENU_DIRECTIONS,
@@ -111,6 +122,13 @@ function TranscriptBody({
   const radialMenu = resolveRadialMenu(
     useAppStore((state) => state.settings),
   );
+  const sessionSummary = useAppStore((state) =>
+    sessionId
+      ? state.sessions.find((session) => session.id === sessionId)
+      : undefined,
+  );
+  const openWorkPanelTab = useAppStore((state) => state.openWorkPanelTab);
+  const openWorkPanel = useAppStore((state) => state.openWorkPanel);
   /*
     The ring is a second presentation of the background menu, not a second
     menu: it opens at the pointer and keeps the same conversation-level actions.
@@ -302,6 +320,40 @@ function TranscriptBody({
               jumpToLatest();
             },
           };
+        case "open-browser":
+          return {
+            id,
+            label,
+            icon: <IconBrowser size={18} />,
+            disabled: !sessionId || isRemoteSession(sessionSummary),
+            onSelect: () => openWorkPanelTab(browserPluginTab()),
+          };
+        case "open-work-panel":
+          return {
+            id,
+            label,
+            icon: <IconPanel size={18} />,
+            disabled: !sessionId || isRemoteSession(sessionSummary),
+            onSelect: () => openWorkPanel(),
+          };
+        case "open-project-folder": {
+          const path = sessionSummary?.projectPath;
+          return {
+            id,
+            label,
+            icon: <IconFolder size={18} />,
+            disabled: !path || isRemoteSession(sessionSummary),
+            onSelect: () => {
+              if (!path) return;
+              void api.openProjectFolder(path).catch((error: unknown) => {
+                showToast(
+                  error instanceof Error ? error.message : String(error),
+                  { variant: "error" },
+                );
+              });
+            },
+          };
+        }
         default:
           return { id, label, icon: <IconChat size={18} />, disabled: true, onSelect: () => {} };
       }

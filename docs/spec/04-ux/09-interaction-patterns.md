@@ -693,11 +693,14 @@ may be retained while exactly one workspace supplies the visible shell context.
   four-sector ring centred on the pointer instead of the vertical conversation
   menu. Message rows, markdown links, file references, tool rows, the sidebar,
   and the work panel keep their vertical menus.
-- The vocabulary is the conversation-level set: copy conversation, select
-  conversation text, copy the last answer, scroll to top, jump to latest, and
-  **Leave empty**. A direction with no action renders a disabled sector rather
-  than reshaping the ring; an action the conversation cannot fill (copy last
-  answer before any answer text exists) is visible and disabled.
+- The vocabulary is: copy conversation, select conversation text, copy the last
+  answer, scroll to top, jump to latest, open the built-in browser, open the work
+  panel, open the project folder, and **Leave empty**. A direction with no action
+  renders a disabled sector rather than reshaping the ring; an action the surface
+  cannot fill stays visible and disabled — copy last answer before any answer
+  text exists, and the three open actions on a remote session (open project
+  folder also before the session has a project path). There is no terminal
+  action: the work panel ships no terminal surface.
 - The sector under the pointer highlights; clicking it runs the action and
   closes the ring. A click on the hub or outside closes without running.
   Arrow keys move the highlight clockwise and counter-clockwise, Enter runs the

@@ -34,6 +34,23 @@ test("an unknown action or a missing direction resolves per slot", () => {
   });
 });
 
+test("the open actions are part of the per-slot vocabulary", () => {
+  const resolved = resolveRadialMenu({
+    radialMenu: {
+      enabled: true,
+      up: "open-browser",
+      right: "open-work-panel",
+      down: "open-project-folder",
+    },
+  });
+  assert.deepEqual(resolved.slots, {
+    up: "open-browser",
+    right: "open-work-panel",
+    down: "open-project-folder",
+    left: "scroll-top",
+  });
+});
+
 test("the transcript keeps the vertical menu unless the ring is enabled", () => {
   const source = readFileSync(
     new URL(

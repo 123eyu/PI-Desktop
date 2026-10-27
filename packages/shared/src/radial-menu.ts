@@ -22,6 +22,9 @@ export const RADIAL_MENU_ACTIONS = [
   "copy-last-answer",
   "scroll-top",
   "scroll-bottom",
+  "open-browser",
+  "open-work-panel",
+  "open-project-folder",
   "none",
 ] as const satisfies readonly RadialMenuAction[];
 

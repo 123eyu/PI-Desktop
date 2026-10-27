@@ -264,6 +264,9 @@ export type RadialMenuAction =
   | "copy-last-answer"
   | "scroll-top"
   | "scroll-bottom"
+  | "open-browser"
+  | "open-work-panel"
+  | "open-project-folder"
   | "none";
 
 export type RadialMenuDirection = "up" | "right" | "down" | "left";

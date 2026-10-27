@@ -28,6 +28,9 @@ export const RADIAL_MENU_ACTION_LABEL_KEYS: Record<RadialMenuAction, string> = {
   "copy-last-answer": "chat.copyLastAnswer",
   "scroll-top": "chat.scrollToTop",
   "scroll-bottom": "chat.scrollToBottom",
+  "open-browser": "chat.radialMenuOpenBrowser",
+  "open-work-panel": "chat.radialMenuOpenWorkPanel",
+  "open-project-folder": "chat.radialMenuOpenProjectFolder",
   none: "settings.radialMenuActionNone",
 };
 
