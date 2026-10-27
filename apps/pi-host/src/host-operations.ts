@@ -262,6 +262,11 @@ export function createHostOperations(deps: HostOperationsDeps): Omit<RacpHostOpe
     workspacePluginFiles: createWorkspacePluginFiles({
       browseRoot: deps.browseRoot ?? homedir(),
       protectedPaths: [deps.dataDir ?? join(homedir(), ".pi-desktop")],
+      isRegisteredRoot: async (root) => {
+        const host = requireHost(deps.getHost);
+        const result = await host.call<{ projects: ProjectRow[] }>("projects.list", {}).catch(hostError);
+        return (result.projects ?? []).some((project) => project.path === root);
+      },
     }),
     ...(deps.revokeDevice ? { revokeDevice: deps.revokeDevice } : {}),
   };

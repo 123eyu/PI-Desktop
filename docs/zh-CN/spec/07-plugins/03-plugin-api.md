@@ -327,7 +327,9 @@ pi.fs.requestDirectory(): Promise<{ path: string; name: string } | null>
 SSH 项目的 `workspace.get` 保留不透明的 `remote-project:` 身份，并新增
 `remote: { path, readOnly: true }`。`remote.path` 仅用于显示，不能交给本地文件系统。
 `fs.list` 与 `fs.readPreview` 经配对 owner Host 的可选 `workspacePluginFiles`
-能力读取；Host 检查规范路径包含关系、受保护目录、凭据拒绝列表与插件声明的 scope。
+能力读取；工作区根必须位于 Host 文件夹选择器的浏览根内，或精确匹配已在该 Host
+注册的规范项目根；Host 继续检查规范路径包含关系、受保护目录、凭据拒绝列表与插件
+声明的 scope。
 远程预览还返回真实 `mtimeMs`；其他文件通道仍限本地并明确拒绝远程身份。
 缺少能力返回 `HOST_VERSION_MISMATCH`，不会改读 Desktop 文件系统。
 

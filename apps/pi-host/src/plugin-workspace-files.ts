@@ -37,6 +37,7 @@ async function canonical(path: string): Promise<string> {
 export function createWorkspacePluginFiles(options: {
   browseRoot: string;
   protectedPaths: readonly string[];
+  isRegisteredRoot?: (path: string) => Promise<boolean>;
 }): NonNullable<RacpHostOperations["workspacePluginFiles"]> {
   return { async read(input: WorkspacePluginFilesRequest): Promise<WorkspacePluginFilesResult> {
     if (!isAbsolute(input.path) || /[\u0000-\u001f]/.test(input.path)
@@ -53,7 +54,8 @@ export function createWorkspacePluginFiles(options: {
       }
     }));
     const protectedPath = (path: string) => protectedRoots.some((guarded) => inside(guarded, path));
-    if (!inside(browseRoot, root) || protectedPath(root) || isDeniedFsPath(root)) throw forbidden();
+    if (protectedPath(root) || isDeniedFsPath(root)) throw forbidden();
+    if (!inside(browseRoot, root) && !(await options.isRegisteredRoot?.(root))) throw forbidden();
     if (!(await stat(root)).isDirectory()) throw new RacpError("INVALID_ARGUMENT", "workspace is not a directory");
 
     const authorize = async (requested: string, file: boolean) => {

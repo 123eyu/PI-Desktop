@@ -391,9 +391,11 @@ identity and adds `remote: { path, readOnly: true }`; `remote.path` is a display
 path, never a local filesystem root. `fs.list` and `fs.readPreview` route these
 roots through the paired owner Host's optional `workspacePluginFiles`
 capability. The Host enforces canonical containment, protected paths, credential
-denials and the plugin's declared scope. Other filesystem channels remain local
-and reject opaque remote roots. A missing capability reports
-`HOST_VERSION_MISMATCH`; no request falls back to the Desktop filesystem.
+denials and the plugin's declared scope. The root must be below the Host's folder
+picker browse root or exactly match a canonical project root registered on that
+Host. Other filesystem channels remain local and reject opaque remote roots. A
+missing capability reports `HOST_VERSION_MISMATCH`; no request falls back to the
+Desktop filesystem.
 
 The optional `workspacePath` must equal the workspace identity captured by the
 view. A mismatch reports `WORKSPACE_CHANGED`. All reads capture their root

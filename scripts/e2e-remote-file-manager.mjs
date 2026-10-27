@@ -47,6 +47,7 @@ try {
   const localPath = join(temp, "local-control");
   await mkdir(join(remotePath, "docs"), { recursive: true });
   await mkdir(localPath);
+  await mkdir(join(temp, "browse-root"));
   await mkdir(join(remotePath, "nested"));
   await mkdir(join(localPath, "nested"));
   await writeFile(join(remotePath, "nested/deep.txt"), "REMOTE NESTED\n");
@@ -67,7 +68,9 @@ try {
     assert.equal(method, "project.groups.list", "only durable binding lookup is stubbed"); return { groups };
   } };
   protocol = await harness({ operations: { workspacePluginFiles: createWorkspacePluginFiles({
-    browseRoot: temp, protectedPaths: [join(temp, "host-data")],
+    browseRoot: join(temp, "browse-root"),
+    protectedPaths: [join(temp, "host-data")],
+    isRegisteredRoot: async path => path === remotePath,
   }) } });
   binding = await bindRacpWebSocket({ server: protocol.server, authenticator: protocol.authenticator,
     port: 0, log: () => {} });

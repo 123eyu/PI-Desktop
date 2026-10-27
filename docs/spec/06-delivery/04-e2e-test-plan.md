@@ -18710,12 +18710,14 @@ compatible Electron runtime. `PI_E2E_ARTIFACTS` optionally preserves screenshots
 The isolated production plugin process and `file://` view use Desktop's actual
 SDK broker, durable-binding reader, loopback RACP transport and Host filesystem
 service. Only the fixture's project-record lookup and authentication bootstrap
-are supplied by the harness. Verify nested listings, text/image bytes, hidden
-credentials, read-only editor/save/menu controls, visible disconnect errors and
-refresh recovery, rejected late previews and ancestor opens after a project
-switch, and restored local editing/Browser/editor detection. No model, user
-profile or external SSH server participates. Real SSH transport and native
-Windows/Linux behavior require their separate platform acceptance.
+are supplied by the harness. The remote fixture root is registered explicitly
+outside the Host folder picker's browse root. Verify nested listings,
+text/image bytes, hidden credentials, read-only editor/save/menu controls,
+visible disconnect errors and refresh recovery, rejected late previews and
+ancestor opens after a project switch, and restored local
+editing/Browser/editor detection. No model, user profile or external SSH server
+participates. Real SSH transport and native Windows/Linux behavior require
+their separate platform acceptance.
 
 ### E2E-GENUI-inline-visualization-card: a visualization renders inline and stays sandboxed
 

@@ -21,7 +21,9 @@ resolves the remote binding from host-owned project records, and sends a closed
 `workspace/pluginFiles` request. The remote Host advertises this optional
 capability and accepts it only from paired owners. It validates canonical
 containment, protected Host data, the credential deny-list and the declared
-scope before reading. Requested and canonical file names must both match scope.
+scope before reading. A workspace root must be under the folder picker's browse
+root or exactly match a canonical project root registered on the Host. Requested
+and canonical file names must both match scope.
 
 The SDK accepts an optional expected workspace identity. All calls, including
 legacy calls without this argument, capture their root before asynchronous

@@ -643,8 +643,9 @@ Legacy remote-Agent operations above remain unchanged.
 by optional capability `workspacePluginFiles`. It accepts only
 `{ path, operation: "list" | "preview", ref, scope: string[] }`; no Host key,
 write payload or external absolute `ref` is accepted. The Host checks its browse
-root, protected data, canonical containment, credential denials, and requested
-and canonical scope before delivery. Results are a closed `kind` union: `list`
+root or an exact canonical project root already registered on that Host,
+protected data, canonical containment, credential denials, and requested and
+canonical scope before delivery. Results are a closed `kind` union: `list`
 with root-relative entries, or `text`/`image`/`binary`/`tooLarge` with real size
 and `mtimeMs`. Text and images use the existing 512 KiB / 5 MiB preview caps.
 Desktop derives the remote root from its admitted project binding and rejects

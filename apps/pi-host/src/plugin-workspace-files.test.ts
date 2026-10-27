@@ -9,6 +9,17 @@ afterEach(async () => {
   await Promise.all(temporary.splice(0).map((path) => rm(path, { recursive: true, force: true })));
 });
 
+function projectHost(paths: readonly string[]) {
+  return {
+    async call<T>(method: string): Promise<T> {
+      if (method === "projects.list") {
+        return { projects: paths.map((path, index) => ({ id: index + 1, path, name: `project-${index + 1}` })) } as T;
+      }
+      throw new Error(`unexpected ${method}`);
+    },
+  };
+}
+
 async function fixture() {
   const home = await realpath(await mkdtemp(join(tmpdir(), "pi-plugin-remote-")));
   temporary.push(home);
@@ -21,7 +32,7 @@ async function fixture() {
   await writeFile(join(root, ".env"), "private fixture");
   await writeFile(join(data, "tokens.json"), "private host fixture");
   const operations = createHostOperations({
-    getHost: () => null,
+    getHost: () => projectHost([]),
     runtime: { compact: async () => ({ accepted: true }), isBusy: () => false },
     browseRoot: home,
     dataDir: data,
@@ -83,6 +94,36 @@ it("refuses credentials, escaped links, protected Host data and browse-root esca
   expect(JSON.stringify(await read("list"))).not.toMatch(/escape.txt|host-link/);
   expect(JSON.stringify(await read("list", "docs"))).not.toContain("credential.txt");
   expect(home).not.toBe(outside);
+});
+
+it("allows an explicitly registered workspace root outside the browse root", { timeout: 60_000 }, async () => {
+  const scratch = await realpath(await mkdtemp(join(tmpdir(), "pi-plugin-registered-")));
+  temporary.push(scratch);
+  const browseRoot = join(scratch, "home");
+  const root = join(scratch, "workspace", "repo");
+  const unregistered = join(scratch, "workspace", "other");
+  await mkdir(browseRoot);
+  await mkdir(root, { recursive: true });
+  await mkdir(unregistered);
+  await writeFile(join(root, "README.md"), "registered workspace\n");
+  const operations = createHostOperations({
+    getHost: () => projectHost([root]),
+    runtime: { compact: async () => ({ accepted: true }), isBusy: () => false },
+    browseRoot,
+    dataDir: join(scratch, "host-data"),
+  });
+  const read = (path: string) => operations.workspacePluginFiles!.read({
+    path,
+    ref: "",
+    operation: "list",
+    scope: ["**"],
+  });
+
+  expect(await read(root)).toMatchObject({
+    kind: "list",
+    entries: [{ name: "README.md", path: "README.md", isDirectory: false }],
+  });
+  await expect(read(unregistered)).rejects.toMatchObject({ code: "REMOTE_PATH_FORBIDDEN" });
 });
 
 it("returns explicit oversized/binary results and missing-file errors", { timeout: 60_000 }, async () => {
