@@ -113,6 +113,8 @@ import type {
   AppMenuCommand,
   AppNotification,
   NativeMenuAction,
+  WorkPanelTabMenuAction,
+  WorkPanelTabMenuRequest,
   NotificationListResult,
   ReviewRollbackResult,
   PlanProposal,
@@ -1723,6 +1725,8 @@ export const api = {
       IPC.invoke.nativeMenuAction,
       { action },
     ),
+  openWorkPanelTabMenu: (request: WorkPanelTabMenuRequest) =>
+    invoke<WorkPanelTabMenuAction | null>(IPC.invoke.workPanelTabMenu, request),
   onWindowMaximized: (listener: (event: { maximized: boolean }) => void) => {
     if (!window.piDesktop?.on) return () => undefined;
     return window.piDesktop.on(IPC.event.windowMaximized, (payload) =>
