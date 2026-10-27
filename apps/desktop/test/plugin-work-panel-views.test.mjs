@@ -96,8 +96,11 @@ test("plugin views reach the panel body and the empty state", () => {
   assert.doesNotMatch(panelSource, /openPluginView\(view\)/);
 });
 
-test("the native surface keeps its full and current bounds while the launcher is active", () => {
-  assert.match(panelSource, /blocked=\{\s*exiting \|\| panelBlocked \|\| blockingOverlayActive\s*\}/s);
+test("the native surface hides behind the work-panel menu and keeps its full bounds", () => {
+  assert.match(
+    panelSource,
+    /blocked=\{\s*exiting \|\| panelBlocked \|\| blockingOverlayActive \|\| tabContextMenu !== null\s*\}/s,
+  );
   assert.doesNotMatch(panelSource, /avoid: pluginSurface/);
   assert.doesNotMatch(panelSource, /menuOpen|work-panel-new-menu|placeWorkPanelMenu/);
   assert.doesNotMatch(viewTabSource, /occludedById/);

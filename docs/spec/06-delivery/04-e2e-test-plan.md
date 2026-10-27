@@ -4789,20 +4789,17 @@ window; opening a normal panel afterward must still work.
   and press Escape to leave the tabs unchanged. With only one or two tabs, drag
   unused header space to move the native window; tab and action clicks must
   still work without moving it.
-  work without moving it. 4) Click `+` twice and verify each click
-  creates and activates a separate New launcher tab. Confirm the launcher body
-  contains Review plus each in-scope plugin view exactly once as clickable rows;
-  there is no work-panel dropdown or popup. Click Browser from one New tab and
-  confirm that tab opens the native plugin surface without changing its bounds.
-  5) Close
-  active middle and edge tabs and verify neighbor selection. Close the final
-  tab and confirm the panel remains open on the New launcher. 6) Use the
-  viewport-fixed work-panel toggle and trigger another artifact. 7) In session A,
-  leave the panel open with multiple
-  tabs and a Browser resource; switch to session B, create a different tab set,
-  then switch repeatedly between A and B and select a project without an active
-  conversation. Generate a background artifact in the non-visible session.
-  7) Drag the inner left-edge handle left and right across its bounds; verify
+  4) Click `+` twice and verify each creates and activates a separate New
+  launcher tab. Confirm its body lists Review and each in-scope plugin view
+  exactly once. Open Browser and confirm its native surface opens at unchanged
+  bounds. Open that tab's context menu and verify it appears above Browser
+  chrome while the native view is hidden; Escape closes the menu and restores
+  the view without changing bounds. 5) Close active middle and edge tabs,
+  verify neighbor selection, then close the final tab and confirm New remains.
+  6) Collapse/reopen the panel and trigger another artifact. In session A, leave
+  Browser open; switch to B and create another tab set, then switch repeatedly
+  between sessions and select a project without a conversation. Generate a
+  background artifact in the non-visible session. 7) Drag the inner divider
   pointer-down does not jump the divider or resize the native window, cancel one
   gesture with Escape, then focus the handle and exercise Arrow/Shift+Arrow/Home/End.
   Commit a different panel width with Browser active, double-click the divider and
@@ -4833,24 +4830,22 @@ window; opening a normal panel afterward must still work.
   opacity/slide, so MainChat reflows continuously without a pre-animation jump.
   Opening the panel, collapsing it, or committing a divider resize updates the
   presentation without a native-window jump. The header is a horizontally
-  Opening the panel, collapsing it, or committing a divider resize updates the
-  presentation without a native-window jump. The header is a horizontally
   scrollable tablist with stable `92px–180px` tabs, visible spacing, and a
   fixed `+`; labels stay readable instead of shrinking into one cluster, the
   strip alone scrolls, active tabs scroll into view, and close selects the
   right neighbor then left. A localized, keyboard-navigable tab context menu
   offers Close Tab, Close Other Tabs, and Close All Tabs. Close Other Tabs
   retains and activates its target and is disabled for one tab; Close All Tabs
-  closes Browser resources and leaves the panel open on New. New launcher tabs
-  expose Review and in-scope plugin views as body buttons, with no popup to
-  overlap or shift the panel. Dragging a tab shows a before/after insertion
-  indicator, edge-holding scrolls the strip toward hidden tabs, and reorders
-  only the tab array; the active resource stays active. `Alt+ArrowLeft`/
-  `Alt+ArrowRight` provides the same reorder path from the focused tab. Clicking
-  a launcher row replaces that New tab with the destination or activates its
-  existing singleton.
-  retains runtime tabs but hides the panel until another artifact reopens it.
-  Width follows the shared three-column budget with no fixed pixel cap and
+  closes Browser resources and leaves the panel open on New. The Browser tab's
+  native view is hidden while its context menu is open, placing the menu above
+  Browser chrome; closing the menu restores the view without changing bounds.
+  New launcher tabs expose Review and plugin views as body buttons, with no
+  overlapping popup. Dragging a tab shows a before/after insertion indicator;
+  edge-holding scrolls toward hidden tabs, and reordering leaves the active
+  resource unchanged. `Alt+ArrowLeft`/`Alt+ArrowRight` provides keyboard
+  reordering. Selecting a launcher row replaces New or activates its singleton.
+  Collapse retains runtime tabs while hiding the panel. Width follows the shared
+  three-column budget without a fixed pixel cap and
   previews its current/minimum/maximum values through the panel separator. The
   inner divider exposes the panel width to assistive technology and supports
   the documented keyboard steps. Pointer-down preserves the starting width,
@@ -4878,11 +4873,11 @@ window; opening a normal panel afterward must still work.
   D357
 - **Acceptance**: F (persistence), Quality
 - **Milestone**: M5
-- **Status**: Unit-covered (`work-panel-resize.test.mjs`,
   `work-panel-window.test.mjs`, `work-panel-presentation.test.mjs`,
   `work-panel-tabs.test.mjs`, `browser-tab-restore.test.mjs`,
-  `work-panel.test.mjs`); isolated Electron context-menu user path and close
-  geometry in `scripts/e2e-work-panel-tab-close.mjs`; full UI scenario Draft
+  `work-panel.test.mjs`, `plugin-work-panel-views.test.mjs`); isolated Electron
+  tab-menu, Browser visibility, and close-geometry path in
+  `scripts/e2e-work-panel-tab-close.mjs`; full UI scenario Draft
 
 #### E2E-057: Message-owned review history survives commits and rolls back safely
 

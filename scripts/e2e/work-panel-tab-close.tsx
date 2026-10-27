@@ -4,6 +4,8 @@ import { createInstance } from "i18next";
 import { I18nextProvider } from "react-i18next";
 import { catalogs } from "@pi-desktop/i18n";
 import { WorkPanel } from "../../apps/desktop/src/components/workpanel/WorkPanel";
+import { IPC } from "@pi-desktop/shared";
+import { pluginWorkPanelTab } from "../../apps/desktop/src/lib/work-panel-tabs";
 import { useAppStore } from "../../apps/desktop/src/stores/app-store";
 
 /*
@@ -36,8 +38,14 @@ type TabContextMenuPathResult = {
   remainingTabs: number;
   activeTabId: string | null;
 };
+
+type PluginViewMenuLayerResult = {
+  stage: "plugin-view-menu-layer";
+  hiddenWhileMenuOpen: boolean;
+  restoredAfterMenuClose: boolean;
+};
 declare global {
-  var tabCloseProbe: (stage: string) => Promise<CloseGeometry | TabContextMenuPathResult>;
+  var tabCloseProbe: (stage: string) => Promise<CloseGeometry | TabContextMenuPathResult | PluginViewMenuLayerResult>;
 }
 
 const assert = (condition: unknown, message: string) => {
@@ -54,6 +62,19 @@ const ready = i18n.init({
   resources: { en: { translation: catalogs.en } },
   interpolation: { escapeValue: false },
 });
+const pluginViewVisibility: boolean[] = [];
+window.piDesktop = {
+  channels: IPC,
+  platform: "darwin",
+  invoke: async (channel, ...args) => {
+    if (channel === IPC.invoke.pluginViewSetVisible) {
+      const payload = args[0] as { visible?: boolean } | undefined;
+      if (typeof payload?.visible === "boolean") pluginViewVisibility.push(payload.visible);
+    }
+    return { ok: true, data: undefined };
+  },
+  on: () => () => undefined,
+};
 
 function element(selector: string): HTMLElement {
   const found = host.querySelector<HTMLElement>(selector);
@@ -241,11 +262,78 @@ async function runTabContextMenuUserPath(): Promise<TabContextMenuPathResult> {
   };
 }
 
+async function runPluginViewMenuLayerPath(): Promise<PluginViewMenuLayerResult> {
+  const tab = pluginWorkPanelTab("pi.browser", "browser");
+  pluginViewVisibility.length = 0;
+  host.style.width = "1000px";
+  flushSync(() => {
+    useAppStore.setState({
+      activeSessionId: "tab-close-plugin",
+      workPanelOpen: true,
+      workPanelTabs: [tab],
+      activeWorkPanelTabId: tab.id,
+      workPanelFileRequest: null,
+      workPanelContexts: {},
+      pluginViews: [{
+        pluginId: "pi.browser",
+        viewId: "browser",
+        ref: "pi.browser/browser",
+        title: "Browser",
+        pluginName: "PI-Desktop",
+        order: 0,
+      }],
+    });
+    root.render(
+      <I18nextProvider i18n={i18n}>
+        <WorkPanel containerWidth={1000} sidebarCollapsed />
+      </I18nextProvider>,
+    );
+  });
+  await rendered();
+  assert(pluginViewVisibility.at(-1) === true, "Browser view did not become visible");
+
+  const tabWrapper = host.querySelector<HTMLElement>(
+    `[data-work-panel-tab-id="${CSS.escape(tab.id)}"]`,
+  );
+  assert(tabWrapper, "Browser tab wrapper is missing");
+  const event = new MouseEvent("contextmenu", {
+    bubbles: true,
+    cancelable: true,
+    clientX: 32,
+    clientY: 32,
+  });
+  flushSync(() => tabWrapper!.dispatchEvent(event));
+  assert(event.defaultPrevented, "Browser tab menu did not open");
+  await rendered();
+  assert(document.body.querySelector('[role="menu"]'), "Browser tab menu is missing");
+  const hiddenWhileMenuOpen = pluginViewVisibility.at(-1) === false;
+  assert(hiddenWhileMenuOpen, "native Browser view remained above the tab menu");
+
+  window.dispatchEvent(new KeyboardEvent("keydown", {
+    key: "Escape",
+    bubbles: true,
+    cancelable: true,
+  }));
+  await rendered();
+  assert(!document.body.querySelector('[role="menu"]'), "Escape did not close the Browser tab menu");
+  const restoredAfterMenuClose = pluginViewVisibility.at(-1) === true;
+  assert(restoredAfterMenuClose, "native Browser view did not return after menu close");
+
+  return {
+    stage: "plugin-view-menu-layer",
+    hiddenWhileMenuOpen,
+    restoredAfterMenuClose,
+  };
+}
+
 globalThis.tabCloseProbe = async (stage) => {
   await ready;
   if (stage === "context-menu-user-path") {
     await ready;
     return runTabContextMenuUserPath();
+  }
+  if (stage === "plugin-view-menu-layer") {
+    return runPluginViewMenuLayerPath();
   }
 
   if (stage === "narrow-active") {
