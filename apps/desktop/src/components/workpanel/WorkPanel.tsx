@@ -1089,7 +1089,7 @@ function LocalWorkPanel({
                     location={activeTab.location}
                     tabId={activeTab.id}
                     // Native WebContentsViews composite above renderer content.
-                    blocked={exiting || panelBlocked || blockingOverlayActive}
+                    blocked={exiting || panelBlocked || blockingOverlayActive || tabContextMenu !== null}
                   />
                 </div>
               );
