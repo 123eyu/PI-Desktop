@@ -9956,7 +9956,7 @@ host-created files. The full app's file-preview viewer is covered separately.
   `service_tier: "priority"`；Responses API key 模型改为提示按 token 计费的价格。第 3 步清除标识和该字段。
   第 4 步给出模型设置提示并拒绝，不保存任何状态。第 5 步 fork 和重启后开关保持开启。子代理和压缩请求
   从不携带该字段。远程会话拒绝 `/fast`。
-- **关联规格**：`03-runtime/11-provider-model-system.md`、`03-runtime/04-data-storage.md`（v25）、
+- **关联规格**：`03-runtime/11-provider-model-system.md`、`03-runtime/04-data-storage.md`（v26）、
   `04-ux/04-builtin-commands.md`、ADR 0334、issue #1657。
 - **状态**：自动化覆盖见英文版。完整的设置 → `/fast` → 捕获请求路径为手动验证场景。
 

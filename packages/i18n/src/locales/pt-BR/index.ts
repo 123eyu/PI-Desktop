@@ -2061,6 +2061,8 @@ export const ptBR = {
       open: "Novo"
     },
     closeTab: "Fechar {{name}}",
+    closeOtherTabs: "Fechar outras abas",
+    closeAllTabs: "Fechar todas as abas",
     tabs: {
       review: "Revisar",
       browser: "Navegador",

@@ -1,4 +1,4 @@
-# 04. Data Storage (Schema v25)
+# 04. Data Storage (Schema v26)
 
 ## 0. Ownership decision
 
@@ -571,6 +571,7 @@ CREATE TABLE models (
   context_window    INTEGER,
   max_output_tokens INTEGER,
   deprecated        INTEGER NOT NULL DEFAULT 0,
+  discovery_state   TEXT CHECK (discovery_state IN ('published', 'unlisted')),
   updated_at        INTEGER NOT NULL,
   PRIMARY KEY (provider_id, model_id)
 ) WITHOUT ROWID;
@@ -579,6 +580,14 @@ CREATE TABLE models (
 Refresh (spec 13 §6/§9) upserts `discovered` rows and **never overwrites
 `source='user'`** rows. Recent-model MRU stays in `kv(cache)` — it is a
 bounded display list, not relational data.
+
+Schema v25 adds nullable `discovery_state`, distinct from metadata deprecation.
+The v24 upgrade backs up first, adds the field transactionally, and marks
+existing discovered rows as past publication evidence. User-owned rows remain
+unknown. No provider configuration, credentials, sessions, or turns are changed.
+Configured missing rows retain an `unlisted` marker across restart; an endpoint
+change clears it. Older apps refuse the newer schema rather than interpreting
+it incorrectly; rollback requires the pre-migration backup.
 
 ### 4.5 sessions
 
@@ -1573,7 +1582,7 @@ truncating at a guessed position.
 - JSON columns are read blind on hot paths (shipped to the renderer as-is);
   anything filtered or summed is a promoted column by rule.
 
-## 7. Versioning, v7 reset, and v8-to-v25 migration
+## 7. Versioning, v7 reset, and v8-to-v26 migration
 
 - `PRAGMA user_version` stays the schema authority; future structural changes
   add ordered Rust migration fns again, each in one transaction, with a
@@ -1584,7 +1593,7 @@ truncating at a guessed position.
   Sessions, providers, and settings from the old file are not carried over;
   the archive remains for manual recovery. All pre-v7 migration code
   (v1 `settings.sqlite` import, v2→v6 chain) is deleted.
-- Fresh installs run the full v25 DDL directly.
+- Fresh installs run the full v26 DDL directly.
 - **Schema v7 first reaches v8, then uses the guarded path.** The v7→v8
   migration is followed by the same guarded v8→v15 migration; schema-v9 and
   schema-v10 databases take the same guarded path and receive an exact readable
@@ -1651,10 +1660,12 @@ truncating at a guessed position.
 - **Schema v24 is additive.** It adds the `worktrees` registry and
   `projects.worktree_setup_command` for isolated sessions (ADR 0329). The
   migration keeps a v23 backup.
-- **Schema v25 is additive.** It adds `sessions.fast_mode` (ADR 0334), the
+- **Schema v25 is additive.** It adds nullable `models.discovery_state` (§ 4).
+  The migration keeps a v24 backup.
+- **Schema v26 is additive.** It adds `sessions.fast_mode` (ADR 0334), the
   session `/fast` switch, defaulting to `0` for every existing session. Forks
   copy it; scheduled runs and delegated workers start at `0`. The migration
-  keeps a v24 backup.
+  keeps a v25 backup.
 - **Schema v14 is additive.** It adds nullable `sessions.deleted_at`, the
   partial deletion index, and `session_import_origins`. Existing sessions stay
   active and have no origin rows. The migration runs in the same guarded

@@ -208,7 +208,10 @@ impl Database {
                 migrate_v23_to_v24(&conn, path)?;
             }
             24 => {
-                migrate_v24_to_v25(&conn, path)?;
+                super::model_discovery_migration::migrate(&conn, path)?;
+            }
+            25 => {
+                migrate_v25_to_v26(&conn, path)?;
             }
             legacy @ 1..=6 => {
                 let _ = conn.execute_batch("PRAGMA wal_checkpoint(TRUNCATE);");
@@ -263,7 +266,11 @@ impl Database {
             migrated_version = conn.query_row("PRAGMA user_version", [], |row| row.get(0))?;
         }
         if migrated_version == 24 {
-            migrate_v24_to_v25(&conn, path)?;
+            super::model_discovery_migration::migrate(&conn, path)?;
+            migrated_version = conn.query_row("PRAGMA user_version", [], |row| row.get(0))?;
+        }
+        if migrated_version == 25 {
+            migrate_v25_to_v26(&conn, path)?;
         }
         let db = Self { conn, data_dir };
         db.boot_maintenance()?;

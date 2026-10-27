@@ -2111,6 +2111,8 @@ sklm: {
       open: "새로 만들기",
     },
     closeTab: "{{name}} 닫기",
+    closeOtherTabs: "다른 탭 닫기",
+    closeAllTabs: "모든 탭 닫기",
     tabs: {
       review: "검토",
       browser: "브라우저",

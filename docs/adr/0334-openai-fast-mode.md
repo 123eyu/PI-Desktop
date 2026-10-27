@@ -31,8 +31,8 @@ in model settings.
    for Responses wires (`openai_codex_responses`, `responses`), including
    relays; its hint names the cost on that wire.
 2. **`/fast` owns the session switch.** A new builtin `builtin.session.fast`
-   (`/fast`) toggles a persisted `sessions.fast_mode` column (schema v25,
-   additive, v24 backup). `session.create` and `session.configure` accept an
+   (`/fast`) toggles a persisted `sessions.fast_mode` column (schema v26,
+   additive, v25 backup). `session.create` and `session.configure` accept an
    optional boolean `fastMode`; omission keeps the stored value. Forks copy it;
    scheduled runs and delegated workers start off. A draft carries it into the
    session its first prompt creates. Remote sessions refuse it.
@@ -64,7 +64,7 @@ in model settings.
 
 ## Consequences
 
-- Schema v25 adds one column; older apps opening a v25 database refuse it as
+- Schema v26 adds one column; older apps opening a v26 database refuse it as
   newer, the existing downgrade behavior.
 - The capability can be wrong for a relay that ignores or rebills the field;
   the settings hint states that risk, and the user owns the opt-in.
