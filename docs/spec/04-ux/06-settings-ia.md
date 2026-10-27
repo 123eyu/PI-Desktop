@@ -339,6 +339,15 @@ Settings is a **full-window page** that replaces the app sidebar + main chrome (
   standard 240px field-column cap. Labels stay on one line; when space is
   insufficient, the control moves below the title and whole options wrap
   within the available pane width without horizontal overflow.
+- **Radial context menu** is a card in AI after Defaults with one switch
+  (**Enable on the transcript background**) and four direction pickers
+  (**Up**, **Right**, **Down**, **Left**). The switch is off when
+  `AppSettings.radialMenu.enabled` is absent or false, which keeps the vertical
+  background menu. Each picker stores one `RadialMenuAction`: copy conversation,
+  select conversation text, copy the last answer, scroll to top, jump to
+  latest, or **Leave empty**. Pickers are disabled while the switch is off and
+  keep their stored directions for when it is turned back on. Settings search
+  indexes the card and its rows.
 - The **Command shell** row in Defaults uses the host-discovered catalog of native
   PowerShell 5.1, PowerShell 7, cmd, Git Bash, and Bash with IDs
   `windows-powershell`, `windows-pwsh`, `cmd`, `git-bash`, and

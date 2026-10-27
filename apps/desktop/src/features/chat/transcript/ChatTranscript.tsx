@@ -1,12 +1,13 @@
-import { memo, useMemo, useRef, type MouseEvent as ReactMouseEvent } from "react";
+import { memo, useMemo, useRef, useState, type MouseEvent as ReactMouseEvent } from "react";
 import { useTranslation } from "react-i18next";
-import type { PlanningState, UiMessage } from "@pi-desktop/shared";
+import type { PlanningState, RadialMenuAction, UiMessage } from "@pi-desktop/shared";
 import { proposalKindForMode } from "@pi-desktop/shared";
 import { ConversationMinimap } from "../../../components/ConversationMinimap";
+import { RadialMenu, type RadialMenuSlot } from "../../../components/RadialMenu";
 import { PermissionCard } from "../../../components/PermissionCard";
 import { TooltipButton } from "../../../components/ui";
 import { TurnOutcomeCard } from "../../../components/TurnOutcomeCard";
-import { IconArrowDown } from "../../../components/icons";
+import { IconArrowDown, IconArrowUp, IconChat, IconCopy, IconTextSelect } from "../../../components/icons";
 import { useAppStore } from "../../../stores/app-store";
 import type { PendingPermission } from "../../../lib/pending-permissions";
 import { TRANSCRIPT_SKELETON_ROWS } from "../../../lib/transcript-settle";
@@ -33,6 +34,11 @@ import {
   useTranscriptMenu,
 } from "./TranscriptMenu";
 import { conversationMenuItems } from "./menu-items";
+import {
+  RADIAL_MENU_ACTION_LABEL_KEYS,
+  RADIAL_MENU_DIRECTIONS,
+  resolveRadialMenu,
+} from "../../../lib/radial-menu";
 import { SlotSessionProvider } from "../../../plugins/renderer-slots/use-slots";
 
 type ChatTranscriptProps = {
@@ -102,6 +108,17 @@ function TranscriptBody({
   const openTranscriptMenu = useTranscriptMenu();
   const { copyText, selectText } = useChatTextActions();
   const showToast = useAppStore((state) => state.showToast);
+  const radialMenu = resolveRadialMenu(
+    useAppStore((state) => state.settings),
+  );
+  /*
+    The ring is a second presentation of the background menu, not a second
+    menu: it opens at the pointer and keeps the same conversation-level actions.
+  */
+  const [radialPoint, setRadialPoint] = useState<{
+    x: number;
+    y: number;
+  } | null>(null);
   const transcriptRunning = isRunning && liveTail;
   const latestTurnResult = useAppStore((state) =>
     sessionId ? state.latestTurnResults[sessionId] : undefined,
@@ -229,7 +246,74 @@ function TranscriptBody({
     }
   };
 
+  /* The newest settled answer, for the ring's optional copy slot. */
+  const lastAnswer = useMemo(() => {
+    for (let index = messages.length - 1; index >= 0; index -= 1) {
+      const message = messages[index];
+      if (message?.role === "assistant" && message.content.trim()) {
+        return message.content;
+      }
+    }
+    return "";
+  }, [messages]);
+
+  /*
+    One slot per direction, in ring order. An action the conversation cannot
+    fill (no answer yet, or the `none` placeholder) keeps its sector disabled
+    so the geometry does not depend on message state.
+  */
+  const buildRadialMenuItems = (): RadialMenuSlot[] =>
+    RADIAL_MENU_DIRECTIONS.map((direction) => {
+      const action: RadialMenuAction = radialMenu.slots[direction];
+      const id = `${direction}:${action}`;
+      const label = t(RADIAL_MENU_ACTION_LABEL_KEYS[action]);
+      switch (action) {
+        case "copy-conversation":
+          return { id, label, icon: <IconCopy size={18} />, onSelect: () => void copyConversation() };
+        case "select-conversation":
+          return {
+            id,
+            label,
+            icon: <IconTextSelect size={18} />,
+            onSelect: () => selectText(contentRef.current),
+          };
+        case "copy-last-answer":
+          return {
+            id,
+            label,
+            icon: <IconChat size={18} />,
+            disabled: !lastAnswer,
+            onSelect: () => void copyText(lastAnswer),
+          };
+        case "scroll-top":
+          return {
+            id,
+            label,
+            icon: <IconArrowUp size={18} />,
+            onSelect: () => scrollRef.current?.scrollTo({ top: 0 }),
+          };
+        case "scroll-bottom":
+          return {
+            id,
+            label,
+            icon: <IconArrowDown size={18} />,
+            onSelect: () => {
+              onReturnToLatest?.();
+              jumpToLatest();
+            },
+          };
+        default:
+          return { id, label, icon: <IconChat size={18} />, disabled: true, onSelect: () => {} };
+      }
+    });
+
   const onContextMenu = (event: ReactMouseEvent<HTMLDivElement>) => {
+    if (radialMenu.enabled) {
+      event.preventDefault();
+      event.stopPropagation();
+      setRadialPoint({ x: event.clientX, y: event.clientY });
+      return;
+    }
     openTranscriptMenu(event, {
       label: t("chat.conversationMenu"),
       items: conversationMenuItems({
@@ -390,6 +474,14 @@ function TranscriptBody({
         </TooltipButton>
       ) : null}
     </div>
+    {radialPoint ? (
+      <RadialMenu
+        point={radialPoint}
+        items={buildRadialMenuItems()}
+        label={t("chat.conversationMenu")}
+        onClose={() => setRadialPoint(null)}
+      />
+    ) : null}
     </SlotSessionProvider>
     </DisclosureAnchorContext.Provider>
     </TranscriptSearchContext.Provider>
