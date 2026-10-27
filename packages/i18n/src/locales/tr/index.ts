@@ -427,6 +427,7 @@ export const tr = {
     copyLastAnswer: "Son yanıtı kopyala",
     radialMenuOpenBrowser: "Tarayıcıyı aç",
     radialMenuOpenWorkPanel: "Çalışma panelini aç",
+    radialMenuCloseWorkPanel: "Çalışma panelini kapat",
     radialMenuOpenProjectFolder: "Proje klasörünü aç",
     sessionReference: "Konuşma",
     sessionReferenceOpen: "{{title}} konuşmasını aç",

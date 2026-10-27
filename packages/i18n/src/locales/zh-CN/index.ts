@@ -420,6 +420,7 @@ export const zhCN = {
     copyLastAnswer: "复制最后一条回复",
     radialMenuOpenBrowser: "打开浏览器",
     radialMenuOpenWorkPanel: "打开工作面板",
+    radialMenuCloseWorkPanel: "关闭工作面板",
     radialMenuOpenProjectFolder: "打开项目文件夹",
     sessionReference: "会话引用",
     sessionReferenceOpen: "打开会话 {{title}}",

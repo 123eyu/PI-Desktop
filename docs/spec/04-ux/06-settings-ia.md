@@ -345,8 +345,10 @@ Settings is a **full-window page** that replaces the app sidebar + main chrome (
   `AppSettings.radialMenu.enabled` is absent or false, which keeps the vertical
   background menu. Each picker stores one `RadialMenuAction`: copy conversation,
   select conversation text, copy the last answer, scroll to top, jump to
-  latest, open the built-in browser, open the work panel, open the project
-  folder, or **Leave empty**. Pickers are disabled while the switch is off and
+  latest, open the built-in browser, toggle the work panel, open the project
+  folder, or **Leave empty**. The work panel direction follows the panel's
+  state: it reads **Open work panel** while collapsed and **Close work panel**
+  while open. Pickers are disabled while the switch is off and
   keep their stored directions for when it is turned back on. Settings search
   indexes the card and its rows.
 - The **Command shell** row in Defaults uses the host-discovered catalog of native

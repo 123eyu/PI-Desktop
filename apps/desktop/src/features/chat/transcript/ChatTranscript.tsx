@@ -129,6 +129,8 @@ function TranscriptBody({
   );
   const openWorkPanelTab = useAppStore((state) => state.openWorkPanelTab);
   const openWorkPanel = useAppStore((state) => state.openWorkPanel);
+  const collapseWorkPanel = useAppStore((state) => state.collapseWorkPanel);
+  const workPanelOpen = useAppStore((state) => state.workPanelOpen);
   /*
     The ring is a second presentation of the background menu, not a second
     menu: it opens at the pointer and keeps the same conversation-level actions.
@@ -329,12 +331,16 @@ function TranscriptBody({
             onSelect: () => openWorkPanelTab(browserPluginTab()),
           };
         case "open-work-panel":
+          // One direction, two directions of travel: an open panel offers the
+          // way back instead of a second no-op Open.
           return {
             id,
-            label,
+            label: workPanelOpen
+              ? t("chat.radialMenuCloseWorkPanel")
+              : label,
             icon: <IconPanel size={18} />,
             disabled: !sessionId || isRemoteSession(sessionSummary),
-            onSelect: () => openWorkPanel(),
+            onSelect: () => (workPanelOpen ? collapseWorkPanel() : openWorkPanel()),
           };
         case "open-project-folder": {
           const path = sessionSummary?.projectPath;

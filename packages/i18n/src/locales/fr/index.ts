@@ -415,6 +415,7 @@ export const fr = {
     "copyLastAnswer": "Copier la dernière réponse",
     "radialMenuOpenBrowser": "Ouvrir le navigateur",
     "radialMenuOpenWorkPanel": "Ouvrir le panneau de travail",
+    "radialMenuCloseWorkPanel": "Fermer le panneau de travail",
     "radialMenuOpenProjectFolder": "Ouvrir le dossier du projet",
     "sessionReference": "Conversation",
     "sessionReferenceOpen": "Ouvrir la conversation {{title}}",

@@ -261,6 +261,14 @@ export function RadialMenu({
           r={4}
         />
       </svg>
+      {/*
+        The sectors carry icons only: the four labels together are wider than
+        a sector, and truncated menu labels are worse than none. The active
+        action's full label sits in the hub under the pointer.
+      */}
+      <div className="radial-menu-hub-label" aria-hidden="true">
+        {activeIndex === null ? "" : items[activeIndex]?.label}
+      </div>
       {items.map((item, index) => {
         const angle = rad(ITEM_ANGLES[index] ?? -90);
         const x = OUTER_RADIUS + Math.cos(angle) * ITEM_RADIUS;
@@ -273,6 +281,7 @@ export function RadialMenu({
             }}
             type="button"
             role="menuitem"
+            aria-label={item.label}
             className="radial-menu-item"
             data-active={activeIndex === index ? "true" : undefined}
             disabled={item.disabled}
@@ -292,7 +301,6 @@ export function RadialMenu({
             <span className="radial-menu-icon" aria-hidden>
               {item.icon}
             </span>
-            <span className="radial-menu-label">{item.label}</span>
           </button>
         );
       })}

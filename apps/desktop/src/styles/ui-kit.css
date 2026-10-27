@@ -439,8 +439,7 @@
   cursor: not-allowed;
 }
 
-.radial-menu-item:disabled .radial-menu-icon,
-.radial-menu-item:disabled .radial-menu-label {
+.radial-menu-item:disabled .radial-menu-icon {
   color: var(--ds-text-faint);
 }
 
@@ -454,14 +453,17 @@
   color: var(--ds-text-secondary);
 }
 
-.radial-menu-label {
-  max-width: 100%;
-  overflow: hidden;
-  color: var(--ds-text-muted);
+.radial-menu-hub-label {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 92px;
+  transform: translate(-50%, -50%);
+  color: var(--ds-text-secondary);
   font-size: var(--text-2xs);
   line-height: var(--leading-tight);
-  text-overflow: ellipsis;
-  white-space: nowrap;
+  text-align: center;
+  pointer-events: none;
 }
 
 /* Shared labeled selections keep native input semantics, not platform paint. */

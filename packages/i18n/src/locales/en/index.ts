@@ -427,6 +427,7 @@ export const en = {
     copyLastAnswer: "Copy last answer",
     radialMenuOpenBrowser: "Open browser",
     radialMenuOpenWorkPanel: "Open work panel",
+    radialMenuCloseWorkPanel: "Close work panel",
     radialMenuOpenProjectFolder: "Open project folder",
     sessionReference: "Conversation",
     sessionReferenceOpen: "Open conversation {{title}}",

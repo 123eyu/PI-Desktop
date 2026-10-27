@@ -414,6 +414,7 @@ export const ptBR = {
     copyLastAnswer: "Copiar última resposta",
     radialMenuOpenBrowser: "Abrir navegador",
     radialMenuOpenWorkPanel: "Abrir painel de trabalho",
+    radialMenuCloseWorkPanel: "Fechar painel de trabalho",
     radialMenuOpenProjectFolder: "Abrir pasta do projeto",
     sessionReference: "Conversa",
     sessionReferenceOpen: "Abrir a conversa {{title}}",

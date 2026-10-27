@@ -100,7 +100,7 @@ Object.assign(globalThis, {
   radialMenuProbe: async () => {
     // 1. Four sectors render with their labels.
     let menu = mount();
-    const labels = [...menu.querySelectorAll(".radial-menu-label")].map((node) => node.textContent);
+    const labels = [...menu.querySelectorAll(".radial-menu-item")].map((node) => node.getAttribute("aria-label"));
     check(labels.join("|") === "Copy conversation|Select text|Jump to latest|Leave empty", `labels: ${labels.join("|")}`);
     check(menu.querySelectorAll(".radial-menu-item").length === 4, "expected four item buttons");
 
@@ -108,6 +108,10 @@ Object.assign(globalThis, {
     await pointerMove(menu, 0);
     check(menu.querySelector(".radial-menu-sector.is-active") !== null, "no sector highlighted at 0°");
     check(menu.querySelectorAll(".radial-menu-sector.is-active").length === 1, "more than one sector highlighted");
+    check(
+      menu.querySelector(".radial-menu-hub-label")?.textContent === "Select text",
+      `hub label read ${JSON.stringify(menu.querySelector(".radial-menu-hub-label")?.textContent)}`,
+    );
 
     // 3. Clicking the sector runs it and closes the ring.
     await clickAt(menu, 0);
@@ -138,7 +142,7 @@ Object.assign(globalThis, {
     await settle();
     const focused = document.activeElement as HTMLButtonElement | null;
     check(focused?.className.includes("radial-menu-item") === true, "arrow key did not move focus");
-    check(focused?.textContent?.includes("Select text") === true, `arrow key landed on ${focused?.textContent}`);
+    check(focused?.getAttribute("aria-label") === "Select text", `arrow key landed on ${focused?.getAttribute("aria-label")}`);
     flushSync(() => focused?.click());
     await settle();
     check(state.calls.at(-1) === "right", `Enter path ran ${state.calls.at(-1)}`);

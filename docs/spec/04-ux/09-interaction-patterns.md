@@ -694,8 +694,9 @@ may be retained while exactly one workspace supplies the visible shell context.
   menu. Message rows, markdown links, file references, tool rows, the sidebar,
   and the work panel keep their vertical menus.
 - The vocabulary is: copy conversation, select conversation text, copy the last
-  answer, scroll to top, jump to latest, open the built-in browser, open the work
-  panel, open the project folder, and **Leave empty**. A direction with no action
+  answer, scroll to top, jump to latest, open the built-in browser, toggle the work
+  panel (Open work panel, or Close work panel while it is open), open the
+  project folder, and **Leave empty**. A direction with no action
   renders a disabled sector rather than reshaping the ring; an action the surface
   cannot fill stays visible and disabled — copy last answer before any answer
   text exists, and the three open actions on a remote session (open project

@@ -427,6 +427,7 @@ export const ko = {
     copyLastAnswer: "마지막 답변 복사",
     radialMenuOpenBrowser: "브라우저 열기",
     radialMenuOpenWorkPanel: "작업 패널 열기",
+    radialMenuCloseWorkPanel: "작업 패널 닫기",
     radialMenuOpenProjectFolder: "프로젝트 폴더 열기",
     sessionReference: "대화 참조",
     sessionReferenceOpen: "대화 {{title}} 열기",

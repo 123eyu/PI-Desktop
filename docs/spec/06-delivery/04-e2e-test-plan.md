@@ -5252,10 +5252,11 @@ window; opening a normal panel afterward must still work.
   clicking runs that action, closes the ring, and shows the usual toast where
   the action copies. A **Leave empty** direction renders a disabled sector and
   runs nothing; Copy last answer is disabled until an answer exists.
-  Open browser reveals the work panel on a blank browser tab, Open work panel
-  reveals the panel on its current tab, and Open project folder opens the
-  session's project in the OS file manager and is disabled for a session
-  without one. A click on
+  Open browser reveals the work panel on a blank browser tab, the work panel
+  direction toggles — it reads Open work panel while the panel is collapsed and
+  Close work panel while it is open, and the second click closes it — and Open
+  project folder opens the session's project in the OS file manager and is
+  disabled for a session without one. A click on
   the hub, an outside press, Escape, Tab, scroll, and resize all dismiss the
   ring without running anything. Arrow keys move the highlight and Enter runs
   the highlighted action. The switch and the four directions survive a restart,

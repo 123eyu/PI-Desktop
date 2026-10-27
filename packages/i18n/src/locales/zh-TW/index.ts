@@ -420,6 +420,7 @@ export const zhTW = {
     copyLastAnswer: "複製最後一則回覆",
     radialMenuOpenBrowser: "開啟瀏覽器",
     radialMenuOpenWorkPanel: "開啟工作面板",
+    radialMenuCloseWorkPanel: "關閉工作面板",
     radialMenuOpenProjectFolder: "開啟專案資料夾",
     sessionReference: "對話引用",
     sessionReferenceOpen: "開啟對話 {{title}}",
