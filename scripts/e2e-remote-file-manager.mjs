@@ -3,7 +3,7 @@
 import assert from "node:assert/strict";
 import { fork } from "node:child_process";
 import { createServer } from "node:http";
-import { mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
+import { mkdir, mkdtemp, readFile, realpath, rm, writeFile } from "node:fs/promises";
 import { createRequire, register } from "node:module";
 import { tmpdir } from "node:os";
 import { dirname, join, resolve } from "node:path";
@@ -43,9 +43,10 @@ async function capture(page, name) {
   await page.screenshot({ path: join(process.env.PI_E2E_ARTIFACTS, name) });
 }
 try {
-  const remotePath = join(temp, "remote-repository");
+  const remoteDirectory = join(temp, "remote-repository");
   const localPath = join(temp, "local-control");
-  await mkdir(join(remotePath, "docs"), { recursive: true });
+  await mkdir(join(remoteDirectory, "docs"), { recursive: true });
+  const remotePath = await realpath(remoteDirectory);
   await mkdir(localPath);
   await mkdir(join(temp, "browse-root"));
   await mkdir(join(remotePath, "nested"));

@@ -10,10 +10,16 @@ afterEach(async () => {
 });
 
 function projectHost(paths: readonly string[]) {
+  const projects = paths.map((path, index) => ({ id: index + 1, path, name: `project-${index + 1}` }));
   return {
-    async call<T>(method: string): Promise<T> {
+    async call<T>(method: string, params: Record<string, unknown> = {}): Promise<T> {
       if (method === "projects.list") {
-        return { projects: paths.map((path, index) => ({ id: index + 1, path, name: `project-${index + 1}` })) } as T;
+        return { projects } as T;
+      }
+      if (method === "projects.create") {
+        const project = { id: projects.length + 1, path: String(params.path), name: `project-${projects.length + 1}` };
+        projects.push(project);
+        return { project } as T;
       }
       throw new Error(`unexpected ${method}`);
     },
@@ -106,8 +112,9 @@ it("allows an explicitly registered workspace root outside the browse root", { t
   await mkdir(root, { recursive: true });
   await mkdir(unregistered);
   await writeFile(join(root, "README.md"), "registered workspace\n");
+  const host = projectHost([]);
   const operations = createHostOperations({
-    getHost: () => projectHost([root]),
+    getHost: () => host,
     runtime: { compact: async () => ({ accepted: true }), isBusy: () => false },
     browseRoot,
     dataDir: join(scratch, "host-data"),
@@ -119,6 +126,8 @@ it("allows an explicitly registered workspace root outside the browse root", { t
     scope: ["**"],
   });
 
+  await expect(read(root)).rejects.toMatchObject({ code: "REMOTE_PATH_FORBIDDEN" });
+  await operations.projects.register(root);
   expect(await read(root)).toMatchObject({
     kind: "list",
     entries: [{ name: "README.md", path: "README.md", isDirectory: false }],
