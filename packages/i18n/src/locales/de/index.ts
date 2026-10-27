@@ -2085,6 +2085,8 @@ sklm: {
       "open": "Neu"
     },
     "closeTab": "Schließen {{name}}",
+    "closeOtherTabs": "Andere Tabs schließen",
+    "closeAllTabs": "Alle Tabs schließen",
     "tabs": {
       "review": "Überprüfen",
       "browser": "Browser",
