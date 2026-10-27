@@ -5262,8 +5262,10 @@ window; opening a normal panel afterward must still work.
   `04-ux/06-settings-ia.md`
 - **Acceptance**: C (chat stream), Quality
 - **Milestone**: M5
-- **Status**: Unit-covered (`radial-menu.test.mjs`,
-  `settings-roundtrip.test.mjs`); full UI scenario Draft
+- **Status**: Chromium component check (`node scripts/e2e-radial-menu.mjs`:
+  sector labels, pointer highlight, click/hub/disabled/Escape paths, arrow-key
+  focus, and viewport clamping) plus unit coverage (`radial-menu.test.mjs`,
+  `settings-roundtrip.test.mjs`); full desktop journey Draft
 
 ### E2E-CHAT-delete-turn-preserves-other-live-outputs
 

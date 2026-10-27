@@ -2689,7 +2689,7 @@ MainChat 弥补了缺口。 Maximized/fullscreen 调用保留最新的
 - **关联规范**：`04-ux/09-interaction-patterns.md` §1.11、`04-ux/06-settings-ia.md`
 - **验收**：C（聊天流）、质量
 - **里程碑**：M5
-- **状态**：单元覆盖（`radial-menu.test.mjs`、`settings-roundtrip.test.mjs`）；完整 UI 场景草稿
+- **状态**：Chromium 组件检查（`node scripts/e2e-radial-menu.mjs`：扇区文案、指针高亮、点击/中心圆/禁用/Escape 路径、方向键焦点和视口限制）加单元覆盖（`radial-menu.test.mjs`、`settings-roundtrip.test.mjs`）；完整桌面旅程仍为草稿
 
 #### E2E-CHAT-delete-turn-preserves-other-live-outputs：删除回合后保留其他实时输出
 
