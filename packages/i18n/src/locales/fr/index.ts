@@ -673,6 +673,7 @@ export const fr = {
       "unavailableNotFragment": "Le fichier est un document HTML complet, pas un fragment.",
       "unavailableRuntime": "L'environnement d'exécution des visualisations est indisponible.",
       "loadPrompt": "Charger la visualisation",
+      "scriptError": "Le script de cette visualisation a échoué ; une partie peut manquer.",
       "frameTitle": "Visualisation : {{title}}",
     },
     "model": "Modèle",

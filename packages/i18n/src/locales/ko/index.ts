@@ -682,6 +682,7 @@ export const ko = {
       unavailableNotFragment: "파일이 조각이 아닌 완전한 HTML 문서입니다.",
       unavailableRuntime: "시각화 런타임을 사용할 수 없습니다.",
       loadPrompt: "시각화 불러오기",
+      scriptError: "이 시각화의 스크립트가 실패하여 일부 내용이 표시되지 않을 수 있습니다.",
       frameTitle: "시각화: {{title}}",
     },
     model: "모델",

@@ -678,6 +678,7 @@ export const zhTW = {
       unavailableNotFragment: "此檔案是完整的 HTML 文件，而非片段。",
       unavailableRuntime: "視覺化執行環境無法使用。",
       loadPrompt: "載入視覺化",
+      scriptError: "視覺化腳本執行出錯，部分內容可能無法顯示。",
       frameTitle: "視覺化：{{title}}",
     },
     model: "模型",

@@ -673,6 +673,7 @@ export const de = {
       "unavailableNotFragment": "Die Datei ist ein vollständiges HTML-Dokument, kein Fragment.",
       "unavailableRuntime": "Die Visualisierungslaufzeit ist nicht verfügbar.",
       "loadPrompt": "Visualisierung laden",
+      "scriptError": "Das Skript dieser Visualisierung ist fehlgeschlagen; Teile können fehlen.",
       "frameTitle": "Visualisierung: {{title}}",
     },
     "model": "Modell",
