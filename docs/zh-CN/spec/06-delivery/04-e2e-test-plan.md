@@ -2508,6 +2508,42 @@ MainChat 弥补了缺口。 Maximized/fullscreen 调用保留最新的
 - **里程碑**：M5
 - **状态**：单位覆盖（`chat-review-entry.test.mjs`）；完整的 UI 场景草稿
 
+#### E2E-CHAT-turn-changed-files-summary：已完成的回合列出它改动的文件
+
+- **先决条件**：具有可写工作空间的项目绑定 Agent 会话。
+- **步骤**：1) 让代理创建一个文件并编辑另一个文件；观察流式中的回合。
+  2) 回复完成后，检查回答下方区域。3) 请求一次跨多个目录、超过十二个文件的
+  改动。4) 点击一行，再点击 `在「审阅」面板查看全部 N 个文件` 链接。
+  5) 在审阅中回滚一个文件的变更后回到该回合。6) 提一个不写文件的问题。
+  7) 切换会话后再切回来。
+- **预期**：回合流式期间或失败后不显示汇总。写过工作区文件的已完成回合在回答
+  下方、插件 `entryExtra` 块上方显示一张无边框的 `本轮改动` 卡片，带文件数和合计
+  `+`/`−`。每个路径只出现一次，带合并后的状态字母和计数；不超过四个文件用宽松行，
+  更多时用带目录数的密集行，超过 12 行折叠为 `+N more`。点击一行会打开该会话的
+  审阅选项卡，滚动到该文件并展开其变更；链接只打开审阅、不展开。已回滚的文件仍在
+  列表中并显示删除线。每个更早的已完成回合保留自己的卡片，没有写入的回合没有卡片，
+  切换会话不会额外取数。逐次调用的审核行保持不变。
+- **链接规格**：`04-ux/08-component-spec.md` §4.4，D674
+- **验收**：D（工作空间），质量
+- **里程碑**：M5
+- **状态**：单元覆盖（`turn-changes-card.test.mjs`）；完整的 UI 场景草稿
+
+#### E2E-CHAT-completed-turn-scrolls-to-prompt：完成的回复从它的提示读起
+
+- **先决条件**：一个 Agent 会话，其下一条回复比转录视口更长。
+- **步骤**：1) 发送提示，让转录跟随回复直到结束。2) 发送一个回复短到能在屏幕内
+  放下的提示。3) 再发送一个长回复的提示，并在流式期间向上滚动。4) 在长回复中途
+  停止。5) 在长回复流式期间排队一个后续提示。
+- **预期**：1) 回复完成时，它的提示位于视口顶部并出现“滚动到底部”。2) 短回复
+  停留在底部并保持跟随。3) 视图停留在用户滚动到的位置。4) 被中止的回合停在底部。
+  5) 后续回合继续在底部跟随。
+- **链接规格**：`04-ux/09-interaction-patterns.md` §2.2，
+  `04-ux/08-component-spec.md` §4.4，D676
+- **验收**：质量
+- **里程碑**：M5
+- **状态**：已自动化（`pnpm test:e2e:transcript-turn-completion`，在 Electron 中
+  运行真实的 `useTranscriptScroll`；`turn-completion-scroll.test.mjs`）
+
 #### E2E-058：内置交互式终端已移除
 
 - **前提**：已打开工作区，Agent 已完成一次 Bash 工具调用。
@@ -2680,6 +2716,16 @@ MainChat 弥补了缺口。 Maximized/fullscreen 调用保留最新的
 
 - **完整历史回归**：打开包含 140 条消息的会话，不向上翻页，选择复制整个对话；剪贴板必须包含第 1–140 条消息。从搜索上下文窗口和长消息截断预览重复验证。保留当前可见的生成中文字；读取失败时提示错误，剪贴板保持不变。仅在选择复制后读取完整历史，不改变阅读位置。运行 `node scripts/e2e-copy-conversation.mjs`。
 - 编辑时复制应使用草稿选区，无选区时复制整份草稿；选中消息文本应选中草稿。菜单不提供编辑、删除或版本切换；取消后原消息及其菜单保持不变。自动化验证：`node scripts/e2e-message-edit-copy.mjs`。
+
+#### E2E-CHAT-radial-background-menu：对话空白处的环形菜单
+
+- **前提条件**：设置 → AI → 环形右键菜单可用；会话中有一条已完成的用户提示、一条已完成的助手回答，且历史足以滚动。
+- **步骤**：1）关闭开关，右键最后一回合下方的空白处，确认弹出纵向对话菜单。2）打开开关，右键同一位置，检查四个扇区。3）让指针经过各扇区，点击复制整段对话。4）把「上」设为复制最后一条回复、「右」设为留空，重新打开环形菜单。5）不移动指针直接点击中心圆；再重新打开后依次按 Escape、点击外部、滚动、调整窗口尺寸。6）用 Shift+F10 打开，用方向键遍历扇区，按 Enter 执行一项。7）重启应用，确认开关和四个方向都保留；再把某个方向的未知动作写入设置文件，确认该方向回退到默认值。
+- **预期**：开关关闭时纵向菜单原样打开。开关开启后，以指针为圆心的四扇区环形菜单取代它，靠近窗口边缘时仍完整可见。指针所在扇区高亮；点击后执行该动作、关闭菜单，复制类动作照常弹出提示。「留空」方向渲染为禁用扇区且不执行任何动作；尚无回答文本时复制最后一条回复为禁用。打开浏览器会让工作面板显示一个空白浏览器标签页；工作面板方向是切换：面板收起时显示「打开工作面板」，打开后改为「关闭工作面板」，再点一次收起；打开项目文件夹会在系统文件管理器中打开会话所属项目，没有项目路径的会话为禁用。点击中心圆、外部按下、Escape、Tab、滚动和窗口尺寸变化都只关闭菜单。方向键移动高亮，Enter 执行当前动作。开关和四个方向在重启后保留，存储中的未知动作回退到该方向的默认值。消息行、链接、文件引用、侧边栏和工作面板仍使用各自的纵向菜单。
+- **关联规范**：`04-ux/09-interaction-patterns.md` §1.11、`04-ux/06-settings-ia.md`
+- **验收**：C（聊天流）、质量
+- **里程碑**：M5
+- **状态**：Chromium 组件检查（`node scripts/e2e-radial-menu.mjs`：扇区文案、指针高亮、点击/中心圆/禁用/Escape 路径、方向键焦点和视口限制）加单元覆盖（`radial-menu.test.mjs`、`settings-roundtrip.test.mjs`）；完整桌面旅程仍为草稿
 
 #### E2E-CHAT-delete-turn-preserves-other-live-outputs：删除回合后保留其他实时输出
 
@@ -5833,6 +5879,7 @@ eleven-tool-round desktop paths are verified by
 | 验收 | 应用场景 |
 |---|---|
 | C / E / Security / Quality — Gemini work setup | E2E-LIVE-VOICE-gemini-work-schema |
+| C / Quality — Continue after malformed tool output | E2E-RUNTIME-malformed-tool-call-continue-recovery |
 | B / Security / Quality — Optional provider client certificate requests | E2E-PROVIDER-optional-client-certificate |
 | C / E / F / Quality / Security — Session Todo checklist | E2E-CHAT-session-todo-checklist |
 | C / E / Security / Quality — Live Voice 四阶段交互 | E2E-LIVE-VOICE-four-stage-ui |
@@ -6903,14 +6950,14 @@ eleven-tool-round desktop paths are verified by
   1) 打开设置 → 常规，确认外观卡片在字体行下方显示字体大小，「大杯」选中，滑杆为 100%。
   2) 选择「超大杯」。确认会话、输入框、设置标签、侧栏会话标题和 Lucide 图标无需重载即按相对阶一起变大，控件显示 115%。
   3) 把滑杆拖到 125%。确认「超超大杯」被选中，全部 `--text-*` 表面和图标继续变大。确认界面没有 px 输入。
-  4) 使用放大，再重置缩放。确认窗口缩放仍会放大 chrome，重置后文字比例仍为 125%。
+  4) 打开「浏览器」和「文件浏览器」两个工作面板标签，再使用放大与重置缩放。确认窗口缩放仍会放大 chrome、重置后文字比例仍为 125%，且两个停靠插件页跟随该比例：文字与控件和应用的相对大小一致，浏览器访客页仍铺满按新字号绘制的工具栏下方区域。
   5) 重启应用，确认 125% 仍然生效（`AppSettings.fontScale` = 1.25）。
   6) 选择「大杯」。确认整个界面立即回到 100%；重启后默认仍保留。
-- **预期**：字体大小为星巴克式杯型档位中杯 / 大杯 / 超大杯 / 超超大杯，加上 80%–150%、步进 2.5% 的百分比滑杆。选择持久化为 `AppSettings.fontScale`（缺失表示 1），并设置 `--font-scale` 乘以全部 `--text-*` 令牌和共享 Lucide 图标。窗口放大/缩小/重置保持独立。无效值被拒绝或钳制。无协议/存储版本升级。
+- **预期**：字体大小为星巴克式杯型档位中杯 / 大杯 / 超大杯 / 超超大杯，加上 80%–150%、步进 2.5% 的百分比滑杆。选择持久化为 `AppSettings.fontScale`（缺失表示 1），并设置 `--font-scale` 乘以全部 `--text-*` 令牌和共享 Lucide 图标。窗口放大/缩小/重置保持独立。停靠的插件工作面板视图（自带的「浏览器」和「文件浏览器」页）不导入应用令牌，而是把该倍率乘以窗口缩放作为自身页面缩放，因此在任何设置下都与应用保持比例，`pi.browser` 的访客矩形也按同一倍率换算。独立插件窗口与挂件保持自己的基础尺寸。无效值被拒绝或钳制。无协议/存储版本升级。
 - **关联规格**：`04-ux/06-settings-ia.md`、`04-ux/07-ui-design-system.md`、ADR 0180、D343
 - **验收**：A（核心 shell）、B（设置）、H（本地化）
 - **里程碑**：M5+
-- **状态**：单元覆盖（`packages/shared/src/font-size.test.ts`、`apps/desktop/test/settings-font-size.test.mjs`）；完整 UI 旅程为草稿（除非用户明确要求，否则不要本地跑 E2E）
+- **状态**：单元覆盖（`packages/shared/src/font-size.test.ts`、`apps/desktop/test/settings-font-size.test.mjs`、`apps/desktop/test/plugin-view-scale.test.mjs`、`apps/desktop/test/browser-guest-hole-scale.test.mjs`）；完整 UI 旅程为草稿（除非用户明确要求，否则不要本地跑 E2E）
 
 #### E2E-130：Read 生成的 tag 可被 Edit 直接使用而无需重读
 
@@ -9960,6 +10007,28 @@ host-created files. The full app's file-preview viewer is covered separately.
   `04-ux/04-builtin-commands.md`、ADR 0334、issue #1657。
 - **状态**：自动化覆盖见英文版。完整的设置 → `/fast` → 捕获请求路径为手动验证场景。
 
+### E2E-REMOTE-FILE-MANAGER：受限的插件远程读取
+
+运行 `node scripts/e2e-remote-file-manager.mjs`，验证实际内置的
+`apps/desktop/resources/plugins/pi.file-manager`。这是发布验收路径：单独的开发插件
+通过不代表内置插件已修复。脚本会输出实际加载的目录。
+可选参数 `<built-file-manager-directory>` 可选择配套插件重新构建的 `views/` 或官方
+PluginPack 产物的解包目录，仅用于开发验证。验收 #1711 前需更新内置正式版本、
+上游标签与提交及各文件校验值，再对更新后的 PR 集成候选运行默认路径。
+
+开发集成可在实际内置目录验证 Desktop 热修复，并在 `UPSTREAM.md` 中如实记录固定
+源码提交、本地补丁和产物校验值。热修复路径通过，不代表配套上游正式发布或维护者
+最终验收已经完成。
+`PI_FILE_MANAGER_QA_DIR` 可指向已有、提供 Playwright 的插件 `tests/electron` 环境；
+`PI_ELECTRON_BINARY` 选择兼容的已有 Electron；`PI_E2E_ARTIFACTS` 可保留截图。
+
+隔离的真实插件进程与生产 `file://` 视图经过 Desktop SDK 网关、持久绑定读取器、
+本机回环 RACP 传输和真实 Host 文件服务。仅项目记录查询和认证启动由夹具提供。
+远程夹具根会显式注册在 Host 文件夹选择器浏览根之外。检查嵌套目录、文本/图片、
+凭据隐藏、编辑器/保存/菜单只读、断线错误和刷新恢复，
+以及切换项目后拒绝延迟预览和祖先打开请求，并恢复本地编辑、Browser 和编辑器探测。
+不使用模型、用户 profile 或外部 SSH；真实 SSH 及 Windows/Linux 原生行为需另行平台验收。
+
 #### E2E-PROVIDER-reasoning-effort-override: Preserve an explicit gateway reasoning parameter
 
 - **Setup:** A custom Chat Completions provider with a DeepSeek-family model;
@@ -9977,3 +10046,32 @@ host-created files. The full app's file-preview viewer is covered separately.
   stubbed). Rust provider tests independently verify real SQLite persistence;
   `provider-reasoning-effort.test.ts` captures requests from the real pi-ai
   adapter with fixture SSE responses. No live gateway credentials are required.
+
+
+#### E2E-RUNTIME-malformed-tool-call-continue-recovery: Continue after malformed tool output
+
+- **Preconditions**: An isolated sidecar and loopback Responses fixture can
+  emit an empty tool name, then a corrected Read call. Unit fixtures also
+  cover missing names/IDs, empty Responses wire IDs, non-object arguments,
+  retained malformed context, compaction tails and resumed delegates.
+- **Steps**: Return one malformed response, then invoke the same `agent.prompt`
+  entry used by Continue three times. Repeat with three consecutive malformed
+  responses followed by a corrected response. Keep the runtime alive throughout.
+- **Expected**: Each malformed batch settles with one local
+  `context-validation` error before tool execution, with no transport retry.
+  All three later prompts complete; the corrected Read executes once, and the
+  runtime is reused rather than restarted. Model context retains valid history
+  and system updates while excluding malformed calls and associated results.
+  Optional usage estimation does not lose terminal tool events. The durable
+  transcript and Host permissions are unchanged; unrelated malformed hosted
+  search still fails strict validation.
+- **Specs linked**: `03-runtime/02-agent-runtime.md` §5d.
+- **Acceptance**: Conversation, runtime recovery and quality.
+- **Milestone**: M5 hardening.
+- **Automation**: `pnpm test:e2e:hosted-search` runs the production sidecar and
+  real Responses adapter against synthetic SSE, including one-error and
+  three-error recovery cases. `malformed-tool-recovery.test.ts`,
+  `tool-call-identity.test.ts` and `subagent.test.ts` cover retained state,
+  event/result agreement, batch rejection and delegate restoration.
+- **Status**: Automated offline; native UI clicking and live providers are
+  outside this fixture's coverage.
