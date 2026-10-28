@@ -47,7 +47,10 @@
   Start smooth navigation immediately before toggling a real disclosure in
   both main and delegated scrollers; its clicked title must keep its offset.
 - **Coverage:** `node scripts/e2e-transcript-disclosure-anchor.mjs` and
-  `node scripts/e2e-transcript-render.mjs`.
+  `node scripts/e2e-transcript-render.mjs`, plus
+  `node scripts/e2e-transcript-turn-completion.mjs`. CI runs the completion
+  probe in a visible window under Xvfb/Openbox: never-shown Linux windows can
+  throttle animation frames despite `backgroundThrottling: false`.
 - **Specs:** Interaction patterns §2.2. **Milestone:** Maintenance.
 - **Status:** Automated browser regression; the interruption assertion fails
   without explicit cancellation of the browser-owned smooth navigation.
