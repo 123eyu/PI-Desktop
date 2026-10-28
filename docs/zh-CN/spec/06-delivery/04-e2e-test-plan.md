@@ -2528,6 +2528,22 @@ MainChat 弥补了缺口。 Maximized/fullscreen 调用保留最新的
 - **里程碑**：M5
 - **状态**：单元覆盖（`turn-changes-card.test.mjs`）；完整的 UI 场景草稿
 
+#### E2E-CHAT-completed-turn-scrolls-to-prompt：完成的回复从它的提示读起
+
+- **先决条件**：一个 Agent 会话，其下一条回复比转录视口更长。
+- **步骤**：1) 发送提示，让转录跟随回复直到结束。2) 发送一个回复短到能在屏幕内
+  放下的提示。3) 再发送一个长回复的提示，并在流式期间向上滚动。4) 在长回复中途
+  停止。5) 在长回复流式期间排队一个后续提示。
+- **预期**：1) 回复完成时，它的提示位于视口顶部并出现“滚动到底部”。2) 短回复
+  停留在底部并保持跟随。3) 视图停留在用户滚动到的位置。4) 被中止的回合停在底部。
+  5) 后续回合继续在底部跟随。
+- **链接规格**：`04-ux/09-interaction-patterns.md` §2.2，
+  `04-ux/08-component-spec.md` §4.4，D676
+- **验收**：质量
+- **里程碑**：M5
+- **状态**：已自动化（`pnpm test:e2e:transcript-turn-completion`，在 Electron 中
+  运行真实的 `useTranscriptScroll`；`turn-completion-scroll.test.mjs`）
+
 #### E2E-058：内置交互式终端已移除
 
 - **前提**：已打开工作区，Agent 已完成一次 Bash 工具调用。

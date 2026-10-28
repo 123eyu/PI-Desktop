@@ -4953,6 +4953,26 @@ window; opening a normal panel afterward must still work.
 - **Milestone**: M5
 - **Status**: Unit-covered (`turn-changes-card.test.mjs`); full UI scenario Draft
 
+#### E2E-CHAT-completed-turn-scrolls-to-prompt: A finished reply reads from its prompt
+
+- **Preconditions**: An Agent session whose next reply is longer than the
+  transcript viewport.
+- **Steps**: 1) Send a prompt and let the transcript follow the reply to its
+  end. 2) Send a prompt with a reply short enough to fit on screen. 3) Send a
+  long prompt again and scroll up while it streams. 4) Stop a long reply
+  midway. 5) Queue a follow-up while a long reply streams.
+- **Expected**: 1) When the reply completes, its prompt sits at the top of the
+  viewport and jump-to-latest appears. 2) The short reply stays at the bottom
+  in follow mode. 3) The view stays where the user scrolled. 4) The aborted
+  turn stays at the bottom. 5) The follow-up turn keeps following at the
+  bottom.
+- **Specs linked**: `04-ux/09-interaction-patterns.md` §2.2,
+  `04-ux/08-component-spec.md` §4.4, D676
+- **Acceptance**: Quality
+- **Milestone**: M5
+- **Status**: Automated (`pnpm test:e2e:transcript-turn-completion`, real
+  `useTranscriptScroll` in Electron; `turn-completion-scroll.test.mjs`)
+
 #### E2E-058: Built-in interactive terminal is absent
 
 - **Preconditions**: A workspace is open and the Agent has completed a Bash
