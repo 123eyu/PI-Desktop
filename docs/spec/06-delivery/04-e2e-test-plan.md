@@ -8,6 +8,23 @@
 
 ## 1. Goals
 
+### E2E model discovery membership
+
+- **Entry:** `node scripts/e2e-model-discovery-state.mjs` after building Host,
+  shared, agent-runtime and host-runtime in the task worktree.
+- **Environment:** Real isolated Host process and SQLite; production provider
+  IPC and Composer selection; simulated HTTP only, no credentials/live app.
+- **Sequence:** Discover two configured models and retain a never-discovered
+  manual id; remove one; refresh offline; restart Host; read cache; republish;
+  change id casing; send partial, malformed, and empty lists; change endpoint.
+- **Expected:** Missing previously published models leave normal/recent choices
+  without deleting bindings or changing defaults. Offline/restart cannot
+  resurrect them. Reappearance restores them. Manual ids and partial refreshes
+  remain safe; old endpoint state does not contaminate the new endpoint.
+- **Component coverage:** `provider-model-list-refresh.test.mjs` also renders
+  the actual settings panes and verifies saved bindings remain editable.
+
+
 ### E2E-PI-130-kernel-upgrade
 
 - **Preconditions:** Exact Pi 1.3.0 pins and migrated patches in a dedicated
@@ -73,6 +90,45 @@
   steering transcript path, parent settlement, ordinary-turn boundaries,
   compaction, and terminal Task snapshots through the real React rendering.
   The headless command does not replace the rendered Electron check above.
+
+### E2E-TOOLS-parallel-read-batches: ordered preparation and parallel reads
+
+- Isolate data/project paths; never run against production profiles.
+- A local provider fixture emits two Read calls. Gate real tool-execution
+  entrypoints until both enter, release them in reverse order, then inspect the
+  follow-up model request: results must retain source toolCallId order and final
+  sibling rules must follow preparation order. Repeat with a delegated reader
+  and verify parent instructions and permission scope are isolated.
+- Add Bash or Edit to the batch: all tools must execute sequentially. Stop
+  before execution must skip unstarted calls; running file calls must drain.
+- Add Task with a delegate that edits a fixture file alongside a parent Read;
+  the batch must stay sequential, Task keeps reporting a started delegation
+  (ADR 0089), and the parent Read must not enter Host until the writable
+  shared-workspace delegate settles its mutation. Task-only batches must still
+  fan out.
+- Automated coverage: runtime.test.ts uses the production Runtime and pi loop
+  with deterministic Host response barriers, including mixed Bash/Write/Edit
+  batches and Stop, plus the mixed Task/read regression in both model orders:
+  the Task result stays a started notice, the parent read waits for the writable
+  shared-workspace delegate's mutation to settle before entering Host, and a
+  failed delegate still releases the batch. `scripts/e2e-task-read-batches.mjs`
+  runs the same contract end to end with a real delegate loop: it asserts the
+  Host dispatch order `write:start`, `write:end`, `read:start`, `read:end`, that
+  the parent reads the written content, and that the Task tool result stays a
+  background acknowledgement. subagent.test.ts checks conservative policy
+  inheritance.
+- Run `node scripts/e2e-parallel-read-batches.mjs` after building agent-runtime,
+  shared and host-core. Set `PI_DESKTOP_HOST_BIN` when reusing a shared target.
+  It uses a local HTTP provider, real parent/delegate loops and a real Host in
+  temporary directories. A gated response proves overlapping Read dispatch;
+  actual Read/Glob/Grep results, source-order model results and parent prompt
+  isolation are checked. This does not measure blocking filesystem-body overlap,
+  production throughput or Electron UI behavior. UI-only project-edit E2E is
+  not evidence for agent Edit scheduling.
+- Run `node scripts/e2e-task-read-batches.mjs` under the same build and
+  `PI_DESKTOP_HOST_BIN` preconditions. Against the pre-fix implementation it
+  fails with `read:start` before `write:start`, which is the regression the
+  maintainer asked for.
 
 ### E2E-STORAGE-custom-location-and-maintenance
 
@@ -2103,6 +2159,27 @@ identify the platform validation still needed.
 - **Acceptance**: C (switch sessions)
 - **Milestone**: M2
 - **Status**: Source-level regression covered; full visual scenario Draft
+
+#### E2E-TRANSCRIPT-restored-live-tail-status
+
+- **Preconditions**: An isolated renderer with two retained session panes, a
+  running turn with tool output, and the real Composer and SessionPane.
+- **Steps**: Restore a bookmark during selection revalidation; append live
+  output; switch away and reveal the running pane; inspect an unread history
+  range and an explicit search at the tail; settle and abort the turn.
+- **Expected**: The restored live tail keeps a running process header while
+  Stop is available. Content updates and pane reveal do not falsely show
+  Finished. The restored range and scroll offset remain owned by the reader.
+  Another session, unread pages, and explicit search do not inherit live
+  status. Terminal completion and abort show Finished and Stopped respectively.
+  An empty restored range stays historical, an ordinary empty canonical range
+  shows the initial wait, and a restored navigation-parent copy with the same
+  message id keeps the running presentation.
+- **Automation**: `node scripts/e2e-transcript-reading-position.mjs`
+  (`transcriptLiveTailProbe`).
+- **Specs linked**: `04-ux/09-interaction-patterns.md` §2.4
+- **Acceptance**: C (session switching and running status)
+- **Status**: Automated isolated Electron regression
 
 #### E2E-207: Open large and long sessions through bounded transcript windows
 
@@ -4702,13 +4779,16 @@ window; opening a normal panel afterward must still work.
   context. 2) Open two distinct file artifacts, the same first file again,
   a URL preview, and a completed Bash row. 3) Verify the header is a tablist:
   open enough tabs to overflow it, confirm only the strip scrolls and the `+`
-  trigger stays visible, activate the scrolled-away tab, and close tabs with
-  hover/focus `×` and middle-click. Drag a tab across another tab and verify
-  the before/after drop indicator, resulting order, and unchanged active tab;
-  hold a drag at each strip edge until hidden tabs scroll into view, then verify
-  the indicator follows the newly visible targets. Repeat with
-  `Alt+ArrowLeft`/`Alt+ArrowRight`. With only one or two tabs, drag unused
-  header space to move the native window; tab and action clicks must still
+  trigger stays visible, and activate the scrolled-away tab. Right-click an
+  inactive tab and choose Close Other Tabs; verify the pointed-to tab remains
+  and becomes active, and that the action is disabled with one tab. Reopen
+  multiple artifacts, then right-click and choose Close All Tabs; confirm the
+  panel remains open on the New launcher. Reopen resources before checking
+  hover/focus `×`, middle-click, drag reorder, insertion indicators, and edge
+  auto-scroll. Open a tab menu with Shift+F10, navigate its items with arrows,
+  and press Escape to leave the tabs unchanged. With only one or two tabs, drag
+  unused header space to move the native window; tab and action clicks must
+  still work without moving it.
   work without moving it. 4) Click `+` twice and verify each click
   creates and activates a separate New launcher tab. Confirm the launcher body
   contains Review plus each in-scope plugin view exactly once as clickable rows;
@@ -4753,17 +4833,22 @@ window; opening a normal panel afterward must still work.
   opacity/slide, so MainChat reflows continuously without a pre-animation jump.
   Opening the panel, collapsing it, or committing a divider resize updates the
   presentation without a native-window jump. The header is a horizontally
+  Opening the panel, collapsing it, or committing a divider resize updates the
+  presentation without a native-window jump. The header is a horizontally
   scrollable tablist with stable `92px–180px` tabs, visible spacing, and a
   fixed `+`; labels stay readable instead of shrinking into one cluster, the
   strip alone scrolls, active tabs scroll into view, and close selects the
-  right neighbor then left. New launcher tabs expose Review and in-scope plugin
-  views as body buttons, with no popup to overlap or shift the panel. Dragging a
-  tab shows a before/after insertion indicator, edge-holding scrolls the strip
-  toward hidden tabs, and reorders only the tab array; the active resource stays
-  active. `Alt+ArrowLeft`/`Alt+ArrowRight` provides the same reorder path from
-  the focused tab. Clicking a launcher row replaces
-  that New tab with the destination or activates its existing singleton.
-  Closing the last tab leaves the panel open on New. Collapse
+  right neighbor then left. A localized, keyboard-navigable tab context menu
+  offers Close Tab, Close Other Tabs, and Close All Tabs. Close Other Tabs
+  retains and activates its target and is disabled for one tab; Close All Tabs
+  closes Browser resources and leaves the panel open on New. New launcher tabs
+  expose Review and in-scope plugin views as body buttons, with no popup to
+  overlap or shift the panel. Dragging a tab shows a before/after insertion
+  indicator, edge-holding scrolls the strip toward hidden tabs, and reorders
+  only the tab array; the active resource stays active. `Alt+ArrowLeft`/
+  `Alt+ArrowRight` provides the same reorder path from the focused tab. Clicking
+  a launcher row replaces that New tab with the destination or activates its
+  existing singleton.
   retains runtime tabs but hides the panel until another artifact reopens it.
   Width follows the shared three-column budget with no fixed pixel cap and
   previews its current/minimum/maximum values through the panel separator. The
@@ -4795,7 +4880,9 @@ window; opening a normal panel afterward must still work.
 - **Milestone**: M5
 - **Status**: Unit-covered (`work-panel-resize.test.mjs`,
   `work-panel-window.test.mjs`, `work-panel-presentation.test.mjs`,
-  `work-panel.test.mjs`); full UI scenario Draft
+  `work-panel-tabs.test.mjs`, `browser-tab-restore.test.mjs`,
+  `work-panel.test.mjs`); isolated Electron context-menu user path and close
+  geometry in `scripts/e2e-work-panel-tab-close.mjs`; full UI scenario Draft
 
 #### E2E-057: Message-owned review history survives commits and rolls back safely
 
@@ -5142,6 +5229,48 @@ window; opening a normal panel afterward must still work.
 - **Status**: Unit-covered (`chat-context-menu.test.mjs`,
   `chat-context-menu-items.test.mjs`, `chat-context-menu-surface.test.mjs`);
   full UI scenario Draft
+
+#### E2E-CHAT-radial-background-menu: Radial menu on the empty transcript background
+
+- **Preconditions**: Settings → AI → Radial context menu is available. A
+  session has a completed user prompt, a completed assistant answer, and enough
+  history to scroll.
+- **Steps**: 1) With the switch off, right-click empty space below the last
+  turn and confirm the vertical conversation menu. 2) Turn the switch on and
+  right-click the same space; inspect the four sectors. 3) Move the pointer
+  through each sector and click Copy conversation. 4) Set Up to Copy last
+  answer and Right to Leave empty, then reopen the ring. 5) Click the hub
+  without moving, then reopen and press Escape; repeat with an outside click,
+  a scroll, and a window resize. 6) Reopen with Shift+F10, walk the sectors
+  with the arrow keys, and run one with Enter. 7) Restart the app, confirm the
+  switch and the four directions persist, then write an unknown action for one
+  direction into the settings file and confirm that direction resolves to its
+  default.
+- **Expected**: With the switch off the vertical menu opens unchanged. With it
+  on, a four-sector ring centred on the pointer replaces it and stays fully
+  inside the window near an edge. Each sector highlights under the pointer;
+  clicking runs that action, closes the ring, and shows the usual toast where
+  the action copies. A **Leave empty** direction renders a disabled sector and
+  runs nothing; Copy last answer is disabled until an answer exists.
+  Open browser reveals the work panel on a blank browser tab, the work panel
+  direction toggles — it reads Open work panel while the panel is collapsed and
+  Close work panel while it is open, and the second click closes it — and Open
+  project folder opens the session's project in the OS file manager and is
+  disabled for a session without one. A click on
+  the hub, an outside press, Escape, Tab, scroll, and resize all dismiss the
+  ring without running anything. Arrow keys move the highlight and Enter runs
+  the highlighted action. The switch and the four directions survive a restart,
+  and an unknown stored action falls back to that direction's default. Message
+  rows, links, file references, the sidebar, and the work panel keep their
+  vertical menus.
+- **Specs linked**: `04-ux/09-interaction-patterns.md` §1.11,
+  `04-ux/06-settings-ia.md`
+- **Acceptance**: C (chat stream), Quality
+- **Milestone**: M5
+- **Status**: Chromium component check (`node scripts/e2e-radial-menu.mjs`:
+  sector labels, pointer highlight, click/hub/disabled/Escape paths, arrow-key
+  focus, and viewport clamping) plus unit coverage (`radial-menu.test.mjs`,
+  `settings-roundtrip.test.mjs`); full desktop journey Draft
 
 ### E2E-CHAT-delete-turn-preserves-other-live-outputs
 
@@ -6651,6 +6780,23 @@ must keep splitting are covered by `markdown-blocks.test.mjs`.
 - **Specs linked**: `04-ux/07-ui-design-system.md` §8, `04-ux/02-i18n-english-first.md`, decisions-log D146 / D304 / D348
 - **Acceptance**: A (app startup), Quality
 - **Milestone**: M5
+
+#### E2E-SESSION-reopen-restores-running: Recreated windows retain live turn status
+
+- **Steps**: Start a Desktop turn in a session with an older completion
+  notification. Close and recreate its renderer while Main keeps the turn
+  alive. Inspect the sidebar and select the session before another agent event.
+  Repeat after the turn ends, and with a start/end event arriving during bootstrap.
+- **Expected**: Live tasks show running, and selecting one restores the running
+  composer state. Completed tasks stay idle. A delayed snapshot never overrides
+  a start/end event already received by the new renderer.
+- **Automation**: `node scripts/e2e-running-session-reopen.mjs` recreates real
+  Electron windows with the production bootstrap, Sidebar and selection flow,
+  using fixture backend responses. `session-list-runtime.test.mjs` checks the
+  Main snapshot; `session-running-bootstrap.test.mjs` covers event races and
+  responses from older hosts. The native macOS close gesture remains a manual check.
+- **Specs**: `03-runtime/01-ipc-protocol.md`, ADR 0090.
+
 #### E2E-099: Brand logo follows the active theme
 - **Status**: Draft
 - **Priority**: P3
@@ -8144,6 +8290,23 @@ must keep splitting are covered by `markdown-blocks.test.mjs`.
   `replace_messages_preserves_owning_turn_ids` covers the remaining rewrite
   callers. UI paging remains manual.
 
+- **Bounded-history regression (#1870)**: Regenerate an older prompt, then
+  continue until the root is outside the newest 100-message page. Complete
+  another turn while viewing that page, then repeat after switching to another
+  session. The archive must not append the older user root after the latest
+  answer in the active transcript, retained pane, or session cache. If the root
+  is loaded, its pager updates in place using its current message identity,
+  which can differ from the stable family key. A root removed during the
+  archive RPC stays absent. Previous variants remain available after restart.
+  With neither a cached nor retained background transcript, the acknowledgement
+  must leave the cache absent and allow the next prefetch to read the Host.
+  Automated event-to-projection coverage:
+  `apps/desktop/test/regenerate-root-projection.test.mjs`.
+  `node scripts/e2e-regenerate-root.mjs` exercises the real Host process,
+  production main persistence and renderer projections with an isolated
+  3,484-message transcript, three follow-up turns, restart, and a revision
+  round trip. Set `PI_DESKTOP_HOST_BIN` to a host built from the candidate.
+
 #### E2E-246: Retrying a large session truncates without a whole-transcript RPC
 
 
@@ -8883,6 +9046,10 @@ must keep splitting are covered by `markdown-blocks.test.mjs`.
     never overflows the menu.
   - The tooltip and accessible name retain the complete relative path so
     duplicate leaf names remain distinguishable.
+  - In a Git workspace containing accented, CJK, and emoji file names,
+    indexing and filtering retain each name exactly, including when Git's
+    stdout chunks split a UTF-8 character. Accepting the result names the
+    existing file, without replacement characters in its path.
   - Enter/Tab/click on a file replaces the `@` token with an inline chip that
     stays in the draft; that key does not send. File acceptance retains the
     original complete `entry.path` behind the chip; directory acceptance
@@ -8895,7 +9062,9 @@ must keep splitting are covered by `markdown-blocks.test.mjs`.
 - **Acceptance**: C (conversation & stream), Quality
 - **Milestone**: M5
 - **Status**: Unit-covered
-  (`apps/desktop/test/composer-file-reference-display.test.mjs`); file-mode row
+  (`apps/desktop/test/composer-file-reference-display.test.mjs` and
+  `packages/host-runtime/src/fs-index-encoding.test.ts`); Unicode filtering and
+  file acceptance run in `composer-deep-file-search-user-path.test.mjs`; file-mode row
   layout covered by `scripts/e2e-composer-autocomplete.mjs`; full UI journey
   Draft (run only in a capable environment when this surface changes)
 
@@ -18641,11 +18810,12 @@ host-created files. The full app's file-preview viewer is covered separately.
 - **Preconditions:** The locked Electron 43 runtime, built workspace packages,
   and an isolated profile. Only a local HTTPS fixture and local proxy are used;
   trust is confined to the test process/session and fixture certificate.
-- **Steps:** Run `node scripts/e2e-provider-client-certificate.mjs`. Confirm the
-  original `net.fetch` aborts before HTTP. Probe the model list and connection
-  through the real metadata service; repeat with an invalid fixture key and an
-  authenticated custom HTTP proxy. Return a cross-origin redirect, then cancel
-  a pending response.
+- **Steps:** Run `node scripts/e2e-provider-client-certificate.mjs`. Confirm one
+  real `net.fetch` fails or stalls before HTTP. Replay that isolated fixture
+  failure for subsequent probes to avoid a second Chromium TLS handshake, then
+  exercise model discovery and connection through the real metadata fallback;
+  repeat with an invalid fixture key and an authenticated custom HTTP proxy.
+  Return a cross-origin redirect, then cancel a pending response.
 - **Expected:** Valid credentials return the fixture model; invalid credentials
   reach HTTP 401. The retry follows the proxy route, sends no client identity,
   refuses cross-origin redirects and aborts with the original signal.
@@ -18686,6 +18856,38 @@ host-created files. The full app's file-preview viewer is covered separately.
   `composer-suggestion-state.test.mjs`, `composer-suggestion-relay.test.mjs`,
   and `plugin-composer-suggestion.test.mjs`; the rendered journey remains a
   manual/Electron check when this surface changes.
+
+### E2E-REMOTE-FILE-MANAGER: Scoped remote plugin reads
+
+Run `node scripts/e2e-remote-file-manager.mjs` to validate the shipped copy in
+`apps/desktop/resources/plugins/pi.file-manager`. This is the release acceptance
+path: passing against a separate development plugin does not prove the bundled
+user path is repaired. The runner records the loaded directory in its output.
+An optional `<built-file-manager-directory>` argument selects the companion
+plugin's rebuilt `views/` or unpacked official PluginPack artifact for development
+validation only. Before accepting #1711, update the bundled release, its upstream
+tag/commit and per-file checksums, then rerun the default path on the updated PR
+integration candidate.
+
+A development integration may exercise a Desktop hotfix in that actual bundled
+directory, with its immutable source commit, local patch and artifact checksums
+recorded honestly in `UPSTREAM.md`. A passing hotfix journey does not claim that
+the companion upstream release or the maintainer's final acceptance is complete.
+`PI_FILE_MANAGER_QA_DIR` may point to an existing plugin `tests/electron`
+installation providing Playwright; `PI_ELECTRON_BINARY` selects an existing
+compatible Electron runtime. `PI_E2E_ARTIFACTS` optionally preserves screenshots.
+
+The isolated production plugin process and `file://` view use Desktop's actual
+SDK broker, durable-binding reader, loopback RACP transport and Host filesystem
+service. Only the fixture's project-record lookup and authentication bootstrap
+are supplied by the harness. The remote fixture root is registered explicitly
+outside the Host folder picker's browse root. Verify nested listings,
+text/image bytes, hidden credentials, read-only editor/save/menu controls,
+visible disconnect errors and refresh recovery, rejected late previews and
+ancestor opens after a project switch, and restored local
+editing/Browser/editor detection. No model, user profile or external SSH server
+participates. Real SSH transport and native Windows/Linux behavior require
+their separate platform acceptance.
 
 ### E2E-GENUI-inline-visualization-card: a visualization renders inline and stays sandboxed
 
