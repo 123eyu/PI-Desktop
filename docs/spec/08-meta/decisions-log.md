@@ -338,6 +338,7 @@ Gold source: local Codex electron captures; latest row wins where rows conflict.
 | D674 | Per-turn changed-files summary under a finished reply | **A completed reply whose turn recorded workspace review changes renders one read-only `TurnChangesCard` below its answer and above `entryExtra`, built only from that turn's message-owned `details.review` records (no new capture, IPC, or persistence). Rows merge edits per path (`D` if the turn ends by deleting, else `A` if any edit created the file, else `M`; counts summed; rolled-back files stay listed and struck through). Up to four files use relaxed rows, more use dense rows, and rows past 12 fold into `+N more`. Clicking a row opens Review on that file's recorded changes; the per-call review rows and the Review tab are unchanged.** | Issue #1891, design 10 (adaptive density): the per-call review rows answer "what did this call change", and Review answers it for the whole session, but nothing answered "what did this turn change" without counting rows. |
 | D675 | Inline images are admitted by pixel size as well as bytes | **Amend D361: an image whose PNG/JPEG/GIF/WebP header reports a longest edge above `MAX_INLINE_IMAGE_EDGE_PX` (8000) is never inlined. Host Read refuses it with `TOOL_FAILED`; prompt attachments and restored history take the existing `@path` fallback; and the runtime's last provider view replaces any such image block (user or tool result) with a text notice naming its size. The probe reads headers only (no decoder); unknown dimensions keep the byte-only rule. No protocol, schema, or persisted-format change.** | Issue #1913: a 1.89 MB, 780 x 14182 full-page screenshot passed every byte check, the provider rejected it with a non-retriable 400, and replay made every later request in that session fail. Dropping is deterministic for the same bytes, so the request prefix and prompt caching stay stable; resampling would need an image decoder and is deferred. |
 | D676 | A completed turn the reader followed ends at its prompt | **Amend the stream-completion rule: when a turn completes while the transcript is visible and still following the stream, the renderer scrolls that turn's newest user message to 16px below the titlebar band the transcript reserves at its top (smooth unless reduced motion), releases follow mode, and shows jump-to-latest. Nothing moves when the prompt is already in view, the reply failed or was aborted, the pane is hidden or in a reading window, a disclosure position is held, or a new run starts before the move. Renderer only; no setting, IPC, or persistence change.** | Issue #1889: after a long reply the reader sat at its last line and had to scroll back up to find where it began. |
+| D677 | DeepSeek reasoning replay uses one field per row and never covers real reasoning | **Amend ADR 0256 decision 3: the pi-ai fill pass takes the reasoning field from the newest assistant row that has real reasoning, normalizes every assistant row to that single field (moving real reasoning from another field name, deleting the others), and fills the placeholder only on rows with no reasoning. History rebuild and the thinking panel drop a leading echo of the placeholder (`withoutReasoningReplayPlaceholder`); stored text is not rewritten. No schema, IPC, or setting change.** | Issue #1945: rebuilt rows are stamped `reasoning_content` while a relay streams `reasoning_text`; the fill pass picked `reasoning_content` and wrote the placeholder over the live row's real reasoning, the model echoed it as its own thinking (13.6% of assistant rows in affected sessions), and the echo was persisted and replayed. |
 
 
 ## M0. Model catalog decisions
@@ -8057,3 +8058,25 @@ must keep splitting are covered by `markdown-blocks.test.mjs`.
   `apps/desktop/test/turn-completion-scroll.test.mjs` and
   `pnpm test:e2e:transcript-turn-completion`
   (E2E-CHAT-completed-turn-scrolls-to-prompt).
+
+## 2026-10-28 — One DeepSeek reasoning field per replayed row (D677)
+
+- D677 amends ADR 0256 decision 3 (issue #1945). The pi-ai fill pass in
+  `patches/@earendil-works__pi-ai@1.3.0.patch` picks the reasoning field of the
+  newest assistant row with real reasoning instead of the first field in a
+  fixed list, and normalizes every assistant row to it. Real reasoning stored
+  under another field name moves there; the other fields are removed, so a
+  row never carries two (relays reject duplicate reasoning fields).
+- The placeholder now fills only rows with no reasoning at all, so a live row
+  with real reasoning is never sent the placeholder in the field the model
+  reads.
+- `withoutReasoningReplayPlaceholder` (shared) drops a leading echo of the
+  placeholder, and its observed `[reasoning retained for this turn]` rewrite,
+  from stored thinking in session and delegate history rebuild and in
+  `messageThinking`, which feeds the thinking panel. Existing transcripts are
+  not rewritten; the echo simply stops being shown or replayed.
+- Not changed: strict relays still receive the non-empty placeholder for rows
+  with no reasoning (#296), and official DeepSeek keeps `""`.
+- Covered by `reasoning-content-backfill.test.ts`, `runtime.test.ts`,
+  `provider-presets.test.ts`, and `apps/desktop/test/assistant-turns.test.mjs`.
+  See E2E-005E.

@@ -127,6 +127,7 @@ import {
   type ProposalKind,
   type SubagentPermission,
   GEN_UI_SKILL_ID,
+  withoutReasoningReplayPlaceholder,
 } from "@pi-desktop/shared";
 import { createStreamCoalescer, type StreamCoalescer } from "./stream-coalescer.js";
 import type { RuntimeHost } from "./host-client.js";
@@ -3145,12 +3146,15 @@ Do not invent objections or turn speculative risks into blockers. Stop when the 
         // but must never become model context on the next turn.
         if (m.status === "error" || m.isError || m.error) continue;
         const content: AssistantMessage["content"] = [];
-        if (m.thinking?.trim()) {
+        // A replay placeholder the model echoed is not its reasoning; sending
+        // it back is what kept the model continuing it (#1945).
+        const thinking = withoutReasoningReplayPlaceholder(m.thinking ?? "");
+        if (thinking.trim()) {
           // Completions DeepSeek replay needs thinkingSignature so convertMessages
           // maps the block to reasoning_content instead of dropping it (#296).
           content.push({
             type: "thinking" as const,
-            thinking: m.thinking,
+            thinking,
             ...(deepSeekCompletionsReplay
               ? { thinkingSignature: "reasoning_content" as const }
               : {}),
