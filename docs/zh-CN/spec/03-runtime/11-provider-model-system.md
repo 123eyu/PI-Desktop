@@ -334,6 +334,8 @@ Responses 协议上启用该勾选框：`openai_codex_responses`（ChatGPT 订�
 另行计费）。只有当会话开关打开且保存的 binding 允许时，启动器才向 sidecar 发送
 `fastMode: true`；运行时只在解析后的协议为 `openai-codex-responses` 或
 `openai-responses` 的主回合请求中加入该字段。子代理、压缩和一次性请求保持默认档位。
+可信扩展把运行时切换到它自己的模型时会清除该开关，因为该模型没有可供选择加入的
+binding；下一次启动会按会话保存的 binding 重新应用。
 
 `ModelBinding.availableForSubagents`（布尔值，默认 false）：这是一个选择加入
 的标志，让该模型可用于 AI 驱动的子代理委托。启用后，该模型会出现在注入父

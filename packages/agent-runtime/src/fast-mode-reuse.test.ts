@@ -1,6 +1,11 @@
 import { describe, expect, it, vi } from "vitest";
 import type { Agent } from "@earendil-works/pi-agent-core";
-import type { Api, Model } from "@earendil-works/pi-ai";
+import {
+  createAssistantMessageEventStream,
+  type Api,
+  type AssistantMessage,
+  type Model,
+} from "@earendil-works/pi-ai";
 
 import {
   DesktopAgentRuntime,
@@ -122,5 +127,100 @@ describe("fast mode on a reused runtime", () => {
     // A rebuilt runtime would start a new agent; the switch must not be part of
     // the identity, or the reuse path (and its setFastMode call) never runs.
     expect(runtime.matches(match)).toBe(true);
+  });
+});
+
+describe("fast mode across a trusted extension model switch", () => {
+  const extensionModel = {
+    id: "ext-responses",
+    name: "Extension Responses",
+    api: "openai-responses",
+    provider: "ext-provider",
+    baseUrl: "https://extension.example.com/v1",
+    reasoning: false,
+    input: ["text"],
+    cost: { input: 0, output: 0, cacheRead: 0, cacheWrite: 0 },
+    contextWindow: 128_000,
+    maxTokens: 8_192,
+  } as unknown as Model<Api>;
+
+  function extensionAgent(seen: Array<string | undefined>) {
+    return {
+      key: "ext:agent",
+      extensionId: "ext",
+      extensionLabel: "Extension",
+      id: "agent",
+      name: "Extension Agent",
+      providerId: "ext-provider",
+      models: [extensionModel],
+      stream: (model: Model<Api>, _context: unknown, options?: { serviceTier?: string }) => {
+        seen.push(options?.serviceTier);
+        // Only the options the runtime hands the extension are under test.
+        const message = {
+          role: "assistant",
+          content: [{ type: "text", text: "ok" }],
+          api: model.api,
+          provider: model.provider,
+          model: model.id,
+          usage: {
+            input: 0,
+            output: 0,
+            cacheRead: 0,
+            cacheWrite: 0,
+            totalTokens: 0,
+            cost: { input: 0, output: 0, cacheRead: 0, cacheWrite: 0, total: 0 },
+          },
+          stopReason: "stop",
+          timestamp: 1,
+        } as AssistantMessage;
+        const stream = createAssistantMessageEventStream();
+        queueMicrotask(() => {
+          stream.push({ type: "start", partial: message });
+          stream.push({ type: "done", reason: "stop", message });
+          stream.end(message);
+        });
+        return stream;
+      },
+    };
+  }
+
+  async function requestExtension(runtime: DesktopAgentRuntime): Promise<void> {
+    const internals = runtime as unknown as { agent: Agent; model: Model<Api> };
+    const stream = await internals.agent.streamFunction(
+      internals.model,
+      { messages: [{ role: "user", content: "hi", timestamp: 1 }] } as never,
+      {},
+    );
+    await stream.result();
+  }
+
+  it("drops the priority tier when an extension switches the session to its own Responses model", async () => {
+    const seen: Array<string | undefined> = [];
+    const agent = extensionAgent(seen);
+    const runtime = createRuntime(true);
+    const internals = runtime as unknown as {
+      extensionRunner?: unknown;
+      setExtensionModel(model: unknown): Promise<boolean>;
+    };
+    internals.extensionRunner = {
+      hasHandlers: () => false,
+      findAgentModel: () => agent,
+    };
+    try {
+      // `/fast` was allowed for the launch model; the bridge's setModel then
+      // moves an idle session to an extension model with no such opt-in.
+      expect(await internals.setExtensionModel(extensionModel)).toBe(true);
+      await requestExtension(runtime);
+      expect(seen).toEqual([undefined]);
+
+      // The next launch re-applies the switch from the stored binding; only an
+      // explicit allowance there brings the tier back.
+      runtime.setFastMode(true);
+      await requestExtension(runtime);
+      expect(seen).toEqual([undefined, "priority"]);
+    } finally {
+      internals.extensionRunner = undefined;
+      await runtime.dispose();
+    }
   });
 });

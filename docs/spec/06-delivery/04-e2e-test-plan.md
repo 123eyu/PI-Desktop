@@ -18902,7 +18902,9 @@ host-created files. The full app's file-preview viewer is covered separately.
   price toast instead. Step 3 clears the mark and the field. Step 4 refuses
   with the model-settings hint and stores nothing. Step 5 keeps the switch on
   the fork and across restart. Subagent and compaction requests never carry
-  the field. Remote sessions refuse `/fast`.
+  the field. Remote sessions refuse `/fast`. A trusted extension that switches
+  the session to its own Responses model sends its next request without the
+  field.
 - **Specs linked**: `03-runtime/11-provider-model-system.md`,
   `03-runtime/04-data-storage.md` (v26), `04-ux/04-builtin-commands.md`,
   ADR 0334, issue #1657.
@@ -18910,7 +18912,10 @@ host-created files. The full app's file-preview viewer is covered separately.
   (draft → created session, toggle, refusals, remote, chip),
   `apps/desktop/test/fast-mode-session-launch.test.mjs` (launch resolution),
   `packages/agent-runtime/src/fast-mode.test.ts` (request body through the real
-  pi-ai Responses and Completions adapters), host-core migration, RPC and fork
+  pi-ai Responses and Completions adapters),
+  `packages/agent-runtime/src/fast-mode-reuse.test.ts` (mid-session switch on a
+  reused runtime; an extension model switch drops the tier), host-core
+  migration, RPC and fork
   tests. The full settings → `/fast` → captured request path is a manual
   validation scenario.
 

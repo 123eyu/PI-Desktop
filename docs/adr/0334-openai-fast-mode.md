@@ -48,7 +48,11 @@ in model settings.
    `openai-codex-responses` or `openai-responses`; the existing pi-ai patch
    forwards `serviceTier` through `streamSimple`, so the adapters also apply
    their own tier pricing. Subagents, compaction, and one-shot plugin requests
-   build their own options and keep the default tier.
+   build their own options and keep the default tier. Authorization belongs to
+   the launch model: when a trusted extension switches the runtime to one of
+   its own models (bridge `setModel` or agent activation), the runtime clears
+   the switch, since that model has no `fastModeAllowed` binding. The next
+   launch re-applies it through `setFastMode` from the stored binding.
 
 ## Alternatives
 

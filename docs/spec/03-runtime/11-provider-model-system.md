@@ -398,7 +398,10 @@ higher price; a relay may ignore or rebill the field). The launcher sends
 `fastMode: true` to the sidecar only when the session switch is on and the
 stored binding allows it; the runtime adds the field to main-turn requests whose
 resolved wire is `openai-codex-responses` or `openai-responses`. Subagents,
-compaction, and one-shot requests keep the default tier.
+compaction, and one-shot requests keep the default tier. A trusted extension
+that moves the runtime to one of its own models clears the switch, because that
+model has no binding to opt in; the next launch re-applies it from the
+session's stored binding.
 
 `ModelBinding.availableForSubagents` (boolean, default false): opt-in flag that
 makes the model available for AI-driven subagent delegation. When enabled, the

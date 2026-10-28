@@ -2876,6 +2876,12 @@ Do not invent objections or turn speculative risks into blockers. Stop when the 
   }
 
   private applyExtensionAgent(agent: RegisteredTrustedExtensionAgent, model: Model<Api>): void {
+    // `/fast` was authorized for the model the session launched with: Main only
+    // sends it when that binding has `fastModeAllowed` (ADR 0334). An extension
+    // model has no such opt-in, so switching to it must not carry the priority
+    // tier along. The next launch re-applies the switch from the session's
+    // stored model through `setFastMode`.
+    this.fastMode = false;
     this.provider = this.extensionProviderFor(agent, model);
     this.model = model;
     this.models = createExtensionAgentModels({
