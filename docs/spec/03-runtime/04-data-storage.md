@@ -259,6 +259,24 @@ snapshot directory with `session.delete` and sweeps directories whose session
 no longer exists at startup. A snapshot is never inferred from Git, so a later
 commit does not remove historical review evidence.
 
+Review rollback state is persisted as a small append-only `tool_review_state`
+line (`messageId`, `snapshotId`, `state`) in the live transcript. It changes no
+message position, `seq`, `turn_id`, search text, or message count. Readers apply
+the latest state for the matching tool message and snapshot after decoding the
+selected messages, including bounded windows and nested-tool navigation.
+Repeated acknowledgements of the same state append nothing. Resolving the
+target scans cached message identities and decodes only its record; historical bodies
+are not materialized as a session-wide `UiMessage` array.
+
+The transcript layout separately indexes state-line offsets. Its disposable
+disk-cache version is 3; older caches are rebuilt from the JSONL source. A
+deliberate rewrite or revision archive stores the effective state in its message
+payload, so no mutation log is needed to restore that payload. The snapshot's
+own metadata continues to guard repeated rollback. Older app versions that
+ignore this additive line type can show the previous card state until it is
+folded into a rewritten message; they still enforce the snapshot rollback guard.
+No SQLite schema or RPC contract changes are involved.
+
 ### 2.1 Transcript files (D119)
 
 `sessions/<sessionId>.jsonl` — first line is a session header, then one line
@@ -269,6 +287,7 @@ per message; `seq` is implied by line order:
 {"type":"message","id":"m1","role":"user","createdAt":"…","blocks":[{"type":"text","text":"…"}]}
 {"type":"message","id":"m2","role":"tool","toolName":"Write","blocks":[{"type":"tool_call","callId":"c1","args":{},"result":{},"status":"success"}]}
 {"type":"message","id":"m3","role":"assistant","createdAt":"…","blocks":[{"type":"thinking","text":"…"},{"type":"text","text":"…"}],"meta":{"usage":{},"modelId":"…"}}
+{"type":"tool_review_state","messageId":"m2","snapshotId":"snapshot-1","state":"rolledBack"}
 {"type":"compaction","id":"cp1","summary":"…","firstKeptMessageId":"m2","throughMessageId":"m3","tokensBefore":917000,"retainedTail":[…],"providerId":"…","modelId":"…","createdAt":"…"}
 ```
 
@@ -1550,8 +1569,15 @@ cached read is proportional to the requested page. Consequences:
   prefix before reuse. Missing, old, unknown, corrupt, or mismatched caches are
   ignored and rebuilt from the JSONL source. Cache read/write failures are
   diagnostic only and do not make the session unreadable.
-- A matching identity and complete prefix permits append-only incremental
-  scanning. A transcript rewrite invalidates both in-memory and disk layouts
+- Format 3 additionally caches parsed message identities, with malformed rows
+  retaining an unresolved identity for explicit validation on point reads.
+  A cold scan parses each identity once; cached identity lookup reads only the
+  selected message line and verifies its ID before returning its position.
+- Reuse requires a matching identity and modification/change-time generation.
+  Host-owned appends from that proven generation extend an in-memory prefix
+  incrementally. A lagging disk cache or an unknown change forces a rescan,
+  including an equal-length ID edit followed by append. A transcript rewrite
+  invalidates both in-memory and disk layouts
   only after its atomic replacement succeeds; delete also removes both. Cache
   invalidation stays in transcript rewrite/delete ownership, not the generic
   atomic-swap helper used by unrelated files.
