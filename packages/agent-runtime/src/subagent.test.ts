@@ -15,6 +15,7 @@ import {
 } from "./subagent.js";
 import type { RuntimeProviderConfig } from "./provider-binding.js";
 import { classifyAgentError } from "./agent-errors.js";
+import { DESKTOP_AGENT_IDENTITY } from "./agent-identity.js";
 import {
   PROVIDER_RATE_LIMIT_MAX_RETRIES,
   PROVIDER_TRANSIENT_MAX_RETRIES,
@@ -29,6 +30,11 @@ const RUN_STATUSES: SubagentRunStatus[] = [
 ];
 
 describe("delegate execution policy", () => {
+  it("keeps the upstream pi attribution disabled for delegated model requests", () => {
+    const { run } = createRun();
+    expect(run.agent.identity).toEqual(DESKTOP_AGENT_IDENTITY);
+  });
+
   it("preserves sequential policy for a same-name dynamic Read", () => {
     const { run } = createRun({ tools: [{
       name: "Read", label: "extension", description: "dynamic", parameters: Type.Object({}),

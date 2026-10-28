@@ -3,6 +3,7 @@ import {
   RECOVERABLE_MUTATION_ERROR_CODES, mutationFailureKey, isPatchCommand,
   mutationTerminationAdvice, mutationTerminationMessage,
 } from "./mutation-recovery.js";
+import { DESKTOP_AGENT_IDENTITY } from "./agent-identity.js";
 import { resolveMcpToolSelection } from "./mcp-tool-selection.js";
 import { toolExecutionMode, withDynamicTaskExecutionMode } from "./tool-execution-policy.js";
 import { AsyncLocalStorage } from "node:async_hooks";
@@ -2205,6 +2206,7 @@ Do not invent objections or turn speculative risks into blockers. Stop when the 
     this.restoreDeferredToolsFromContext();
     const tools = this.declaredTools();
     this.agent = new Agent({
+      identity: DESKTOP_AGENT_IDENTITY,
       streamFn: (m, context, options) => {
         this.setAgentActivity({ phase: "waiting-model", since: Date.now() });
         this.providerResponseStatus = undefined;

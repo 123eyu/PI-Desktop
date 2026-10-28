@@ -40,6 +40,7 @@ import {
 import { getGlobalDispatcher } from "undici";
 import { describeProviderFetchFailure } from "./provider-transport-recovery.js";
 import { resolveBatchExecutionMode } from "./tool-execution-policy.js";
+import { DESKTOP_AGENT_IDENTITY } from "./agent-identity.js";
 /**
  * The delegate loop itself is covered in `subagent.test.ts`; here only the
  * `Task` wiring around it is under test, so `SubagentRun` is replaced by a
@@ -231,6 +232,42 @@ function runtimeTool(runtime: DesktopAgentRuntime, name: string): AgentTool {
   if (!tool) throw new Error(`Runtime tool not found: ${name}`);
   return tool;
 }
+
+describe("Pi 1.4 client identity", () => {
+  it("forwards the desktop identity through a user prompt to the provider adapter", async () => {
+    const runtime = createRuntime();
+    const internal = runtime as unknown as {
+      models: {
+        streamSimple: (
+          model: unknown,
+          context: { messages: AgentMessage[] },
+          options?: { identity?: unknown },
+        ) => ReturnType<typeof createAssistantMessageEventStream>;
+      };
+    };
+    const identities: unknown[] = [];
+    internal.models = {
+      streamSimple: (_model, _context, options) => {
+        identities.push(options?.identity);
+        const message = assistantMessage({ content: [{ type: "text", text: "Ready." }] }) as AssistantMessage;
+        const stream = createAssistantMessageEventStream();
+        queueMicrotask(() => {
+          stream.push({ type: "start", partial: message });
+          stream.push({ type: "done", reason: "stop", message });
+          stream.end(message);
+        });
+        return stream;
+      },
+    };
+
+    try {
+      await runtime.prompt("Say ready.", "identity-user", "identity-turn");
+      expect(identities).toEqual([DESKTOP_AGENT_IDENTITY]);
+    } finally {
+      await runtime.dispose();
+    }
+  });
+});
 
 describe("ordered read preparation", () => {
   it.each([

@@ -23,6 +23,7 @@ import { mkdirSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { randomUUID } from "node:crypto";
 import { toolExecutionMode, withDynamicTaskExecutionMode } from "./tool-execution-policy.js";
+import { DESKTOP_AGENT_IDENTITY } from "./agent-identity.js";
 import { initialSystemTranscript, replaceSystemPrompt } from "./system-transcript.js";
 import {
   Agent,
@@ -290,6 +291,7 @@ export class SubagentRun {
     this.attemptedModels.add(`${opts.provider.id}/${opts.provider.modelId}`);
     const binding = this.modelBinding();
     this.agent = new Agent({
+      identity: DESKTOP_AGENT_IDENTITY,
       streamFn: binding.streamFn,
       getApiKey: binding.getApiKey,
       convertToLlm: (messages) =>

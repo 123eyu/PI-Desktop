@@ -22,6 +22,21 @@
   authoritative. See the English source and `docs/project/pi-130-adoption.md`
   for exact coverage and candidate validation.
 
+### E2E-PI-140-kernel-upgrade
+
+- **前提：** 在专属 worktree 中精确固定 Pi 1.4.0 release group 并迁移包补丁，使用隔离
+  fixture 状态，不提供真实 Provider 凭据。
+- **步骤：** 通过本地模型 fixture 发起 Desktop prompt 并捕获 Provider 请求身份；再通过
+  subagent 重复。用纯请求 fixture 覆盖 OpenRouter、NVIDIA 和 OpenCode 身份请求头映射。
+  在已安装的 1.4.0 包上运行现有 hosted-search、原生 Pi 会话和可信扩展离线套件。
+- **预期：** 主 Agent 和 subagent 请求保留 pi-ai 详细版本化的 `User-Agent`，并关闭
+  pi-agent-core 默认 Pi 归属请求头。Hosted-search 重放与校验、Provider 请求错误、原生会话
+  上下文估算、工具校验、扩展兼容、重试和取消行为保持不变。不使用 Provider 凭据或线上服务。
+- **覆盖：** `pi-upstream-1.4-identity.test.ts`、`pi-upstream-1.4-contract.test.ts`、
+  `pi-1.4-adapter-features.test.ts`、`runtime.test.ts`、`subagent.test.ts`，以及现有
+  `test:e2e:hosted-search` 和 `test:e2e:trusted-extensions` 命令。具体范围与候选验证记录见英文源及
+  `docs/project/pi-140-adoption.md`。
+
 ### E2E-LEGACY-DICTATION-idle-model-release
 
 - **前提：** 通过 `VoiceService` 接口测试保留的本地 Dictation 服务，使用确定性的
@@ -5946,6 +5961,7 @@ eleven-tool-round desktop paths are verified by
 | 品质（项目排序） | E2E-253 |
 | 品质（工作面板标签关闭按钮可见性） | E2E-WORK-PANEL-active-tab-close-visibility |
 | C / E / G / Quality — Pi kernel upgrade | E2E-PI-130-kernel-upgrade |
+| C / E / G / Quality — Pi kernel upgrade | E2E-PI-140-kernel-upgrade |
 | C — 对话和直播（输入法斜杠别名） | E2E-255 |
 | E——工具和权限（Skill 常驻） | E2E-254 |
 | 品质（Skill 常驻与输入法斜杠别名） | E2E-254、E2E-255 |
