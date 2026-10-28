@@ -2508,6 +2508,26 @@ MainChat 弥补了缺口。 Maximized/fullscreen 调用保留最新的
 - **里程碑**：M5
 - **状态**：单位覆盖（`chat-review-entry.test.mjs`）；完整的 UI 场景草稿
 
+#### E2E-CHAT-turn-changed-files-summary：已完成的回合列出它改动的文件
+
+- **先决条件**：具有可写工作空间的项目绑定 Agent 会话。
+- **步骤**：1) 让代理创建一个文件并编辑另一个文件；观察流式中的回合。
+  2) 回复完成后，检查回答下方区域。3) 请求一次跨多个目录、超过十二个文件的
+  改动。4) 点击一行，再点击 `在「审阅」面板查看全部 N 个文件` 链接。
+  5) 在审阅中回滚一个文件的变更后回到该回合。6) 提一个不写文件的问题。
+  7) 切换会话后再切回来。
+- **预期**：回合流式期间或失败后不显示汇总。写过工作区文件的已完成回合在回答
+  下方、插件 `entryExtra` 块上方显示一张无边框的 `本轮改动` 卡片，带文件数和合计
+  `+`/`−`。每个路径只出现一次，带合并后的状态字母和计数；不超过四个文件用宽松行，
+  更多时用带目录数的密集行，超过 12 行折叠为 `+N more`。点击一行会打开该会话的
+  审阅选项卡，滚动到该文件并展开其变更；链接只打开审阅、不展开。已回滚的文件仍在
+  列表中并显示删除线。每个更早的已完成回合保留自己的卡片，没有写入的回合没有卡片，
+  切换会话不会额外取数。逐次调用的审核行保持不变。
+- **链接规格**：`04-ux/08-component-spec.md` §4.4，D674
+- **验收**：D（工作空间），质量
+- **里程碑**：M5
+- **状态**：单元覆盖（`turn-changes-card.test.mjs`）；完整的 UI 场景草稿
+
 #### E2E-058：内置交互式终端已移除
 
 - **前提**：已打开工作区，Agent 已完成一次 Bash 工具调用。
@@ -9951,6 +9971,29 @@ host-created files. The full app's file-preview viewer is covered separately.
 - **关联规格**：`04-ux/01-ui-ia.md` §3.2、`04-ux/06-settings-ia.md`（常规 → 侧边栏卡片）。
 - **验收**：项目折叠时仍能回答“这里是否有正在运行的工作”，且两种提示可从持久化设置独立控制。
 - **状态**：草稿。现有 `apps/desktop/test/sidebar-project-runs.test.mjs` 覆盖数量分类、总开关与子开关门控、两种渲染入口，以及主题令牌和减少动态效果保证；它不覆盖设置 API 缺省值规范化或完整交互，相关场景仍需在可用环境手动验证。
+
+
+### E2E-REMOTE-FILE-MANAGER：受限的插件远程读取
+
+运行 `node scripts/e2e-remote-file-manager.mjs`，验证实际内置的
+`apps/desktop/resources/plugins/pi.file-manager`。这是发布验收路径：单独的开发插件
+通过不代表内置插件已修复。脚本会输出实际加载的目录。
+可选参数 `<built-file-manager-directory>` 可选择配套插件重新构建的 `views/` 或官方
+PluginPack 产物的解包目录，仅用于开发验证。验收 #1711 前需更新内置正式版本、
+上游标签与提交及各文件校验值，再对更新后的 PR 集成候选运行默认路径。
+
+开发集成可在实际内置目录验证 Desktop 热修复，并在 `UPSTREAM.md` 中如实记录固定
+源码提交、本地补丁和产物校验值。热修复路径通过，不代表配套上游正式发布或维护者
+最终验收已经完成。
+`PI_FILE_MANAGER_QA_DIR` 可指向已有、提供 Playwright 的插件 `tests/electron` 环境；
+`PI_ELECTRON_BINARY` 选择兼容的已有 Electron；`PI_E2E_ARTIFACTS` 可保留截图。
+
+隔离的真实插件进程与生产 `file://` 视图经过 Desktop SDK 网关、持久绑定读取器、
+本机回环 RACP 传输和真实 Host 文件服务。仅项目记录查询和认证启动由夹具提供。
+远程夹具根会显式注册在 Host 文件夹选择器浏览根之外。检查嵌套目录、文本/图片、
+凭据隐藏、编辑器/保存/菜单只读、断线错误和刷新恢复，
+以及切换项目后拒绝延迟预览和祖先打开请求，并恢复本地编辑、Browser 和编辑器探测。
+不使用模型、用户 profile 或外部 SSH；真实 SSH 及 Windows/Linux 原生行为需另行平台验收。
 
 #### E2E-PROVIDER-reasoning-effort-override: Preserve an explicit gateway reasoning parameter
 
