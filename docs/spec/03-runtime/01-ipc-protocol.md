@@ -2014,6 +2014,33 @@ menu/nativeAction({ action: NativeMenuAction })
   -> { maximized: boolean; fullScreen: boolean }
 ```
 
+When a plugin-contributed `WebContentsView` is active, the renderer sends tab
+context-menu labels and its pointer anchor through one bounded Main-owned
+channel. Main validates the payload, scales CSS coordinates by the sender's
+current zoom factor, clamps them to the window content area, and builds only
+the fixed close actions. The result is the selected action or `null` on cancel
+or window close; the renderer rechecks the session and target tab after this
+async boundary:
+
+```ts
+type WorkPanelTabMenuAction = "closeTab" | "closeOtherTabs" | "closeAllTabs";
+type WorkPanelTabMenuRequest = {
+  closeTabLabel: string;
+  closeOtherTabsLabel: string;
+  closeAllTabsLabel: string;
+  canCloseOthers: boolean;
+  x: number; // renderer CSS pixels
+  y: number; // renderer CSS pixels
+};
+
+workPanel/tabMenu(request: WorkPanelTabMenuRequest)
+  -> WorkPanelTabMenuAction | null
+```
+
+Labels are presentation-only; they cannot select an arbitrary Main action.
+The OS-native menu appearance is a z-order requirement so the menu stays
+above the native view.
+
 Developer tools use a dedicated Main-owned gate rather than a generic native
 menu action:
 

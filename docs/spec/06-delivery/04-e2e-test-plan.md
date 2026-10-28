@@ -4835,8 +4835,11 @@ window; opening a normal panel afterward must still work.
   launcher tab. Confirm its body lists Review and each in-scope plugin view
   exactly once. Open Browser and confirm its native surface opens at unchanged
   bounds. Open its context menu and verify the native popup appears above Browser
-  chrome while the page remains visible. Escape closes it without hiding the page
-  or changing bounds. 5) Close active middle/edge tabs, verify neighbor selection,
+  chrome while the page remains visible. With Browser active, right-click another
+  tab and confirm it still uses the native menu. Repeat at 50% and 150% app zoom;
+  the menu must remain anchored to the pointer. Escape closes it without hiding
+  the page or changing bounds. Close the window while a native menu is open and
+  confirm the pending request settles. 5) Close active middle/edge tabs, verify neighbor selection,
   then close the final tab and confirm New remains. 6) Collapse/reopen the panel
   and trigger an artifact. In session A, leave Browser open; switch to B and
   create another tab set, then switch repeatedly between sessions and select a
@@ -4884,7 +4887,11 @@ window; opening a normal panel afterward must still work.
   retains and activates its target and is disabled for one tab; Close All Tabs
   closes Browser resources and leaves the panel open on New. For an active
   Browser/plugin view, the tab context menu is a Main-owned native popup above
-  Browser chrome; the page stays visible and its bounds do not change.
+  Browser chrome; the page stays visible and its bounds do not change. When
+  Browser is active, right-clicking another tab also selects this native path.
+  Native menu labels, order, and enabled states match the renderer menu, while
+  platform styling preserves the native-view z-order. Its position follows the
+  pointer at the current app zoom, and closing the window settles the request.
   New launcher tabs expose Review and plugin views as body buttons, with no
   overlapping popup. Dragging a tab shows a before/after insertion indicator;
   edge-holding scrolls toward hidden tabs, and reordering leaves the active
@@ -4926,7 +4933,8 @@ window; opening a normal panel afterward must still work.
   `work-panel-window.test.mjs`, `work-panel-presentation.test.mjs`,
   `work-panel-tabs.test.mjs`, `browser-tab-restore.test.mjs`,
   `work-panel.test.mjs`, `plugin-work-panel-views.test.mjs`,
-  `plugin-view-navigation.test.mjs`); isolated Electron
+  `plugin-view-navigation.test.mjs`, `work-panel-tab-menu.test.mjs`);
+  isolated Electron
   tab-menu, Browser native-menu page visibility, and close geometry in
   `scripts/e2e-work-panel-tab-close.mjs`; full UI scenario Draft
 
