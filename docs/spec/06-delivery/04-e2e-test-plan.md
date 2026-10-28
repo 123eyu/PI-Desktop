@@ -44,6 +44,8 @@
   ancestor cancellation. Button Space must allow the original navigation to
   finish. `e2e-transcript-turn-completion.mjs` also verifies normal completed-turn
   prompt navigation and a reader's manually retained position.
+  Start smooth navigation immediately before toggling a real disclosure in
+  both main and delegated scrollers; its clicked title must keep its offset.
 - **Coverage:** `node scripts/e2e-transcript-disclosure-anchor.mjs` and
   `node scripts/e2e-transcript-render.mjs`.
 - **Specs:** Interaction patterns §2.2. **Milestone:** Maintenance.
