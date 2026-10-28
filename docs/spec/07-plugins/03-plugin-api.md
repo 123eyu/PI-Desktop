@@ -21,7 +21,7 @@ selectors, images, fonts, or arbitrary property names.
 Inside the plugin runtime, a global is available:
 
 ```ts
-declare const pi: PiPluginHostApi;
+declare const pi: PluginHostApi;
 ```
 
 ## 3. API overview (MVP)
@@ -98,8 +98,8 @@ pi.themes.list(): Promise<Array<{ id: string; themeId: string; label: string; ba
 ### plugin
 ```ts
 pi.plugin.getId(): string
-pi.plugin.getManifest(): PluginManifestV1
-pi.plugin.getSettings<T=Record<string, unknown>>(): Promise<T>
+pi.plugin.getManifest(): PluginManifest
+pi.plugin.getSettings(): Promise<Record<string, unknown>>
 pi.plugin.setSettings(partial: Record<string, unknown>): Promise<void>
 pi.plugin.getDataPath(): Promise<string> // plugin-private directory
 ```
@@ -109,8 +109,10 @@ persists edits in the plugin's private settings file. Supported generated
 controls are `string`, `number`, `boolean`, `select`, `json`, and `shortcut`.
 Generated `title` / `description` / `enum[].label` are author-language strings;
 the host does not resolve locale maps on them. A plugin that needs a localized
-settings surface ships `settingsDestinations` and reads `pi.app.getLocale`
-(ADR 0280). Shortcut settings are plugin-local: they invoke the declared
+settings surface uses its own panel/view and reads `pi.app.getLocale`.
+The data-only `scenicThemes` contribution has a host-rendered Settings surface;
+`settingsDestinations` is not an implemented public contribution (ADR 0287).
+Shortcut settings are plugin-local: they invoke the declared
 `command` only while the PI-Desktop app window is focused and while the plugin's
 activation scope matches the current project. They are never registered as
 OS-global shortcuts in this release. The host emits `plugin:settingsChanged`
@@ -348,18 +350,19 @@ pi.fs.readRange(
   length: number,
   grantId?: string,
 ): Promise<{ bytes: Uint8Array; totalSize: number }>
-pi.fs.readPreview(pathFromRoot: string): Promise<{
+pi.fs.readPreview(pathFromRoot: string, options?: { workspacePath: string }): Promise<{
   kind: "text" | "image" | "binary" | "tooLarge"
   content?: string     // UTF-8 when kind is "text"
   dataUrl?: string     // data URL when kind is "image"
   size: number
+  mtimeMs?: number     // Remote previews include the Host's file timestamp.
 }>
 pi.fs.openDefault(pathFromRoot: string): Promise<void>
 pi.fs.openInBrowser(pathFromRoot: string): Promise<void>
 pi.fs.reveal(pathFromRoot: string): Promise<void>
 pi.fs.writeText(pathFromRoot: string, content: string): Promise<void>
 pi.fs.glob(pattern: string): Promise<string[]>
-pi.fs.list(pathFromRoot: string): Promise<Array<{
+pi.fs.list(pathFromRoot: string, options?: { workspacePath: string }): Promise<Array<{
   name: string;
   path: string;        // root-relative, usable directly with readText / list
   isDirectory: boolean;
@@ -384,6 +387,23 @@ SDK method.
 uses the same `fs.read` checks as `fs.readText`, rejects directories, and
 returns `text` (capped at 512 KiB), `image` (capped at 5 MiB, as a data URL),
 `binary`, or `tooLarge`. The plugin never receives an absolute path.
+
+For an SSH project, `workspace.get` preserves the opaque `remote-project:`
+identity and adds `remote: { path, readOnly: true }`; `remote.path` is a display
+path, never a local filesystem root. `fs.list` and `fs.readPreview` route these
+roots through the paired owner Host's optional `workspacePluginFiles`
+capability. The Host enforces canonical containment, protected paths, credential
+denials and the plugin's declared scope. The root must be below the Host's folder
+picker browse root or exactly match a canonical project root registered on that
+Host. Other filesystem channels remain local and reject opaque remote roots. A
+missing capability reports `HOST_VERSION_MISMATCH`; no request falls back to the
+Desktop filesystem.
+
+The optional `workspacePath` must equal the workspace identity captured by the
+view. A mismatch reports `WORKSPACE_CHANGED`. All reads capture their root
+before awaiting, including calls without this option, and discard results after
+a root change, remote binding replacement or plugin unload. See
+[the decision](/adr/plugin-remote-workspace-reads).
 
 `fs.openDefault` opens one existing file with the operating system's default
 associated application. It uses the same `fs.read` root, symlink, protected-path,
@@ -444,18 +464,22 @@ pi.agent.registerTool(tool: {
  description: string
  risk: "low"|"medium"|"high"
  schema: unknown
+ planSafeActions?: readonly string[]
  execute: (args: unknown, ctx: ToolExecContext) => Promise<unknown>
 }): Promise<void>
 
 pi.agent.unregisterTool(name: string): Promise<void>
 ```
 
-Registered plugin agent tools are Agent-only contributions. During Plan the
-host filters them out of the model tool list and rejects direct execution with
-`PLUGIN_DISABLED_IN_PLAN`, including when the manifest risk is `low`, the user
-has an `allow-session` grant, or the session permission mode is `auto`. A
-successful plan approval makes the same registered tools eligible again under
-the selected Agent permission policy.
+Plugin tools are hidden and denied in Plan/Goal by default. A runtime tool
+registration may opt in with non-empty `planSafeActions`; only an `args.action`
+in that list may execute in those modes. The list is checked against the schema's
+action enum when present. Keep the manifest descriptor and runtime registration
+in sync: the runtime registration drives the executable tool. Risk `low`, session
+grants, and `auto` do not substitute for the declaration. Host policy and the
+plugin runner both check it; a disallowed runner action is `PERMISSION_DENIED`.
+The declaration is an author assertion of read-only behavior, not a side-effect
+sandbox (ADR 0211).
 
 ```ts
 type ToolExecContext = {
@@ -482,6 +506,9 @@ type PluginModelInfo = {
   providerName: string
   modelId: string
   label: string
+  alias?: string
+  availableForSubagents?: boolean
+  isDefault?: boolean
   supportsReasoning: boolean
   thinkingLevels: ThinkingLevel[]
 }
@@ -1094,7 +1121,7 @@ the desired mode. This read-only query needs no network permission and performs
 no network I/O. A missing method, rejected query, or absent mode means
 unsupported: do not send the request. Older hosts may silently ignore unknown
 fetch options, so passing `redirect` alone is **not** capability detection.
-This API is unreleased; released 0.17.0 and older do not advertise it.
+Current source implements this query; older hosts may not advertise it.
 No same-origin-only mode is introduced by this change.
 
 `fetch` answers with the upstream response unchanged — `status`, `headers`, and
@@ -1364,9 +1391,8 @@ Delivered today:
   in-flight tool of that turn has exited — late results can still arrive — so a
   plugin must serialise or otherwise scope its cleanup by `turnId`. The event
   also needs no new permission: it travels on the existing event channel, and
-  subscribing to an unknown event name does not error. No published host emits it
-  yet — 0.14.8 does not include it — so a plugin that depends on it must require
-  the release that actually ships it rather than assume 0.14.7 or 0.14.8.
+  subscribing to an unknown event name does not error. A plugin that depends on it must verify the host version it supports;
+  historical hosts may not emit this additive event.
 
 - `session:activated` — payload is the `PluginActiveSession` object or `null`,
   sent whenever that snapshot changes: the user selected another session (or
@@ -1395,6 +1421,20 @@ list, the permission gate, and the preload are identical, so one HTML entry
 works in either placement. The only differences are chrome and the view
 `location` below: a docked view has no window-control capsule and no drag band,
 and its `--pi-plugin-titlebar-height` is `0px` rather than `46px`.
+
+A docked view also follows the host's type size. Its page cannot inherit the
+renderer's `--font-scale`, because it is not the app document, so the host
+repeats the Appearance font size (D343 / ADR 0180) multiplied by the window zoom
+as that page's zoom factor and re-applies it to every fresh document. At that
+factor one CSS pixel inside the plugin paints at the same DIP size as one CSS
+pixel in the app, so author-sized text and controls keep their proportion with
+the panel around them at every setting — no reload, and no host design tokens for
+the plugin to adopt. Two consequences a view author can observe: page pixels are
+the scaled page's own pixels, so a rect handed back to a host API that positions
+native content (`browser.setBounds` in `pi.browser`) is converted by the host,
+and a page that pins layout to fixed window metrics must scale them itself.
+Detached `ui.panel` windows and floating widgets keep their own base size: they
+are their own windows, not a surface composited inside the app.
 
 Detached panel pages using the current chrome contract declare
 `<meta name="pi-plugin-chrome" content="v2">` and use the published variable
@@ -1438,7 +1478,8 @@ is not discarded; re-opening the same location does nothing. The payload is
 opaque to the host — each plugin decides what its `location` means — and it
 needs no permission and adds no SDK method.
 
-The host-owned preload forwards only fixed channels to the plugin runtime:
+The host validates the sender and forwards calls to the plugin runtime,
+which handles these built-in channels before falling back to `onPanelInvoke`:
 
 | Channel | Required permission |
 |---|---|
@@ -1446,14 +1487,15 @@ The host-owned preload forwards only fixed channels to the plugin runtime:
 | `ui.notify` | `notify` |
 | `ui.getNotificationPermission`, `ui.requestNotificationPermission`, `ui.showNativeNotification` | `notify` |
 | `plugin.getSettings`, `workspace.get`, `app.getAppearance` | None |
-| `app.setTheme`, `themes.upsert`, `themes.remove`, `themes.list` | `ui.theme` |
+| `app.setTheme`, `themes.upsert`, `themes.remove`, `themes.list`, `themes.setVariables` | `ui.theme` |
 | `models.list` | `models.list` |
-| `fs.readText`, `fs.stat`, `fs.readRange`, `fs.readPreview`, `fs.openDefault`, `fs.openInBrowser`, `fs.reveal`, `fs.glob`, `fs.list` | `fs.read` |
+| `fs.readText`, `fs.stat`, `fs.readRange`, `fs.readPreview`, `fs.openDefault`, `fs.openInBrowser`, `fs.reveal`, `fs.glob`, `fs.list`, `fs.requestDirectory`, `fs.registerDropped` | `fs.read` |
 | `fs.writeText` | `fs.write` |
 | `clipboard.readText`, `clipboard.getHistory` | `clipboard.read` |
 | `clipboard.writeText` | `clipboard.write` |
 | `shell.openExternal` | `shell.openExternal` |
 | `net.fetch` | `net.fetch` |
+| `net.getCapabilities` | None |
 | `session.getActive` | None |
 | `ui.revealView` | `ui.view` |
 
@@ -1461,8 +1503,9 @@ The host-owned preload forwards only fixed channels to the plugin runtime:
 channel the host does not implement itself is forwarded to the plugin's
 `onPanelInvoke(channel, payload)`, so a plugin may define its own panel ↔ main
 channels; a plugin that exports no `onPanelInvoke` gets `UNSUPPORTED` from its own
-process. The host-supported channels include `skill.list`, `skill.read`,
-`skill.create`, `skill.update`, `skill.remove`, and `skill.setEnabled`.
+process. The `skill.list` / `read` / `create` / `update` / `remove` / `setEnabled`
+operations used by the bundled skill manager are plugin-owned `onPanelInvoke`
+channels, not general host bridge APIs.
 
 ### Panel events (host -> panel)
 
@@ -1525,10 +1568,12 @@ Log fields:
 
 ## 8. Versioning strategy
 
-- The API surface is managed by `apiVersion`
-- MVP `apiVersion = 1`
-- A deprecated API is retained for at least one major version cycle
-
+The manifest authoring contract uses `schemaVersion: 1`; the current injected
+API has no `apiVersion` property or negotiation call. Prefer additive APIs,
+feature-detect optional methods, query `net.getCapabilities` for redirect modes,
+and handle `UNSUPPORTED` on older hosts. Public SDK types and runtime dispatch
+are the current callable surface; planned names do not become callable by being
+listed in a document.
 
 ## 9. Implementation status
 
@@ -1562,9 +1607,10 @@ Native plugin notifications use the Electron main-process notification surface;
 they do not create durable rows in the task notification inbox and do not
 activate a session on click.
 
-Declarative contributions have no `pi.*` counterpart on purpose: skills, themes,
-and MCP servers are read from the manifest by the host, so a plugin cannot add
-one at runtime.
+Skills and MCP servers are manifest contributions with no general runtime
+registration API. Themes also support the permission-gated `pi.themes` runtime
+registry, and providers remain manifest-owned. Composer, session import/read/
+update/delete, usage, project, and desktop APIs follow their separate grants.
 
 All high-risk entry points assert declared+granted permissions and emit audit log lines.
 Plugin panels no longer receive the full `pi` object; they use `window.pluginBridge.invoke`.

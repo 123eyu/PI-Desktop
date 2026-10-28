@@ -1,4 +1,4 @@
-import { BrowserWindow } from "electron";
+import { BrowserWindow, Menu } from "electron";
 import { isWindowBackgroundColor, MAX_WINDOW_CORNER_RADIUS } from "@pi-desktop/plugin-sdk";
 import {
   builtinWindowBackground,
@@ -12,6 +12,8 @@ import {
   type WindowControlAction,
   type LifecycleDialogChoice,
   type TraySessionPreferences,
+  type WorkPanelTabMenuAction,
+  type WorkPanelTabMenuRequest,
 } from "@pi-desktop/shared";
 import {
   emptyWorkPanelReservationState,
@@ -42,6 +44,41 @@ export type WindowIpcDependencies = {
   setTraySessionPreferences: (preferences: TraySessionPreferences) => Promise<void>;
   isMacosWindowTranslucent: () => boolean;
 };
+
+function normalizeWorkPanelMenuLabel(value: unknown): string | null {
+  if (typeof value !== "string" || value.length > 1024) return null;
+  const label = value.replace(/[\u0000-\u001f\u007f]/g, " ").replace(/\s+/g, " ").trim();
+  return label ? label.slice(0, 256) : null;
+}
+
+function parseWorkPanelTabMenuRequest(value: unknown): WorkPanelTabMenuRequest | null {
+  if (!value || typeof value !== "object" || Array.isArray(value)) return null;
+  const input = value as Record<string, unknown>;
+  const closeTabLabel = normalizeWorkPanelMenuLabel(input.closeTabLabel);
+  const closeOtherTabsLabel = normalizeWorkPanelMenuLabel(input.closeOtherTabsLabel);
+  const closeAllTabsLabel = normalizeWorkPanelMenuLabel(input.closeAllTabsLabel);
+  if (
+    !closeTabLabel ||
+    !closeOtherTabsLabel ||
+    !closeAllTabsLabel ||
+    typeof input.canCloseOthers !== "boolean" ||
+    typeof input.x !== "number" ||
+    !Number.isFinite(input.x) ||
+    input.x < 0 ||
+    typeof input.y !== "number" ||
+    !Number.isFinite(input.y) ||
+    input.y < 0
+  ) return null;
+  return {
+    closeTabLabel,
+    closeOtherTabsLabel,
+    closeAllTabsLabel,
+    canCloseOthers: input.canCloseOthers,
+    x: input.x,
+    y: input.y,
+  };
+}
+
 
 /**
  * Register renderer-drawn window chrome and work-panel geometry channels.
@@ -271,6 +308,39 @@ export function registerWindowIpc({
     }
     return { ready: true };
   });
+
+  handleWithEvent(IPC.invoke.workPanelTabMenu, async (event, input: unknown) => {
+    registrar.assertMainWindowSender(event);
+    const window = BrowserWindow.fromWebContents(event.sender);
+    const mainWindow = getMainWindow();
+    if (!window || window !== mainWindow || window.isDestroyed()) {
+      throw new Error("main window unavailable for work panel menu");
+    }
+    const request = parseWorkPanelTabMenuRequest(input);
+    if (!request) {
+      throw Object.assign(new Error("invalid work panel tab menu request"), {
+        errorCode: ErrorCodes.INVALID_ARGUMENT,
+      });
+    }
+    const [contentWidth, contentHeight] = window.getContentSize();
+    const x = Math.min(Math.round(request.x), Math.max(0, contentWidth - 1));
+    const y = Math.min(Math.round(request.y), Math.max(0, contentHeight - 1));
+    let selected: WorkPanelTabMenuAction | null = null;
+    const menu = Menu.buildFromTemplate([
+      { label: request.closeTabLabel, click: () => { selected = "closeTab"; } },
+      { type: "separator" },
+      {
+        label: request.closeOtherTabsLabel,
+        enabled: request.canCloseOthers,
+        click: () => { selected = "closeOtherTabs"; },
+      },
+      { label: request.closeAllTabsLabel, click: () => { selected = "closeAllTabs"; } },
+    ]);
+    return new Promise<WorkPanelTabMenuAction | null>((resolve) => {
+      menu.popup({ window, x, y, callback: () => resolve(selected) });
+    });
+  });
+
 
   handle(IPC.invoke.nativeMenuAction, async (input: { action?: string } = {}) => {
     if (

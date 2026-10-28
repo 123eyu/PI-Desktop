@@ -335,6 +335,7 @@ Gold source: local Codex electron captures; latest row wins where rows conflict.
 | D668 | One process disclosure per turn, with three transcript display modes | **Amend D661 / the `turn-process-and-thinking-display` ADR. A turn renders exactly one top-level process disclosure holding every pre-answer row; the answer stays outside it. `AppSettings.transcriptDisplayMode` selects the layout: `flat` renders no nested activity groups, `command-first` renders `Bash`/run rows as standalone rows beside activity groups, and `fully-folded` (the default for absent or invalid values) keeps commands inside their groups and lets only ordinary assistant progress text split them. The mode is read while rendering, so switching repaints immediately - the projection cache is keyed by messages and compactions only. The disclosure header reports failed / stopped / running / finished with precedence in that order and never echoes the current item, and the disclosure shares one left edge with the levels it reveals. `transcriptDisplayMode` joins the portable application fields; `keepCommandsExpanded` is deprecated, retained only for persisted-settings compatibility, and no longer exposed or read for rendering. No host protocol, persistence schema, permission, or plugin contract change. See the amended ADR, `04-ux/06-settings-ia.md`, `04-ux/08-component-spec.md`, `04-ux/09-interaction-patterns.md`, and E2E-CHAT-turn-process-and-thinking-display.** | Chronological segmentation split one turn into several sibling disclosures above the answer, and the boolean command-folding preference could only express two layouts; a three-mode setting covers flat, command-first, and the released grouped view without changing what a tool received or stored. |
 | D669 | `@` queries search past a truncated file index | **Amend D124: while the 8000-entry `fs/index` snapshot is truncated, a non-empty `@` query is also searched over the root's full listing through the read-only Electron channel `pi-desktop/fs/search` once typing pauses, and its best 50 rows merge with the local matches. A complete index never searches. Remote sessions keep their snapshot. No host RPC, storage, or schema change.** | The shallowest-8000-entry index left a script several folders down matching no query at all, even though the truncation note invited the reader to refine it (issue #1781). |
 | D671 | Inline generative UI visualizations | **Amend D114: local sessions get a second host-owned contained root `<data_dir>/visualizations/<sessionId>/` for `.html` fragments only (Read/Write/Edit, auto-allowed like scratch, never in remote or contract sessions). A standalone `::visualize{"path","title"}` reply line renders the fragment inline through a sandboxed `pi-genui://session/<sid>/<file>` iframe (`sandbox="allow-scripts"`, strict CSP, no network). Builtin skill `pi-desktop/visualize`. No schema change.** | Interactive explanations need an embedded page; ADR gen-ui-inline-visualization. |
+| D674 | Per-turn changed-files summary under a finished reply | **A completed reply whose turn recorded workspace review changes renders one read-only `TurnChangesCard` below its answer and above `entryExtra`, built only from that turn's message-owned `details.review` records (no new capture, IPC, or persistence). Rows merge edits per path (`D` if the turn ends by deleting, else `A` if any edit created the file, else `M`; counts summed; rolled-back files stay listed and struck through). Up to four files use relaxed rows, more use dense rows, and rows past 12 fold into `+N more`. Clicking a row opens Review on that file's recorded changes; the per-call review rows and the Review tab are unchanged.** | Issue #1891, design 10 (adaptive density): the per-call review rows answer "what did this call change", and Review answers it for the whole session, but nothing answered "what did this turn change" without counting rows. |
 
 
 ## M0. Model catalog decisions
@@ -7994,3 +7995,24 @@ must keep splitting are covered by `markdown-blocks.test.mjs`.
   `turn-process-and-thinking-display`, `04-ux/08-component-spec.md` §9,
   `04-ux/09-interaction-patterns.md` §4.2, and
   E2E-CHAT-turn-process-and-thinking-display.
+
+## 2026-10-28 — Per-turn changed-files summary (D674)
+
+- D674 adds a read-only `TurnChangesCard` under every completed reply whose
+  turn recorded at least one workspace review change (issue #1891, design 10).
+  It mounts with the reply plugin slots, so it never appears while streaming or
+  after a failed turn, and `entryExtra` blocks stay beneath it.
+- The card reads only the turn's message-owned `details.review` records through
+  `reviewChangeFromMessage`; no capture, IPC, persistence, or host-core change.
+  Rows merge edits per path: `D` when the turn ends by deleting the file, else
+  `A` when any edit created it, else `M`; counts add up; a file whose every edit
+  was rolled back stays listed and struck through.
+- Adaptive density: up to four files use relaxed 25px rows; more switch to dense
+  21px rows with a directory count; rows past 12 fold into `+N more` with a link
+  to Review. The card is one `--ds-tile` surface with no border (D297).
+- Clicking a row opens the originating session's Review tab, scrolls to that
+  file's first recorded change, and expands it, through a transient renderer
+  focus request (`lib/review-focus-request.ts`) rather than app-store state.
+  The per-call review rows and the Review tab otherwise keep their behavior.
+- Covered by `apps/desktop/test/turn-changes-card.test.mjs`. See
+  `04-ux/08-component-spec.md` §4.4 and E2E-CHAT-turn-changed-files-summary.

@@ -1,4 +1,4 @@
-# 04. Data Storage (Schema v23)
+# 04. Data Storage (Schema v25)
 
 ## 0. Ownership decision
 
@@ -571,6 +571,7 @@ CREATE TABLE models (
   context_window    INTEGER,
   max_output_tokens INTEGER,
   deprecated        INTEGER NOT NULL DEFAULT 0,
+  discovery_state   TEXT CHECK (discovery_state IN ('published', 'unlisted')),
   updated_at        INTEGER NOT NULL,
   PRIMARY KEY (provider_id, model_id)
 ) WITHOUT ROWID;
@@ -579,6 +580,14 @@ CREATE TABLE models (
 Refresh (spec 13 §6/§9) upserts `discovered` rows and **never overwrites
 `source='user'`** rows. Recent-model MRU stays in `kv(cache)` — it is a
 bounded display list, not relational data.
+
+Schema v25 adds nullable `discovery_state`, distinct from metadata deprecation.
+The v24 upgrade backs up first, adds the field transactionally, and marks
+existing discovered rows as past publication evidence. User-owned rows remain
+unknown. No provider configuration, credentials, sessions, or turns are changed.
+Configured missing rows retain an `unlisted` marker across restart; an endpoint
+change clears it. Older apps refuse the newer schema rather than interpreting
+it incorrectly; rollback requires the pre-migration backup.
 
 ### 4.5 sessions
 
@@ -647,16 +656,22 @@ CREATE INDEX idx_session_import_origins_plugin
   rename does not update `updated_at`, so changing a label cannot reorder
   recent activity; transcript rows, message count, and session state remain
   unchanged.
-- `title_source` records `legacy`, `default`, `manual`, or `generated`. Schema
-  v23 classifies pre-existing known placeholder titles as `default` and all
-  other titles as `manual`; new session creation and manual rename write the
-  corresponding source. `default` means "not chosen by the user and still
-  replaceable": it covers a new session's placeholder and the deterministic
+- `title_source` records `legacy`, `default`, `manual`, or `generated`. The
+  v22→v23 migration leaves pre-existing titles as `legacy`; new session creation
+  and manual rename write the corresponding source. `default` means "not chosen
+  by the user and still replaceable": it covers a new session's placeholder and
+  the deterministic
   first-prompt fallback, which host-core writes only while the stored title is
   still a recognized placeholder. A placeholder is recognized in every shipped
   locale, because the renderer writes its localized `chat.untitledTask` label
-  when it creates a session. The standalone title plugin can read
-  exact-title compare-and-set, so a manual rename wins a race.
+  when it creates a session; recognition trims and lowercases the stored title
+  against the placeholder set. Schema v23 retains pre-existing v22 titles as
+  `legacy` to protect them from automatic replacement, because historical
+  sessions lack provenance to distinguish an untouched placeholder from a
+  deliberate rename to the same text. Existing v23/v24 rows are not reclassified.
+  The standalone title plugin can read first-turn text only while `default`,
+  and writes using exact-title
+  compare-and-set, so a manual rename wins a race.
 - Import binds every non-empty normalized `projectPath` to `project_id`;
   path-less imports remain `NULL`. Re-importing a deterministic session id
   creates neither another session nor another project row.
@@ -1178,6 +1193,14 @@ CREATE INDEX idx_message_revisions_root
   tool line appended by the persistence outbox in the meantime survives. A
   whole-transcript rewrite from a snapshot taken outside the host lock would
   delete it (ADR 0060).
+- Electron acknowledges the stamped root with `user_message_persisted`, using
+  the root's current message `id` as `optimisticMessageId`. This updates the
+  pager only where that exact user row is already loaded: the active transcript,
+  retained pane, and session cache. A root outside the current history window
+  must not be appended after the latest reply. Archive completion is not a new
+  user-message lifecycle event and does not change the loaded history boundary.
+  If no projection exists, the acknowledgement leaves the cache absent and
+  does not mark the session live, so later prefetch still loads durable history.
 - A branch keeps growing after its archive: later prompts append to it and an
   error-ended turn never reaches `agent_end`. So every operation that discards
   the live branch first writes it back over the revision it belongs to (D307):
@@ -1576,7 +1599,7 @@ truncating at a guessed position.
   Sessions, providers, and settings from the old file are not carried over;
   the archive remains for manual recovery. All pre-v7 migration code
   (v1 `settings.sqlite` import, v2→v6 chain) is deleted.
-- Fresh installs run the full v23 DDL directly.
+- Fresh installs run the full v25 DDL directly.
 - **Schema v7 first reaches v8, then uses the guarded path.** The v7→v8
   migration is followed by the same guarded v8→v15 migration; schema-v9 and
   schema-v10 databases take the same guarded path and receive an exact readable
@@ -1637,9 +1660,9 @@ truncating at a guessed position.
 - **Schema v22 is additive.** It replaces `idx_sessions_updated` with
   `idx_sessions_updated_id(updated_at DESC, id DESC)` for session-list ordering.
   It changes no rows or persisted fields; a v21 backup precedes the migration.
-- **Schema v23 is additive.** It adds `sessions.title_source` and classifies
-  existing placeholder titles as `default`; every other existing title is
-  preserved and classified as `manual`. The migration keeps a v22 backup.
+- **Schema v23 is additive.** It adds `sessions.title_source` with default
+  `legacy`. Pre-existing v22 titles remain `legacy`, safely protecting deliberate
+  renames from automatic replacement. The migration keeps a v22 backup.
 - **Schema v14 is additive.** It adds nullable `sessions.deleted_at`, the
   partial deletion index, and `session_import_origins`. Existing sessions stay
   active and have no origin rows. The migration runs in the same guarded
