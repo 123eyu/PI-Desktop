@@ -240,6 +240,24 @@ removes any trailing assistant rows if present, but does not require an
 assistant message at the transcript tail before calling `continue()` (issue
 #1768).
 
+Complete assistant responses are checked for malformed tool calls before any
+call in that response can execute. Missing or blank names/IDs, an empty
+Responses wire ID, and non-JSON-object arguments produce the existing terminal
+local `context-validation` error. The unexecuted batch is excluded from model
+context; visible text/thinking and the error remain available in the transcript.
+This does not guess a tool identity, repair arguments into an executable call,
+or spend the transport retry budget. Ordinary tool-schema failures still return
+tool feedback through Pi's existing validation path.
+
+Continue must also recover a runtime retained from an earlier failure. Model
+context projection removes malformed tool calls and their associated results,
+including retained compaction tails and resumed delegates, while preserving
+valid sibling calls/results, system updates, user messages and useful assistant
+content. The durable transcript is unchanged and completed tools are not
+re-executed. Other malformed context remains subject to strict validation.
+Tool token estimates are optional telemetry: an invalid call identity must not
+prevent the corresponding terminal tool event from being delivered.
+
 Before surfacing a pre-stream `PROVIDER_ERROR` for HTTP 400/422 whose message
 ends in `(no body)`, the runtime makes at most one silent repair attempt with
 the generated output-limit fields removed: `max_tokens`,
