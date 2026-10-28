@@ -39,24 +39,25 @@ const CONTEXT_PATTERN =
  *
  * A bare `quota` must not be included. It also matches account and filesystem
  * exhaustion ("monthly spending quota", "credit quota is exhausted", "Billing
- * quota exceeded", "disk quota exceeded"). Those failures do not recover by
- * backing off, but `/quota/` classified them as `PROVIDER_RATE_LIMITED` and
- * the runtime retried them up to about ten times. Throughput quotas stay
- * here: `insufficient_quota`, plus `quota exceeded` after
- * `EXHAUSTED_QUOTA_PATTERN` has taken the account and disk phrases.
+ * quota exceeded", "disk quota exceeded"). Explicit exhaustion codes and
+ * phrases are checked before this matcher, while generic `quota exceeded`
+ * wording remains eligible for throughput-rate-limit retries.
  */
 const RATE_LIMIT_PATTERN =
-  /rate.?limit|too many requests|insufficient_quota|quota.?exceeded|overloaded|throttl/i;
+  /rate.?limit|too many requests|quota.?exceeded|overloaded|throttl/i;
 
 /**
- * Spending, credit, billing, and disk quotas are terminal. Checked before
- * `RATE_LIMIT_PATTERN` so "quota exceeded" inside those phrases is not read
- * as a throughput throttle. `insufficient_quota` does not match this
- * pattern: the underscore is a word character, so the provider code alone
- * is not an account or disk failure.
+ * Billing, spending, credit, and disk exhaustion are terminal, including
+ * OpenAI's `insufficient_quota` type and explicit 429 error codes. Checked
+ * before the status table because those conditions do not recover by backing
+ * off. Generic "quota exceeded" wording remains eligible for rate-limit
+ * classification below.
  */
-const EXHAUSTED_QUOTA_PATTERN =
-  /\b(?:billing|spending|credit|disk)\s+quotas?\b/i;
+const EXHAUSTED_QUOTA_CODE_PATTERN =
+  /\b(?:insufficient_quota|credit_balance_exhausted|organization_spend_limit_exceeded|project_spend_limit_exceeded|organization_usage_limit_exceeded)\b/i;
+
+const EXHAUSTED_QUOTA_MESSAGE_PATTERN =
+  /\b(?:billing|spending|credit|disk)\s+quotas?\b|\b(?:organization|project)\s+spend\s+limit\s+(?:reached|exceeded)\b|\bquota\b.{0,100}\b(?:plan|billing)\b/i;
 
 /**
  * Whether a provider message reports a context overflow.
@@ -572,6 +573,18 @@ export function classifyAgentError(err: unknown): ClassifiedAgentError {
     return result("PROVIDER_ERROR", false);
   }
 
+  // These terminal billing/account exhaustion errors can also be HTTP 429.
+  // Inspect both the message and structured provider code before the generic
+  // 429 retry branch so the rate-limit budget cannot replay them.
+  if (
+    EXHAUSTED_QUOTA_CODE_PATTERN.test(rawMessage) ||
+    EXHAUSTED_QUOTA_MESSAGE_PATTERN.test(rawMessage) ||
+    (typeof providerCode === "string" &&
+      EXHAUSTED_QUOTA_CODE_PATTERN.test(providerCode))
+  ) {
+    return result("PROVIDER_ERROR", false);
+  }
+
   if (status !== undefined) {
     if (status === 401 || status === 403) return result("PROVIDER_UNAUTHORIZED", false);
     if (status === 408) return result("TIMEOUT", true);
@@ -589,14 +602,6 @@ export function classifyAgentError(err: unknown): ClassifiedAgentError {
 
   if (isStatuslessCredentialFailure(rawMessage)) {
     return result("PROVIDER_UNAUTHORIZED", false);
-  }
-  // Account and disk exhaustion cannot be repaired by the rate-limit budget.
-  // `insufficient_quota` is a throughput code and wins when both appear.
-  if (
-    EXHAUSTED_QUOTA_PATTERN.test(rawMessage) &&
-    !/insufficient_quota/i.test(rawMessage)
-  ) {
-    return result("PROVIDER_ERROR", false);
   }
   if (RATE_LIMIT_PATTERN.test(rawMessage)) {
     return result("PROVIDER_RATE_LIMITED", true);

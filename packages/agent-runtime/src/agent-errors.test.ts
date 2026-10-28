@@ -371,6 +371,11 @@ describe("classifyAgentError", () => {
     "Your credit quota is exhausted. Please top up.",
     "Billing quota exceeded for this project",
     "disk quota exceeded",
+    "insufficient_quota",
+    '429: {"error":{"message":"You exceeded your current quota, please check your plan and billing details.","type":"insufficient_quota","code":"insufficient_quota"}}',
+    '429: {"error":{"code":"organization_spend_limit_exceeded"}}',
+    '429: {"error":{"code":"organization_usage_limit_exceeded"}}',
+    "429: Billing quota exceeded",
   ])("does not retry exhausted account or disk quota: %s", (message) => {
     const classified = classifyAgentError(new Error(message));
     expect(classified).not.toMatchObject({
@@ -383,13 +388,20 @@ describe("classifyAgentError", () => {
     });
   });
 
+  it("classifies structured 429 quota errors before generic status handling", () => {
+    expect(classifyAgentError(Object.assign(
+      new Error("429: rate limit response"),
+      { status: 429, code: "credit_balance_exhausted" },
+    ))).toMatchObject({
+      code: "PROVIDER_ERROR",
+      retriable: false,
+    });
+  });
+
   it.each([
     "Rate limit exceeded",
-    "insufficient_quota",
     "Too many requests",
     "quota exceeded",
-    "insufficient_quota: You exceeded your current quota, please check your plan and billing details.",
-    "insufficient_quota: Billing quota exceeded",
   ])("keeps throughput quota wording retryable: %s", (message) => {
     expect(classifyAgentError(new Error(message))).toMatchObject({
       code: "PROVIDER_RATE_LIMITED",

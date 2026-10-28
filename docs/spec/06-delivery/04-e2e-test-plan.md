@@ -7728,7 +7728,9 @@ must keep splitting are covered by `markdown-blocks.test.mjs`.
   succeed after a retry and can return eleven consecutive 429 responses. Fixtures
   cover `retry-after-ms`, `retry-after` seconds, and HTTP-date headers, and
   support aborting during the wait. A builtin subagent uses a
-  fixture with the same responses.
+  fixture with the same responses. Billing/account-exhaustion fixtures also
+  return HTTP 429 with `insufficient_quota`, `credit_balance_exhausted`,
+  organization usage-limit, and spend-limit codes.
 - **Steps**:
   1. Start an Agent turn with a setup-429 fixture whose next request succeeds.
   2. Repeat with a mid-stream-429 fixture whose next request succeeds.
@@ -7741,11 +7743,18 @@ must keep splitting are covered by `markdown-blocks.test.mjs`.
      later provider request or terminal retry is started.
   7. Repeat with authentication, model-selection, malformed-request, and
      context-error fixtures.
+  8. Repeat with the billing/account-exhaustion 429 fixtures and inspect the
+     terminal assistant error and provider request count.
 - **Expected**:
-  - Every 429 is classified as retryable `PROVIDER_RATE_LIMITED` in both setup
-    and post-start recovery, including a response body that omits rate-limit
-    wording when the captured HTTP status is 429. Diagnostics retain
-    `providerStatus: 429`.
+  - Throughput rate-limit 429s are classified as retryable
+    `PROVIDER_RATE_LIMITED` in both setup and post-start recovery, including a
+    response body that omits rate-limit wording when the captured HTTP status
+    is 429. Diagnostics retain `providerStatus: 429`.
+  - Explicit billing/account exhaustion is terminal `PROVIDER_ERROR` even
+    when returned with HTTP 429, including `insufficient_quota`,
+    `credit_balance_exhausted`, organization usage-limit, and organization/
+    project spend-limit codes. It starts no retry and consumes neither retry
+    budget.
   - Setup and mid-stream failures share one budget of ten retries after the
     initial attempt. A persistent fixture therefore makes eleven provider
     attempts, never multiplies attempts through nested pi-ai retries, and
