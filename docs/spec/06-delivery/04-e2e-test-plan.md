@@ -6,6 +6,25 @@
 
 ---
 
+
+### E2E-TRANSCRIPT-lossless-tool-images
+
+- Entry: `PI_DESKTOP_HOST_BIN=<candidate-host> pnpm test:e2e:tool-result-persistence`
+  after building Host, shared, agent-runtime and host-runtime.
+- Environment: Real isolated Host, SQLite and JSONL, production Desktop IPC and
+  outbox; only Electron shell and unused importer/search services are stubs.
+- Build 35 deterministic valid PNGs / 548 rows. Verify the old redundant full
+  request exceeds 64 MiB, each stored image occurs once, and restarting restores
+  every canonical image, detail field and original JSON text spelling.
+- Build a second history whose unique image bytes alone exceed 64 MiB through
+  individually legal appends. Exercise bounded ID operations and retained-image
+  restoration, revision/fork, missing anchors and duplicate operation retries.
+- Unit/process gates also cover old-format files/outbox, corrupted references,
+  failed conversion/drain, late callbacks and real sidecar restore errors.
+- The original Windows incident did not identify the failed RPC method; this
+  deterministic regression does not claim to recover that missing evidence.
+
+
 ## 1. Goals
 
 ### E2E model discovery membership
