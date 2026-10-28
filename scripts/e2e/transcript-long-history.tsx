@@ -250,7 +250,7 @@ export async function transcriptLongHistoryProbe() {
     const observedScroller = element(".thread-scroll");
     const nativeScrollTo = observedScroller.scrollTo.bind(observedScroller);
     observedScroller.scrollTo = (options?: ScrollToOptions | number, y?: number) => {
-      scrollTrace.push({ kind: "scrollTo", options, y, stack: new Error().stack });
+      scrollTrace.push({ kind: "scrollTo", options, y });
       if (typeof options === "number") nativeScrollTo(options, y ?? 0);
       else nativeScrollTo(options ?? {});
     };
@@ -259,7 +259,7 @@ export async function transcriptLongHistoryProbe() {
       configurable: true,
       get() { return topProperty.get!.call(this); },
       set(top: number) {
-        scrollTrace.push({ kind: "scrollTop", top, stack: new Error().stack });
+        scrollTrace.push({ kind: "scrollTop", top });
         topProperty.set!.call(this, top);
       },
     });
@@ -425,7 +425,7 @@ export async function transcriptLongHistoryProbe() {
     assert(reads.every((read) => read.limit === 100), "ordinary selection requested unbounded Host history");
     assert(errors.length === 0, `render errors: ${errors.map(String)}`);
     return { ok: true, workCounts, hostPageSize: 100, simultaneousRunningSessions: 3,
-      diagnostics: { eventToSettledDomMs: latencies, longTasksMs: observer ? longTasks : null,
+      diagnostics: { scrollTrace, eventToSettledDomMs: latencies, longTasksMs: observer ? longTasks : null,
         heapBefore, heapAfter: heap() } };
   } finally {
     flushSync(() => root.unmount());
