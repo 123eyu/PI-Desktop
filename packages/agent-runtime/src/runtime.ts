@@ -14,6 +14,7 @@ import { modeToolDenial, retainModeToolDeclaration, withModeExecutionGuard } fro
 import { restoreHostedSearchReplay } from "./hosted-search-replay.js";
 import { requestExtensionUi } from "./extensions/ui-request.js";
 import { readLocalRequestErrorDetails } from "./local-request-errors.js";
+import { isValidToolCall, recoverMalformedToolCalls } from "./tool-call-recovery.js";
 import { imageGenerationDescription, imageGenerationParameters } from "./image-generation/tool.js";
 import { todoWriteDescription, todoWriteParameters } from "./todo-tool.js";
 import { createJevClassifierTool } from "./jev-classifier-tool.js";
@@ -1748,7 +1749,7 @@ function estimateToolTokenUsage(
   result: unknown,
   isError: boolean,
   timestamp: number,
-): ToolTokenUsage {
+): ToolTokenUsage | undefined {
   const toolCall = {
     role: "assistant" as const,
     content: [
@@ -1766,6 +1767,8 @@ function estimateToolTokenUsage(
     stopReason: "toolUse" as const,
     timestamp,
   } satisfies AssistantMessage;
+  // Optional telemetry must not suppress a terminal tool event.
+  if (!isValidToolCall(toolCall.content[0])) return undefined;
   const toolRow = {
     id: toolCallId,
     role: "tool" as const,
@@ -9076,6 +9079,8 @@ Do not invent objections or turn speculative risks into blockers. Stop when the 
     this.pendingUserMessageId = userMessageId;
     this.resetRunRecoveryState();
     this.autonomousExecution = false;
+    const recovered = recoverMalformedToolCalls(this.agent.state.messages);
+    if (recovered !== this.agent.state.messages) this.setAgentMessages(recovered);
     // Main resolves this provenance from the Host ledger. Never infer it from
     // prompt text, model output, extension content, or restored history.
     const origin = typeof input === "string" ? undefined : input.sessionMessage;
