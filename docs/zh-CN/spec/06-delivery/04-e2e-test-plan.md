@@ -489,12 +489,12 @@ task-candidate E2E 从请求工作树运行，但使用主工作区已经准备�
 
 - **前提条件**：已配置一个 Base URL 不含 `deepseek.com` 的 OpenAI 兼容提供商，模型 ID 属于 DeepSeek 系（例如硅基流动 `deepseek-ai/DeepSeek-V3.2`），并开启思考模式。
 - **步骤**：1) 在思考模式下开始会话。2) 完成若干回合，其中至少一条助手回复没有思考文本。3) 再发一条提示，使历史被回放到提供商。
-- **预期**：后续 Completions 请求的每条 assistant 消息都带推理字段。官方 `api.deepseek.com` 行对无思考内容的回合仍可使用 `""`。非官方 DeepSeek 系中转在可用时回传保留的真实思考，否则使用 ADR 0256 文档化的非空占位符——压缩后不得静默回填空串。中转请求不携带通用 OpenAI 的 `reasoning_effort` 字段，因为有中转被报告拒绝它（#1664）；官方 `api.deepseek.com` 请求同时发送 `thinking: {type: "enabled"}` 与所选的 `reasoning_effort`（#1821）。不会仅因模型 ID 含 `"deepseek"` 就把 `thinkingFormat` 改成 `"deepseek"`。官方 `api.deepseek.com` 行仍使用 pi-ai 按 URL 检测的 DeepSeek `thinkingFormat`。
+- **预期**：后续 Completions 请求的每条 assistant 消息都带推理字段。官方 `api.deepseek.com` 行对无思考内容的回合仍可使用 `""`。非官方 DeepSeek 系中转在可用时回传保留的真实思考，否则使用 ADR 0256 文档化的非空占位符——压缩后不得静默回填空串。每条 assistant 消息只带一个推理字段，字段名取最新一条 assistant 行所用的字段；存放在其他字段名下的真实推理会被移到该字段，而不是被占位符替代，占位符只填充完全没有推理的行（D677）。思考面板和回放历史都不会把开头回显的占位符当作推理显示或回传。中转请求不携带通用 OpenAI 的 `reasoning_effort` 字段，因为有中转被报告拒绝它（#1664）；官方 `api.deepseek.com` 请求同时发送 `thinking: {type: "enabled"}` 与所选的 `reasoning_effort`（#1821）。不会仅因模型 ID 含 `"deepseek"` 就把 `thinkingFormat` 改成 `"deepseek"`。官方 `api.deepseek.com` 行仍使用 pi-ai 按 URL 检测的 DeepSeek `thinkingFormat`。
 - **链接规格**：`03-runtime/11-provider-model-system.md`、
   `03-runtime/12-provider-config-schema.md`
 - **验收**：B（提供商 Completions 兼容）
 - **里程碑**：M2
-- **状态**：单元覆盖（compat 注入 + convertMessages 空/非空补全 + 压缩保留推理上线证明）；现场 OpenCode/聚合端验证仍推迟；界面场景待完成
+- **状态**：单元覆盖（compat 注入 + convertMessages 空/非空补全 + 混用字段归一 + 回显占位符剥离 + 压缩保留推理上线证明）；现场 OpenCode/聚合端验证仍推迟；界面场景待完成
 
 #### E2E-005F：自定义端点输入护栏
 
@@ -2391,7 +2391,10 @@ hover/focus 不带移位标签，项目标题 hover/focus 路径显示
   窗口管理器压缩并重新定位外部窗口之前的位置
   显示更改回调。 13) 在打开时注入一项被拒绝的预订
   以及折叠时的一个，然后重试每个操作。 14) 发送字符串、布尔值、
-  空、小数和超出范围的预留有效负载。 15) 重新启动。
+  空、小数和超出范围的预留有效负载。 15) 重新启动。 16) 打开一个插件视图，
+  使用 Cmd/Ctrl+R 重新加载主渲染器。确认原生视图在新渲染器出现前分离，
+  然后重新打开对应选项卡，确认缓存的插件页面恢复。再测试同文档导航和
+  子框架导航；两者都不应分离活动视图。
 - **预期**：启动时不显示面板、欢迎选择器、固定工具按钮或
   titlebar/menu 启动器。 Cmd/Ctrl+J 打开活动会话的面板
   无需创建资源选项卡即可提交宽度；重复它是幂等的，
@@ -2460,15 +2463,18 @@ MainChat 弥补了缺口。 Maximized/fullscreen 调用保留最新的
   （`--ds-window-lead-inset`，即灯簇右缘 76px 加 12px 间隙，共 88px）作为自身的左内边距渲染出来，
   左侧第一个预览操作从该渲染值起或之后开始；检查读取的是解析后的内边距，而不是重述这个数字。
   打开真实工作面板标签后，其第一个标签从预览操作组右侧至少 8px 处开始；全屏时使用 8px 原生内缩但保留该操作带。
+  主渲染器完整主框架重新加载时，可见插件视图会分离但不会关闭缓存页面，因此新渲染器不会被孤儿原生层覆盖；重新打开选项卡会重新挂载同一页面。同文档和子框架导航保持视图附着。
   以前的上下文面板覆盖不再存在。
 - **链接规格**：`03-runtime/01-ipc-protocol.md`、`04-ux/01-ui-ia.md`、
   `04-ux/07-ui-design-system.md`、`04-ux/08-component-spec.md`、
   `04-ux/09-interaction-patterns.md`、ADR 0032、ADR 0068、D163、D207
 - **接受**：F（坚持），质量
 - **里程碑**：M5
-- **状态**：单位覆盖（`work-panel-resize.test.mjs`，
+- **状态**：单位覆盖（`work-panel-resize.test.mjs`、
   `work-panel-window.test.mjs`、`work-panel-presentation.test.mjs`、
-  `work-panel.test.mjs`);完整的 UI 场景草稿
+  `work-panel.test.mjs`、`plugin-work-panel-views.test.mjs`、
+  `plugin-view-navigation.test.mjs`）；隔离 Electron 菜单和关闭路径已覆盖；
+  完整渲染器重新加载 UI 场景仍为草稿
 
 #### E2E-057：消息拥有的审阅历史记录可以安全提交并回滚
 

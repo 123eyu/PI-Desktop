@@ -14,6 +14,7 @@ import type { BrowserHost } from "../browser-host";
 import type { HostProcess } from "../host-process";
 import type { Logger } from "../logger";
 import type { PluginViewHost } from "../plugin-view-host";
+import { detachPluginViewOnRendererReload } from "../plugin-view-navigation";
 import {
   baseWindowBounds,
   clampBoundsOriginToWorkArea,
@@ -760,6 +761,10 @@ export async function createWindow({
 
   browserHost.setWindow(window);
   pluginViews.setWindow(window);
+  detachPluginViewOnRendererReload(
+    window.webContents,
+    () => pluginViews.hideVisibleView(),
+  );
   window.on("closed", () => {
     screen.removeListener("display-metrics-changed", reconcileDisplayTopology);
     screen.removeListener("display-added", reconcileDisplayTopology);

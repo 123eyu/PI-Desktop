@@ -378,7 +378,7 @@ index 42aac9d5f..6001ce47a 100644
          const effort = options.reasoningEffort === "none"
              ? model.thinkingLevelMap?.off === undefined
 diff --git a/dist/api/openai-completions.js b/dist/api/openai-completions.js
-index 0eeaffa96..50ceb5fdd 100644
+index 0eeaffa96..a67f425af 100644
 --- a/dist/api/openai-completions.js
 +++ b/dist/api/openai-completions.js
 @@ -1046,21 +1046,27 @@ export function convertMessages(model, context, compat, options) {
@@ -415,7 +415,7 @@ index 0eeaffa96..50ceb5fdd 100644
              }
              params.push(assistantMsg);
          }
-@@ -1128,6 +1134,41 @@ export function convertMessages(model, context, compat, options) {
+@@ -1128,6 +1134,49 @@ export function convertMessages(model, context, compat, options) {
          }
          lastRole = msg.role;
      }
@@ -430,14 +430,20 @@ index 0eeaffa96..50ceb5fdd 100644
 +    // Placeholder text must match DEEPSEEK_REASONING_REPLAY_PLACEHOLDER in
 +    // @pi-desktop/shared provider-presets.
 +    const reasoningFields = ["reasoning_content", "reasoning_text", "reasoning"];
++    // The history can mix field names: a rebuilt row is stamped
++    // reasoning_content while a live row keeps the field the relay streamed.
++    // The newest row's field is the one the upstream speaks, so every row is
++    // normalized to it; filling it on a row whose real reasoning sat under
++    // another name put the placeholder where the model reads, and the model
++    // echoed it as its own reasoning (#1945). One field per row: relays reject
++    // a duplicate reasoning field.
++    const realReasoningField = (m) => reasoningFields.find((field) => typeof m[field] === "string" &&
++        m[field].length > 0);
 +    if (compat.requiresReasoningContentOnAssistantMessages) {
 +        let activeField;
-+        for (const field of reasoningFields) {
-+            if (params.some((m) => m.role === "assistant" &&
-+                typeof m[field] === "string" &&
-+                m[field].length > 0)) {
-+                activeField = field;
-+                break;
++        for (let index = params.length - 1; index >= 0 && !activeField; index--) {
++            if (params[index].role === "assistant") {
++                activeField = realReasoningField(params[index]);
 +            }
 +        }
 +        if (!activeField && model.reasoning) {
@@ -448,16 +454,18 @@ index 0eeaffa96..50ceb5fdd 100644
 +                ? "[reasoning not retained for this turn]"
 +                : "";
 +            for (const m of params) {
-+                if (m.role === "assistant" && m[activeField] === undefined) {
-+                    m[activeField] = fill;
-+                }
++                if (m.role !== "assistant") continue;
++                const sourceField = realReasoningField(m);
++                const reasoning = sourceField ? m[sourceField] : fill;
++                for (const field of reasoningFields) delete m[field];
++                m[activeField] = reasoning;
 +            }
 +        }
 +    }
      return params;
  }
  function convertTools(tools, compat) {
-@@ -1272,6 +1313,9 @@ function detectCompat(model) {
+@@ -1272,6 +1321,9 @@ function detectCompat(model) {
          requiresAssistantAfterToolResult: false,
          requiresThinkingAsText: false,
          requiresReasoningContentOnAssistantMessages: isDeepSeek,
@@ -467,7 +475,7 @@ index 0eeaffa96..50ceb5fdd 100644
          thinkingFormat: isDeepSeek
              ? "deepseek"
              : isZai
-@@ -1325,6 +1369,8 @@ function getCompat(model) {
+@@ -1325,6 +1377,8 @@ function getCompat(model) {
          requiresThinkingAsText: model.compat.requiresThinkingAsText ?? detected.requiresThinkingAsText,
          requiresReasoningContentOnAssistantMessages: model.compat.requiresReasoningContentOnAssistantMessages ??
              detected.requiresReasoningContentOnAssistantMessages,
@@ -1267,7 +1275,7 @@ index 45be26d82..59a980b63 100644
 \ No newline at end of file
 diff --git a/dist/utils/hosted-search.d.ts b/dist/utils/hosted-search.d.ts
 new file mode 100644
-index 000000000..a76ae5269
+index 0000000000000000000000000000000000000000..a76ae5269313931b8476e1f153e76792875ad54c
 --- /dev/null
 +++ b/dist/utils/hosted-search.d.ts
 @@ -0,0 +1,10 @@
@@ -1283,7 +1291,7 @@ index 000000000..a76ae5269
 +export declare function validateHostedSearchMessages(messages: readonly Message[]): void;
 diff --git a/dist/utils/hosted-search.js b/dist/utils/hosted-search.js
 new file mode 100644
-index 000000000..b98cb8d12
+index 0000000000000000000000000000000000000000..b98cb8d128310273014e4490e9c26144f45b56af
 --- /dev/null
 +++ b/dist/utils/hosted-search.js
 @@ -0,0 +1,97 @@
@@ -1386,7 +1394,7 @@ index 000000000..b98cb8d12
 +}
 diff --git a/dist/utils/local-request-error.d.ts b/dist/utils/local-request-error.d.ts
 new file mode 100644
-index 000000000..a72f65b33
+index 0000000000000000000000000000000000000000..a72f65b33c64b89f118a59bd286e62624711fd90
 --- /dev/null
 +++ b/dist/utils/local-request-error.d.ts
 @@ -0,0 +1,15 @@
@@ -1407,7 +1415,7 @@ index 000000000..a72f65b33
 +export declare function prepareLocalRequest<T>(phase: LocalRequestErrorPhase, prepare: () => T): T;
 diff --git a/dist/utils/local-request-error.js b/dist/utils/local-request-error.js
 new file mode 100644
-index 000000000..4d276ddc8
+index 0000000000000000000000000000000000000000..4d276ddc8caee98dfeeeeaa9bcd234ad63dc414b
 --- /dev/null
 +++ b/dist/utils/local-request-error.js
 @@ -0,0 +1,38 @@
@@ -1451,7 +1459,7 @@ index 000000000..4d276ddc8
 +}
 diff --git a/dist/utils/local-request-stream.d.ts b/dist/utils/local-request-stream.d.ts
 new file mode 100644
-index 000000000..879b78cbe
+index 0000000000000000000000000000000000000000..879b78cbecb0cc2c4322049ed2c7d61f77be9375
 --- /dev/null
 +++ b/dist/utils/local-request-stream.d.ts
 @@ -0,0 +1,3 @@
@@ -1460,7 +1468,7 @@ index 000000000..879b78cbe
 +export declare function withLocalRequestErrors(model: Model<Api>, options: { signal?: AbortSignal } | undefined, prepare: () => AssistantMessageEventStream): AssistantMessageEventStream;
 diff --git a/dist/utils/local-request-stream.js b/dist/utils/local-request-stream.js
 new file mode 100644
-index 000000000..5c63b882a
+index 0000000000000000000000000000000000000000..5c63b882ae4cb618e964c5d2ce8d3c18e0fe4688
 --- /dev/null
 +++ b/dist/utils/local-request-stream.js
 @@ -0,0 +1,24 @@
