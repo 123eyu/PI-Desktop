@@ -13,8 +13,12 @@ import {
   type LifecycleDialogChoice,
   type TraySessionPreferences,
   type WorkPanelTabMenuAction,
-  type WorkPanelTabMenuRequest,
 } from "@pi-desktop/shared";
+import {
+  clampWorkPanelTabMenuPointToDip,
+  parseWorkPanelTabMenuRequest,
+  waitForNativeMenuResult,
+} from "../work-panel-tab-menu";
 import {
   emptyWorkPanelReservationState,
   parseWorkPanelChatWidth,
@@ -44,41 +48,6 @@ export type WindowIpcDependencies = {
   setTraySessionPreferences: (preferences: TraySessionPreferences) => Promise<void>;
   isMacosWindowTranslucent: () => boolean;
 };
-
-function normalizeWorkPanelMenuLabel(value: unknown): string | null {
-  if (typeof value !== "string" || value.length > 1024) return null;
-  const label = value.replace(/[\u0000-\u001f\u007f]/g, " ").replace(/\s+/g, " ").trim();
-  return label ? label.slice(0, 256) : null;
-}
-
-function parseWorkPanelTabMenuRequest(value: unknown): WorkPanelTabMenuRequest | null {
-  if (!value || typeof value !== "object" || Array.isArray(value)) return null;
-  const input = value as Record<string, unknown>;
-  const closeTabLabel = normalizeWorkPanelMenuLabel(input.closeTabLabel);
-  const closeOtherTabsLabel = normalizeWorkPanelMenuLabel(input.closeOtherTabsLabel);
-  const closeAllTabsLabel = normalizeWorkPanelMenuLabel(input.closeAllTabsLabel);
-  if (
-    !closeTabLabel ||
-    !closeOtherTabsLabel ||
-    !closeAllTabsLabel ||
-    typeof input.canCloseOthers !== "boolean" ||
-    typeof input.x !== "number" ||
-    !Number.isFinite(input.x) ||
-    input.x < 0 ||
-    typeof input.y !== "number" ||
-    !Number.isFinite(input.y) ||
-    input.y < 0
-  ) return null;
-  return {
-    closeTabLabel,
-    closeOtherTabsLabel,
-    closeAllTabsLabel,
-    canCloseOthers: input.canCloseOthers,
-    x: input.x,
-    y: input.y,
-  };
-}
-
 
 /**
  * Register renderer-drawn window chrome and work-panel geometry channels.
@@ -323,8 +292,12 @@ export function registerWindowIpc({
       });
     }
     const [contentWidth, contentHeight] = window.getContentSize();
-    const x = Math.min(Math.round(request.x), Math.max(0, contentWidth - 1));
-    const y = Math.min(Math.round(request.y), Math.max(0, contentHeight - 1));
+    const { x, y } = clampWorkPanelTabMenuPointToDip(
+      request,
+      event.sender.getZoomFactor(),
+      contentWidth,
+      contentHeight,
+    );
     let selected: WorkPanelTabMenuAction | null = null;
     const menu = Menu.buildFromTemplate([
       { label: request.closeTabLabel, click: () => { selected = "closeTab"; } },
@@ -336,9 +309,11 @@ export function registerWindowIpc({
       },
       { label: request.closeAllTabsLabel, click: () => { selected = "closeAllTabs"; } },
     ]);
-    return new Promise<WorkPanelTabMenuAction | null>((resolve) => {
-      menu.popup({ window, x, y, callback: () => resolve(selected) });
-    });
+    return waitForNativeMenuResult(
+      window,
+      (onMenuClosed) => menu.popup({ window, x, y, callback: onMenuClosed }),
+      () => selected,
+    );
   });
 
 
