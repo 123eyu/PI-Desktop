@@ -27,6 +27,22 @@
 
 ## 1. Goals
 
+### E2E-TRANSCRIPT-scroll-interruption
+
+- **Preconditions:** Real Chromium with the production transcript scroll hook;
+  a scrollable transcript, manual disclosure reading, and normal motion.
+- **Steps:** Start a smooth navigation toward earlier history. Deliver
+  transcript-owned wheel input before yielding to its first animation frame.
+  Observe subsequent animation frames and run the long-history streaming probe.
+- **Expected:** Input stops the old browser animation at the current offset;
+  later frames cannot move the reader toward its stale destination. Streaming,
+  disclosure anchoring, pinned follow, and long-history work budgets still pass.
+- **Coverage:** `node scripts/e2e-transcript-disclosure-anchor.mjs` and
+  `node scripts/e2e-transcript-render.mjs`.
+- **Specs:** Interaction patterns §2.2. **Milestone:** Maintenance.
+- **Status:** Automated browser regression; the interruption assertion fails
+  without explicit cancellation of the browser-owned smooth navigation.
+
 ### E2E model discovery membership
 
 - **Entry:** `node scripts/e2e-model-discovery-state.mjs` after building Host,
