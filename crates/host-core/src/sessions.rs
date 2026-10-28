@@ -5423,6 +5423,67 @@ mod tests {
     }
 
     #[test]
+    fn truncate_from_folds_review_state_into_the_retained_prefix() {
+        let db = test_db();
+        let session = create_session(&db, None, None, None, None, None).unwrap();
+        let mut tool = user_msg("review-tool", "written", "2025-05-01T00:00:01Z");
+        tool.role = "tool".into();
+        tool.tool_call_id = Some("review-call".into());
+        tool.tool_name = Some("Write".into());
+        tool.tool_result = Some(json!({"details": {"review": {
+            "snapshotId": "snapshot-1", "state": "active"
+        }}}));
+        for message in [
+            user_msg("root", "write", "2025-05-01T00:00:00Z"),
+            tool,
+            user_msg("later-root", "regenerate", "2025-05-01T00:00:02Z"),
+        ] {
+            append_message(&db, &session.id, &message, None).unwrap();
+        }
+        assert!(update_tool_review_state(
+            &db,
+            &session.id,
+            "review-tool",
+            "snapshot-1",
+            "rolledBack"
+        )
+        .unwrap());
+        truncate_from(&db, &session.id, Some("later-root"), None).unwrap();
+        let raw = std::fs::read_to_string(
+            db.data_dir()
+                .join("sessions")
+                .join(format!("{}.jsonl", session.id)),
+        )
+        .unwrap();
+        let lines = raw
+            .lines()
+            .map(|line| serde_json::from_str::<Value>(line).unwrap())
+            .collect::<Vec<_>>();
+        assert!(!lines.iter().any(|line| line["type"] == "tool_review_state"));
+        let stored_tool = lines
+            .iter()
+            .find(|line| line["id"] == "review-tool")
+            .unwrap();
+        assert_eq!(
+            stored_tool["blocks"][0]["result"]["details"]["review"]["state"],
+            "rolledBack"
+        );
+        let detail = get_session(&db, &session.id).unwrap().unwrap();
+        assert_eq!(
+            detail
+                .messages
+                .iter()
+                .map(|message| message.id.as_str())
+                .collect::<Vec<_>>(),
+            ["root", "review-tool"]
+        );
+        assert_eq!(
+            detail.messages[1].tool_result.as_ref().unwrap()["details"]["review"]["state"],
+            "rolledBack"
+        );
+    }
+
+    #[test]
     fn tool_review_state_survives_fork_revision_activation_and_deletion() {
         let db = test_db();
         let session = create_session(&db, None, None, None, None, None).unwrap();

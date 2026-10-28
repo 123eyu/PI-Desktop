@@ -8462,6 +8462,11 @@ must keep splitting are covered by `markdown-blocks.test.mjs`.
   `PI_DESKTOP_HOST_BIN` to the candidate Host binary. No provider or user data
   is used. `transcripts::review_state_tests` additionally covers duplicate IDs,
   snapshot isolation, disk cache reuse, intentional rewrites and torn appends.
+  `equal_length_state_appends_replay_in_file_order_across_cached_reads` pins
+  file-order precedence for equal-sized state appends through warm and cold
+  layouts. `truncate_from_folds_review_state_into_the_retained_prefix` verifies
+  that a later truncate removes the state log while retaining the effective
+  state in the surviving canonical tool message.
   This validates the review-state trigger in #1836; it does not assert Windows
   UI timing or eliminate full rewrites for deliberate history replacement.
 

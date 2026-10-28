@@ -157,7 +157,7 @@ fn review_updates_preserve_positions_and_replay_through_warm_and_cold_layouts() 
         "rolledBack"
     );
 
-    // A fresh layout loads the disk cache and scans its appended state suffix.
+    // A fresh layout rebuilds a lagging disk cache from the current generation.
     let cold = refresh_layout(dir.path(), "s1", TranscriptLayout::default()).unwrap();
     assert_eq!(cold.message_count(), 3);
     assert_eq!(
@@ -209,6 +209,51 @@ fn review_state_is_last_write_wins_and_scoped_to_message_and_snapshot() {
     let layout = refresh_layout(dir.path(), "s1", TranscriptLayout::default()).unwrap();
     let page = read_transcript_window_with_layout(dir.path(), "s1", &layout, 3, Some(1)).unwrap();
     assert_eq!(state(&page.messages[0]), "rolledBack");
+}
+
+#[test]
+fn equal_length_state_appends_replay_in_file_order_across_cached_reads() {
+    let dir = tempdir().unwrap();
+    let mut record = tool("target", "snapshot");
+    record.blocks[0]["padding"] = json!("x".repeat(3 * 1024 * 1024));
+    write_transcript(dir.path(), "s1", CREATED_AT, &[record]).unwrap();
+    layout::session_layout(dir.path(), "s1").unwrap();
+    let path = transcript_path(dir.path(), "s1").unwrap();
+    let update = |state: &str| ToolReviewStateRecord {
+        message_id: "target".into(),
+        snapshot_id: "snapshot".into(),
+        state: state.into(),
+    };
+    let mut first = tagged("tool_review_state", &update("active")).unwrap();
+    let second = tagged("tool_review_state", &update("rolledBack")).unwrap();
+    // Equal-sized valid JSON, using actual review states and no timestamp or
+    // sleeps: only the physical append order can select the effective state.
+    first.push_str(&" ".repeat(second.len() - first.len()));
+    assert_eq!(first.len(), second.len());
+    let line_bytes = second.len() as u64 + 1;
+    let mut previous_len = fs::metadata(&path).unwrap().len();
+    for (index, (line, expected)) in [(first, "active"), (second, "rolledBack")]
+        .into_iter()
+        .enumerate()
+    {
+        append_line(&path, None, line).unwrap();
+        let length = fs::metadata(&path).unwrap().len();
+        assert_eq!(length - previous_len, line_bytes);
+        previous_len = length;
+        let warm = layout::session_layout(dir.path(), "s1").unwrap();
+        assert_eq!(warm.message_count(), 1);
+        assert_eq!(warm.tool_review_state_offsets.len(), index + 1);
+        let cold = refresh_layout(dir.path(), "s1", TranscriptLayout::default()).unwrap();
+        for cached in [&warm, &cold] {
+            let read =
+                read_transcript_window_with_layout(dir.path(), "s1", cached, 0, Some(1)).unwrap();
+            assert_eq!(state(&read.messages[0]), expected);
+        }
+        assert_eq!(
+            state(&read_transcript(dir.path(), "s1").unwrap()[0]),
+            expected
+        );
+    }
 }
 
 #[test]
