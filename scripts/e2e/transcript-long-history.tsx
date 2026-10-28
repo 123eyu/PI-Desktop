@@ -246,6 +246,24 @@ export async function transcriptLongHistoryProbe() {
     await until(() => host.textContent?.includes("Older row corrected") === true, "older row correction");
     await settled();
     const markers = [...host.querySelectorAll<HTMLButtonElement>(".minimap-marker.assistant")];
+    const scrollTrace: unknown[] = [];
+    const observedScroller = element(".thread-scroll");
+    const nativeScrollTo = observedScroller.scrollTo.bind(observedScroller);
+    observedScroller.scrollTo = (options?: ScrollToOptions | number, y?: number) => {
+      scrollTrace.push({ kind: "scrollTo", options, y, stack: new Error().stack });
+      if (typeof options === "number") nativeScrollTo(options, y ?? 0);
+      else nativeScrollTo(options ?? {});
+    };
+    const topProperty = Object.getOwnPropertyDescriptor(Element.prototype, "scrollTop")!;
+    Object.defineProperty(observedScroller, "scrollTop", {
+      configurable: true,
+      get() { return topProperty.get!.call(this); },
+      set(top: number) {
+        scrollTrace.push({ kind: "scrollTop", top, stack: new Error().stack });
+        topProperty.set!.call(this, top);
+      },
+    });
+    observedScroller.addEventListener("wheel", () => scrollTrace.push({ kind: "wheel" }));
     assert(markers.length > 0, "minimap markers missing");
     let freshPreview = false;
     const previews: string[] = [];
@@ -277,6 +295,7 @@ export async function transcriptLongHistoryProbe() {
     await settled();
     const readingTop = scroller.scrollTop;
     const readingHeight = scroller.scrollHeight;
+    scrollTrace.push({ kind: "before-stream", readingTop, readingHeight });
     await stream(largest, " reader-stays");
     assert(Math.abs(scroller.scrollTop - readingTop) < 2,
       `stream stole the reader's scroll position: ${JSON.stringify({
@@ -284,6 +303,11 @@ export async function transcriptLongHistoryProbe() {
         after: { top: scroller.scrollTop, height: scroller.scrollHeight },
         viewport: scroller.clientHeight,
         reducedMotion: window.matchMedia("(prefers-reduced-motion: reduce)").matches,
+        scrollTrace,
+        animations: host.getAnimations({ subtree: true }).map((animation) => ({
+          playState: animation.playState,
+          property: (animation as CSSTransition).transitionProperty,
+        })),
       })}`);
 
     // Terminal re-key must replace exactly the provisional row, survive cache
