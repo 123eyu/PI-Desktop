@@ -115,6 +115,25 @@
 - **预期：** 取消编辑保留原绑定；保存清除候选和默认生图绑定。重新打开后摘要行隐藏、复选框未勾选，模型恢复为可选对话模型。
 - **覆盖：** `scripts/e2e-image-generation-ui.mjs` 使用 API 边界 fixture 验证英文与中文交互；不代表真实服务商测试。
 
+
+### E2E-TRANSCRIPT-lossless-tool-images
+
+- Entry: `PI_DESKTOP_HOST_BIN=<candidate-host> pnpm test:e2e:tool-result-persistence`
+  after building Host, shared, agent-runtime and host-runtime.
+- Environment: Real isolated Host, SQLite and JSONL, production Desktop IPC and
+  outbox; only Electron shell and unused importer/search services are stubs.
+- Build 35 deterministic valid PNGs / 548 rows. Verify the old redundant full
+  request exceeds 64 MiB, each stored image occurs once, and restarting restores
+  every canonical image, detail field and original JSON text spelling.
+- Build a second history whose unique image bytes alone exceed 64 MiB through
+  individually legal appends. Exercise bounded ID operations and retained-image
+  restoration, revision/fork, missing anchors and duplicate operation retries.
+- Unit/process gates also cover old-format files/outbox, corrupted references,
+  failed conversion/drain, late callbacks and real sidecar restore errors.
+- The original Windows incident did not identify the failed RPC method; this
+  deterministic regression does not claim to recover that missing evidence.
+
+
 ## 1. 目标
 
 - 记录 MVP 必须验证的每个用户可见和协议可见的行为。
