@@ -5,7 +5,7 @@ import { I18nextProvider } from "react-i18next";
 import { catalogs } from "@pi-desktop/i18n";
 import { WorkPanel } from "../../apps/desktop/src/components/workpanel/WorkPanel";
 import { IPC, type WorkPanelTabMenuAction, type WorkPanelTabMenuRequest } from "@pi-desktop/shared";
-import { pluginWorkPanelTab } from "../../apps/desktop/src/lib/work-panel-tabs";
+import { pluginWorkPanelTab, toolWorkPanelTab } from "../../apps/desktop/src/lib/work-panel-tabs";
 import { useAppStore } from "../../apps/desktop/src/stores/app-store";
 
 /*
@@ -279,6 +279,7 @@ async function runTabContextMenuUserPath(): Promise<TabContextMenuPathResult> {
 
 async function runPluginViewMenuLayerPath(): Promise<PluginViewMenuLayerResult> {
   const tab = pluginWorkPanelTab("pi.browser", "browser");
+  const reviewTab = toolWorkPanelTab("review");
   nativeMenuRequests.length = 0;
   deferNextNativeMenu = true;
   finishNativeMenu = null;
@@ -288,7 +289,7 @@ async function runPluginViewMenuLayerPath(): Promise<PluginViewMenuLayerResult> 
     useAppStore.setState({
       activeSessionId: "tab-close-plugin",
       workPanelOpen: true,
-      workPanelTabs: [tab],
+      workPanelTabs: [tab, reviewTab],
       activeWorkPanelTabId: tab.id,
       workPanelFileRequest: null,
       workPanelContexts: {},
@@ -310,21 +311,21 @@ async function runPluginViewMenuLayerPath(): Promise<PluginViewMenuLayerResult> 
   await rendered();
   assert(pluginViewVisibility.at(-1) === true, "Browser view did not become visible");
 
-  const tabWrapper = host.querySelector<HTMLElement>(
-    `[data-work-panel-tab-id="${CSS.escape(tab.id)}"]`,
+  const reviewTabWrapper = host.querySelector<HTMLElement>(
+    `[data-work-panel-tab-id="${CSS.escape(reviewTab.id)}"]`,
   );
-  assert(tabWrapper, "Browser tab wrapper is missing");
+  assert(reviewTabWrapper, "Review tab wrapper is missing");
   const event = new MouseEvent("contextmenu", {
     bubbles: true,
     cancelable: true,
     clientX: 32,
     clientY: 32,
   });
-  flushSync(() => tabWrapper!.dispatchEvent(event));
-  assert(event.defaultPrevented, "Browser tab did not invoke the native menu");
-  assert(nativeMenuRequests.length === 1, "Browser tab did not request the native menu");
+  flushSync(() => reviewTabWrapper!.dispatchEvent(event));
+  assert(event.defaultPrevented, "Review tab did not invoke the native menu over Browser");
+  assert(nativeMenuRequests.length === 1, "Review tab did not request the native menu over Browser");
   const menuRequest = nativeMenuRequests[0];
-  assert(menuRequest?.canCloseOthers === false, "native menu request has incorrect close-other state");
+  assert(menuRequest?.canCloseOthers === true, "native menu request has incorrect close-other state");
   const pageRemainsVisibleWhileMenuOpen = pluginViewVisibility.at(-1) === true;
   assert(pageRemainsVisibleWhileMenuOpen, "Browser page disappeared while its native menu was open");
   assert(!document.body.querySelector('[role="menu"]'), "native tab menu must not render underneath the Browser view");
@@ -342,17 +343,36 @@ async function runPluginViewMenuLayerPath(): Promise<PluginViewMenuLayerResult> 
     clientX: 32,
     clientY: 32,
   });
-  flushSync(() => tabWrapper!.dispatchEvent(closeEvent));
+  flushSync(() => reviewTabWrapper!.dispatchEvent(closeEvent));
   assert(closeEvent.defaultPrevented, "native menu action could not be reopened");
   await rendered();
-  assert(useAppStore.getState().workPanelTabs.length === 0, "native Close Tab action was not applied");
+  assert(
+    useAppStore.getState().workPanelTabs.length === 1 &&
+      useAppStore.getState().workPanelTabs[0]?.id === tab.id,
+    "native Close Tab action did not close only the clicked tab",
+  );
+  assert(pluginViewVisibility.at(-1) === true, "Browser page disappeared after closing the other tab");
+
+  const browserTabWrapper = host.querySelector<HTMLElement>(
+    `[data-work-panel-tab-id="${CSS.escape(tab.id)}"]`,
+  );
+  assert(browserTabWrapper, "Browser tab wrapper is missing");
+  const singleTabEvent = new MouseEvent("contextmenu", {
+    bubbles: true,
+    cancelable: true,
+    clientX: 32,
+    clientY: 32,
+  });
+  flushSync(() => browserTabWrapper.dispatchEvent(singleTabEvent));
+  assert(singleTabEvent.defaultPrevented, "Browser tab did not invoke the native menu");
+  assert(nativeMenuRequests.at(-1)?.canCloseOthers === false, "Close Other Tabs should be disabled for one tab");
 
 
   return {
     stage: "plugin-view-menu-layer",
     pageRemainsVisibleWhileMenuOpen,
     pageRemainsVisibleAfterMenuClose,
-    nativeMenuRequested: nativeMenuRequests.length === 2,
+    nativeMenuRequested: nativeMenuRequests.length === 3,
   };
 }
 

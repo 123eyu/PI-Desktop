@@ -292,6 +292,8 @@ test("the work-panel tab menu is a validated native popup", () => {
   assert.match(handler, /parseWorkPanelTabMenuRequest\(input\)/);
   assert.match(handler, /Menu\.buildFromTemplate/);
   assert.match(handler, /enabled:\s*request\.canCloseOthers/);
+  assert.match(handler, /event\.sender\.getZoomFactor\(\)/);
+  assert.match(handler, /waitForNativeMenuResult\(/);
   assert.match(handler, /menu\.popup\(\{ window, x, y, callback:/);
 });
 
