@@ -685,6 +685,7 @@ export const en = {
       unavailableNotFragment: "The file is a full HTML document, not a fragment.",
       unavailableRuntime: "The visualization runtime is unavailable.",
       loadPrompt: "Load visualization",
+      scriptError: "This visualization's script failed, so part of it may be missing.",
       frameTitle: "Visualization: {{title}}",
     },
     model: "Model",

@@ -672,6 +672,7 @@ export const ptBR = {
       unavailableNotFragment: "O arquivo é um documento HTML completo, não um fragmento.",
       unavailableRuntime: "O runtime de visualizações não está disponível.",
       loadPrompt: "Carregar visualização",
+      scriptError: "O script desta visualização falhou; parte do conteúdo pode estar faltando.",
       frameTitle: "Visualização: {{title}}",
     },
     model: "Modelo",
