@@ -760,6 +760,17 @@ export async function createWindow({
 
   browserHost.setWindow(window);
   pluginViews.setWindow(window);
+  // A renderer reload (⌘R) drops the React tree that drives plugin-view
+  // visibility, leaving the native view compositing above the fresh renderer
+  // as an orphan overlay no surviving control can hide. Detach it here so a
+  // reload always starts from "no plugin view shown"; the reloaded renderer
+  // re-attaches on demand. Same-document navigations keep the tree alive.
+  window.webContents.on(
+    "did-start-navigation",
+    (_event, _url, isInPlace, isMainFrame) => {
+      if (isMainFrame && !isInPlace) pluginViews.hideVisibleView();
+    },
+  );
   window.on("closed", () => {
     screen.removeListener("display-metrics-changed", reconcileDisplayTopology);
     screen.removeListener("display-added", reconcileDisplayTopology);
