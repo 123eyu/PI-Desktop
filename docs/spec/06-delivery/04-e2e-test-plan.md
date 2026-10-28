@@ -1807,6 +1807,11 @@ identify the platform validation still needed.
   turns that had no thinking. Non-official DeepSeek-family relays use real
   retained thinking when available, otherwise the documented non-empty
   placeholder from ADR 0256 — never a silent empty string after compaction.
+  Each assistant message carries exactly one reasoning field, named after the
+  newest assistant row's field; real reasoning stored under another field name
+  is moved there rather than replaced by the placeholder, which only fills rows
+  with no reasoning at all (D677). The thinking panel and replayed history
+  never show a leading echo of the placeholder as reasoning.
   Relay requests omit the generic OpenAI `reasoning_effort` field because
   relays were reported rejecting it (#1664). Official `api.deepseek.com`
   requests send `thinking: {type: "enabled"}` together with the selected
@@ -1819,7 +1824,8 @@ identify the platform validation still needed.
 - **Acceptance**: B (provider Completions compatibility)
 - **Milestone**: M2
 - **Status**: Unit-covered (compat inject + convertMessages empty/non-empty fill +
-  compaction retained-reasoning wire proof); live OpenCode / aggregator
+  mixed-field normalization + echoed-placeholder strip + compaction
+  retained-reasoning wire proof); live OpenCode / aggregator
   verification deferred; rendered UI scenario pending
 
 #### E2E-006: Key survives restart
@@ -2185,7 +2191,11 @@ identify the platform validation still needed.
   running turn with tool output, and the real Composer and SessionPane.
 - **Steps**: Restore a bookmark during selection revalidation; append live
   output; switch away and reveal the running pane; inspect an unread history
-  range and an explicit search at the tail; settle and abort the turn.
+  range and an explicit search at the tail; settle and abort the turn. While
+  reading above the live tail, click return-to-latest and switch away in the
+  same task, before a native smooth-scroll event. Return first with the pane
+  retained, then repeat while a project switch actually unmounts the pane and
+  output continues in the background.
 - **Expected**: The restored live tail keeps a running process header while
   Stop is available. Content updates and pane reveal do not falsely show
   Finished. The restored range and scroll offset remain owned by the reader.
@@ -2194,9 +2204,13 @@ identify the platform validation still needed.
   An empty restored range stays historical, an ordinary empty canonical range
   shows the initial wait, and a restored navigation-parent copy with the same
   message id keeps the running presentation.
+  Return-to-latest synchronously records a pinned bookmark; both a retained
+  reveal and a fresh project remount follow the newest output without a second
+  click. The running header and Stop control stay consistent. Readers who did
+  not choose return-to-latest keep their existing historical reading position.
 - **Automation**: `node scripts/e2e-transcript-reading-position.mjs`
   (`transcriptLiveTailProbe`).
-- **Specs linked**: `04-ux/09-interaction-patterns.md` §2.4
+- **Specs linked**: `04-ux/09-interaction-patterns.md` §2.3 / §2.4
 - **Acceptance**: C (session switching and running status)
 - **Status**: Automated isolated Electron regression
 
@@ -2518,6 +2532,11 @@ identify the platform validation still needed.
   edit/remove the pending row, release admission, then edit/remove the durable
   row. Repeat with a captured file-reference draft. 12) Withhold a local Host
   queue-save request until its existing RPC deadline expires, then retry.
+  13) With an empty composer and two waiting rows, press the steering shortcut
+  (`⌥/Alt+Enter`): verify the first row is promoted, press it again to promote
+  the second, then repeat with only a saving row present. 14) Repeat with a
+  draft in the composer and confirm the shortcut steers the draft and leaves
+  both rows waiting.
 - **Expected**: The single submit slot contains exactly one button in every
   state: disabled Send while idle and empty, enabled Send while running with
   content (which queues the prompt), and Stop while running with an empty
@@ -2543,7 +2562,10 @@ identify the platform validation still needed.
   on Send now, and remain visible without restoring a second draft. Once acknowledged, remove deletes the durable row and edit restores
   exactly its captured draft; neither row reappears after refresh. A local Host
   admission timeout clears the pending row, reports the error, and restores
-  the rejected composer draft; retry can queue normally.
+  the rejected composer draft; retry can queue normally. With an empty composer
+  the steering shortcut promotes the first waiting row exactly as its Send now
+  action does, skipping rows that are saving or already promoted; with a draft
+  present it steers the draft and leaves the queue untouched.
 - **Specs linked**: `03-runtime/01-ipc-protocol.md` (§5.6),
   `04-ux/08-component-spec.md` (§11),
   `04-ux/09-interaction-patterns.md` (§3.4), ADR 0118, ADR 0213, ADR 0265
@@ -2552,7 +2574,8 @@ identify the platform validation still needed.
 - **Status**: Source-level regression and deterministic desktop finalization /
   Agent Host integration covered (`queued-turn-finalization.test.mjs`);
   promotion, reorder, and edit contracts covered at source level
-  (`composer-send-state.test.mjs`); full UI scenario Draft
+  (`composer-send-state.test.mjs`); the empty-composer send-now shortcut is
+  covered by `composer-queued-send-now-shortcut.test.mjs`; full UI scenario Draft
 
 #### E2E-QUEUE-promote-orders-delivery-by-click: Two Send now clicks deliver in click order
 
@@ -4808,20 +4831,17 @@ window; opening a normal panel afterward must still work.
   and press Escape to leave the tabs unchanged. With only one or two tabs, drag
   unused header space to move the native window; tab and action clicks must
   still work without moving it.
-  work without moving it. 4) Click `+` twice and verify each click
-  creates and activates a separate New launcher tab. Confirm the launcher body
-  contains Review plus each in-scope plugin view exactly once as clickable rows;
-  there is no work-panel dropdown or popup. Click Browser from one New tab and
-  confirm that tab opens the native plugin surface without changing its bounds.
-  5) Close
-  active middle and edge tabs and verify neighbor selection. Close the final
-  tab and confirm the panel remains open on the New launcher. 6) Use the
-  viewport-fixed work-panel toggle and trigger another artifact. 7) In session A,
-  leave the panel open with multiple
-  tabs and a Browser resource; switch to session B, create a different tab set,
-  then switch repeatedly between A and B and select a project without an active
-  conversation. Generate a background artifact in the non-visible session.
-  7) Drag the inner left-edge handle left and right across its bounds; verify
+  4) Click `+` twice and verify each creates and activates a separate New
+  launcher tab. Confirm its body lists Review and each in-scope plugin view
+  exactly once. Open Browser and confirm its native surface opens at unchanged
+  bounds. Open its context menu and verify the native popup appears above Browser
+  chrome while the page remains visible. Escape closes it without hiding the page
+  or changing bounds. 5) Close active middle/edge tabs, verify neighbor selection,
+  then close the final tab and confirm New remains. 6) Collapse/reopen the panel
+  and trigger an artifact. In session A, leave Browser open; switch to B and
+  create another tab set, then switch repeatedly between sessions and select a
+  project without an active conversation. Generate a background artifact. 7)
+  Drag the inner divider
   pointer-down does not jump the divider or resize the native window, cancel one
   gesture with Escape, then focus the handle and exercise Arrow/Shift+Arrow/Home/End.
   Commit a different panel width with Browser active, double-click the divider and
@@ -4837,7 +4857,11 @@ window; opening a normal panel afterward must still work.
   Move the normal window between displays and change the active display's
   work-area geometry. 12) Send valid and malformed reservation payloads,
   including positive values, and confirm the compatibility seam never changes
-  native bounds. 13) Relaunch.
+  native bounds. 13) Relaunch. 14) Open a contributed plugin view and reload
+  the main renderer with Cmd/Ctrl+R. Confirm the native view detaches before the
+  new renderer appears, then reopen its tab and verify the cached plugin page
+  returns. Repeat with a same-document navigation and a child-frame navigation;
+  neither may detach the active view.
 - **Expected**: Startup shows no panel, welcome chooser, or fixed tool buttons.
   A viewport-fixed toggle in the window's top-right corner is the pointer
   equivalent of Cmd/Ctrl+J; there is still no application-menu launcher.
@@ -4852,24 +4876,22 @@ window; opening a normal panel afterward must still work.
   opacity/slide, so MainChat reflows continuously without a pre-animation jump.
   Opening the panel, collapsing it, or committing a divider resize updates the
   presentation without a native-window jump. The header is a horizontally
-  Opening the panel, collapsing it, or committing a divider resize updates the
-  presentation without a native-window jump. The header is a horizontally
   scrollable tablist with stable `92px–180px` tabs, visible spacing, and a
   fixed `+`; labels stay readable instead of shrinking into one cluster, the
   strip alone scrolls, active tabs scroll into view, and close selects the
   right neighbor then left. A localized, keyboard-navigable tab context menu
   offers Close Tab, Close Other Tabs, and Close All Tabs. Close Other Tabs
   retains and activates its target and is disabled for one tab; Close All Tabs
-  closes Browser resources and leaves the panel open on New. New launcher tabs
-  expose Review and in-scope plugin views as body buttons, with no popup to
-  overlap or shift the panel. Dragging a tab shows a before/after insertion
-  indicator, edge-holding scrolls the strip toward hidden tabs, and reorders
-  only the tab array; the active resource stays active. `Alt+ArrowLeft`/
-  `Alt+ArrowRight` provides the same reorder path from the focused tab. Clicking
-  a launcher row replaces that New tab with the destination or activates its
-  existing singleton.
-  retains runtime tabs but hides the panel until another artifact reopens it.
-  Width follows the shared three-column budget with no fixed pixel cap and
+  closes Browser resources and leaves the panel open on New. For an active
+  Browser/plugin view, the tab context menu is a Main-owned native popup above
+  Browser chrome; the page stays visible and its bounds do not change.
+  New launcher tabs expose Review and plugin views as body buttons, with no
+  overlapping popup. Dragging a tab shows a before/after insertion indicator;
+  edge-holding scrolls toward hidden tabs, and reordering leaves the active
+  resource unchanged. `Alt+ArrowLeft`/`Alt+ArrowRight` provides keyboard
+  reordering. Selecting a launcher row replaces New or activates its singleton.
+  Collapse retains runtime tabs while hiding the panel. Width follows the shared
+  three-column budget without a fixed pixel cap and
   previews its current/minimum/maximum values through the panel separator. The
   inner divider exposes the panel width to assistive technology and supports
   the documented keyboard steps. Pointer-down preserves the starting width,
@@ -4889,8 +4911,11 @@ window; opening a normal panel afterward must still work.
   that preferred panel width. The compatibility reservation seam returns
   `{requested: 0, reserved: 0}` for every valid request, including positive
   legacy values, and never changes native bounds. Malformed payloads fail with
-  `INVALID_ARGUMENT` and never coerce. The former context-panel overlay no
-  longer exists.
+  `INVALID_ARGUMENT` and never coerce. A full main-frame renderer reload
+  detaches the visible plugin view without closing its page, so no orphan
+  overlay covers the fresh renderer; reopening the tab reattaches that same
+  page. Same-document and child-frame navigation leave the view attached. The
+  former context-panel overlay no longer exists.
 - **Specs linked**: `03-runtime/01-ipc-protocol.md`, `04-ux/01-ui-ia.md`,
   `04-ux/07-ui-design-system.md`, `04-ux/08-component-spec.md`,
   `04-ux/09-interaction-patterns.md`, ADR 0068, ADR 0151, ADR 0195, D207, D292,
@@ -4900,8 +4925,10 @@ window; opening a normal panel afterward must still work.
 - **Status**: Unit-covered (`work-panel-resize.test.mjs`,
   `work-panel-window.test.mjs`, `work-panel-presentation.test.mjs`,
   `work-panel-tabs.test.mjs`, `browser-tab-restore.test.mjs`,
-  `work-panel.test.mjs`); isolated Electron context-menu user path and close
-  geometry in `scripts/e2e-work-panel-tab-close.mjs`; full UI scenario Draft
+  `work-panel.test.mjs`, `plugin-work-panel-views.test.mjs`,
+  `plugin-view-navigation.test.mjs`); isolated Electron
+  tab-menu, Browser native-menu page visibility, and close geometry in
+  `scripts/e2e-work-panel-tab-close.mjs`; full UI scenario Draft
 
 #### E2E-057: Message-owned review history survives commits and rolls back safely
 
@@ -4941,6 +4968,51 @@ window; opening a normal panel afterward must still work.
 - **Acceptance**: D (workspace), Quality
 - **Milestone**: M5
 - **Status**: Unit-covered (`chat-review-entry.test.mjs`); full UI scenario Draft
+
+#### E2E-CHAT-turn-changed-files-summary: A finished turn lists the files it changed
+
+- **Preconditions**: A project-bound Agent session with a writable workspace.
+- **Steps**: 1) Ask the agent to create one file and edit another; watch the
+  turn while it streams. 2) After the reply finishes, inspect the area below
+  the answer. 3) Ask for a change touching more than twelve files across
+  several directories. 4) Click a row, then the `View all N files in Review`
+  link. 5) Roll back one file's change in Review and return to the turn.
+  6) Ask a question that writes no files. 7) Switch sessions and come back.
+- **Expected**: No summary appears while a turn streams or after a failed
+  turn. A finished turn that wrote workspace files shows one borderless
+  `Changes this turn` card below its answer and above plugin `entryExtra`
+  blocks, with the file count and summed `+`/`−`. Each path appears once with
+  its merged status letter and counts; up to four files use relaxed rows,
+  more use dense rows with a directory count, and rows past 12 fold into
+  `+N more`. A row click opens the session's Review tab scrolled to that file
+  with its changes expanded; the link opens Review without expanding. The
+  rolled-back file stays listed, struck through. Every earlier finished turn
+  keeps its own card, a turn without writes has none, and a session switch
+  fetches nothing extra. The per-call review rows are unchanged.
+- **Specs linked**: `04-ux/08-component-spec.md` §4.4, D674
+- **Acceptance**: D (workspace), Quality
+- **Milestone**: M5
+- **Status**: Unit-covered (`turn-changes-card.test.mjs`); full UI scenario Draft
+
+#### E2E-CHAT-completed-turn-scrolls-to-prompt: A finished reply reads from its prompt
+
+- **Preconditions**: An Agent session whose next reply is longer than the
+  transcript viewport.
+- **Steps**: 1) Send a prompt and let the transcript follow the reply to its
+  end. 2) Send a prompt with a reply short enough to fit on screen. 3) Send a
+  long prompt again and scroll up while it streams. 4) Stop a long reply
+  midway. 5) Queue a follow-up while a long reply streams.
+- **Expected**: 1) When the reply completes, its prompt sits at the top of the
+  viewport and jump-to-latest appears. 2) The short reply stays at the bottom
+  in follow mode. 3) The view stays where the user scrolled. 4) The aborted
+  turn stays at the bottom. 5) The follow-up turn keeps following at the
+  bottom.
+- **Specs linked**: `04-ux/09-interaction-patterns.md` §2.2,
+  `04-ux/08-component-spec.md` §4.4, D676
+- **Acceptance**: Quality
+- **Milestone**: M5
+- **Status**: Automated (`pnpm test:e2e:transcript-turn-completion`, real
+  `useTranscriptScroll` in Electron; `turn-completion-scroll.test.mjs`)
 
 #### E2E-058: Built-in interactive terminal is absent
 
@@ -7717,7 +7789,9 @@ must keep splitting are covered by `markdown-blocks.test.mjs`.
   succeed after a retry and can return eleven consecutive 429 responses. Fixtures
   cover `retry-after-ms`, `retry-after` seconds, and HTTP-date headers, and
   support aborting during the wait. A builtin subagent uses a
-  fixture with the same responses.
+  fixture with the same responses. Billing/account-exhaustion fixtures also
+  return HTTP 429 with `insufficient_quota`, `credit_balance_exhausted`,
+  organization usage-limit, and spend-limit codes.
 - **Steps**:
   1. Start an Agent turn with a setup-429 fixture whose next request succeeds.
   2. Repeat with a mid-stream-429 fixture whose next request succeeds.
@@ -7730,11 +7804,18 @@ must keep splitting are covered by `markdown-blocks.test.mjs`.
      later provider request or terminal retry is started.
   7. Repeat with authentication, model-selection, malformed-request, and
      context-error fixtures.
+  8. Repeat with the billing/account-exhaustion 429 fixtures and inspect the
+     terminal assistant error and provider request count.
 - **Expected**:
-  - Every 429 is classified as retryable `PROVIDER_RATE_LIMITED` in both setup
-    and post-start recovery, including a response body that omits rate-limit
-    wording when the captured HTTP status is 429. Diagnostics retain
-    `providerStatus: 429`.
+  - Throughput rate-limit 429s are classified as retryable
+    `PROVIDER_RATE_LIMITED` in both setup and post-start recovery, including a
+    response body that omits rate-limit wording when the captured HTTP status
+    is 429. Diagnostics retain `providerStatus: 429`.
+  - Explicit billing/account exhaustion is terminal `PROVIDER_ERROR` even
+    when returned with HTTP 429, including `insufficient_quota`,
+    `credit_balance_exhausted`, organization usage-limit, and organization/
+    project spend-limit codes. It starts no retry and consumes neither retry
+    budget.
   - Setup and mid-stream failures share one budget of ten retries after the
     initial attempt. A persistent fixture therefore makes eleven provider
     attempts, never multiplies attempts through nested pi-ai retries, and
@@ -10525,6 +10606,7 @@ must keep splitting are covered by `markdown-blocks.test.mjs`.
 | Acceptance | Scenarios |
 |---|---|
 | C / E / Security / Quality — Gemini work setup | E2E-LIVE-VOICE-gemini-work-schema |
+| C / Quality — Continue after malformed tool output | E2E-RUNTIME-malformed-tool-call-continue-recovery |
 | B / Security / Quality — Optional provider client certificate requests | E2E-PROVIDER-optional-client-certificate |
 | C / E / F / Quality / Security — Session Todo checklist | E2E-CHAT-session-todo-checklist |
 | C / E / Security / Quality — Live Voice four-stage interaction | E2E-LIVE-VOICE-four-stage-ui |
@@ -11880,8 +11962,11 @@ This test plan spec is accepted when:
   3) Drag the slider to 125%. Confirm Trenta becomes selected and
      every `--text-*` surface and icon grows further. Confirm the UI never
      shows a px field.
-  4) Use Zoom In, then Reset Zoom. Confirm window zoom still scales chrome
-     and that the type scale remains 125% after reset.
+  4) Open the Browser and Files work-panel tabs, then use Zoom In and Reset
+     Zoom. Confirm window zoom still scales chrome, that the type scale
+     remains 125% after reset, and that both docked plugin pages follow it:
+     their text and controls keep the same proportion as the app, and the
+     Browser guest page still fills the area under its per-type-size toolbar.
   5) Restart the app and confirm the 125% scale is still applied
      (`AppSettings.fontScale` = 1.25).
   6) Choose Grande. Confirm the whole UI returns to 100% immediately;
@@ -11892,13 +11977,20 @@ This test plan spec is accepted when:
   `AppSettings.fontScale` (absent means 1) and sets `--font-scale`, multiplying
   every `--text-*` token and shared Lucide icon. Window Zoom In/Out/Reset remains
   independent.
+  Docked plugin work-panel views (the bundled Browser and Files pages) repeat
+  that multiplier — times the window zoom — as their own page zoom instead of
+  importing the app tokens, so they stay in proportion at every setting, and a
+  `pi.browser` guest rect is converted with the same factor. Detached plugin
+  windows and widgets keep their own base size.
   Invalid values are rejected or clamped. No protocol or schema version bump.
 - **Specs linked**: `04-ux/06-settings-ia.md`, `04-ux/07-ui-design-system.md`,
   ADR 0180, D343
 - **Acceptance**: A (core shell), B (settings), H (localization)
 - **Milestone**: M5+
 - **Status**: Unit-covered (`packages/shared/src/font-size.test.ts`,
-  `apps/desktop/test/settings-font-size.test.mjs`); full UI journey Draft
+  `apps/desktop/test/settings-font-size.test.mjs`,
+  `apps/desktop/test/plugin-view-scale.test.mjs`,
+  `apps/desktop/test/browser-guest-hole-scale.test.mjs`); full UI journey Draft
   (run only in a capable environment when this surface changes)
 
 #### E2E-127: macOS keeps the app in the Dock and Cmd+Tab
@@ -18972,3 +19064,32 @@ their separate platform acceptance.
   stubbed). Rust provider tests independently verify real SQLite persistence;
   `provider-reasoning-effort.test.ts` captures requests from the real pi-ai
   adapter with fixture SSE responses. No live gateway credentials are required.
+
+
+#### E2E-RUNTIME-malformed-tool-call-continue-recovery: Continue after malformed tool output
+
+- **Preconditions**: An isolated sidecar and loopback Responses fixture can
+  emit an empty tool name, then a corrected Read call. Unit fixtures also
+  cover missing names/IDs, empty Responses wire IDs, non-object arguments,
+  retained malformed context, compaction tails and resumed delegates.
+- **Steps**: Return one malformed response, then invoke the same `agent.prompt`
+  entry used by Continue three times. Repeat with three consecutive malformed
+  responses followed by a corrected response. Keep the runtime alive throughout.
+- **Expected**: Each malformed batch settles with one local
+  `context-validation` error before tool execution, with no transport retry.
+  All three later prompts complete; the corrected Read executes once, and the
+  runtime is reused rather than restarted. Model context retains valid history
+  and system updates while excluding malformed calls and associated results.
+  Optional usage estimation does not lose terminal tool events. The durable
+  transcript and Host permissions are unchanged; unrelated malformed hosted
+  search still fails strict validation.
+- **Specs linked**: `03-runtime/02-agent-runtime.md` §5d.
+- **Acceptance**: Conversation, runtime recovery and quality.
+- **Milestone**: M5 hardening.
+- **Automation**: `pnpm test:e2e:hosted-search` runs the production sidecar and
+  real Responses adapter against synthetic SSE, including one-error and
+  three-error recovery cases. `malformed-tool-recovery.test.ts`,
+  `tool-call-identity.test.ts` and `subagent.test.ts` cover retained state,
+  event/result agreement, batch rejection and delegate restoration.
+- **Status**: Automated offline; native UI clicking and live providers are
+  outside this fixture's coverage.

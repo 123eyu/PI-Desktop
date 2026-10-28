@@ -508,12 +508,12 @@ task-candidate E2E 从请求工作树运行，但使用主工作区已经准备�
 
 - **前提条件**：已配置一个 Base URL 不含 `deepseek.com` 的 OpenAI 兼容提供商，模型 ID 属于 DeepSeek 系（例如硅基流动 `deepseek-ai/DeepSeek-V3.2`），并开启思考模式。
 - **步骤**：1) 在思考模式下开始会话。2) 完成若干回合，其中至少一条助手回复没有思考文本。3) 再发一条提示，使历史被回放到提供商。
-- **预期**：后续 Completions 请求的每条 assistant 消息都带推理字段。官方 `api.deepseek.com` 行对无思考内容的回合仍可使用 `""`。非官方 DeepSeek 系中转在可用时回传保留的真实思考，否则使用 ADR 0256 文档化的非空占位符——压缩后不得静默回填空串。中转请求不携带通用 OpenAI 的 `reasoning_effort` 字段，因为有中转被报告拒绝它（#1664）；官方 `api.deepseek.com` 请求同时发送 `thinking: {type: "enabled"}` 与所选的 `reasoning_effort`（#1821）。不会仅因模型 ID 含 `"deepseek"` 就把 `thinkingFormat` 改成 `"deepseek"`。官方 `api.deepseek.com` 行仍使用 pi-ai 按 URL 检测的 DeepSeek `thinkingFormat`。
+- **预期**：后续 Completions 请求的每条 assistant 消息都带推理字段。官方 `api.deepseek.com` 行对无思考内容的回合仍可使用 `""`。非官方 DeepSeek 系中转在可用时回传保留的真实思考，否则使用 ADR 0256 文档化的非空占位符——压缩后不得静默回填空串。每条 assistant 消息只带一个推理字段，字段名取最新一条 assistant 行所用的字段；存放在其他字段名下的真实推理会被移到该字段，而不是被占位符替代，占位符只填充完全没有推理的行（D677）。思考面板和回放历史都不会把开头回显的占位符当作推理显示或回传。中转请求不携带通用 OpenAI 的 `reasoning_effort` 字段，因为有中转被报告拒绝它（#1664）；官方 `api.deepseek.com` 请求同时发送 `thinking: {type: "enabled"}` 与所选的 `reasoning_effort`（#1821）。不会仅因模型 ID 含 `"deepseek"` 就把 `thinkingFormat` 改成 `"deepseek"`。官方 `api.deepseek.com` 行仍使用 pi-ai 按 URL 检测的 DeepSeek `thinkingFormat`。
 - **链接规格**：`03-runtime/11-provider-model-system.md`、
   `03-runtime/12-provider-config-schema.md`
 - **验收**：B（提供商 Completions 兼容）
 - **里程碑**：M2
-- **状态**：单元覆盖（compat 注入 + convertMessages 空/非空补全 + 压缩保留推理上线证明）；现场 OpenCode/聚合端验证仍推迟；界面场景待完成
+- **状态**：单元覆盖（compat 注入 + convertMessages 空/非空补全 + 混用字段归一 + 回显占位符剥离 + 压缩保留推理上线证明）；现场 OpenCode/聚合端验证仍推迟；界面场景待完成
 
 #### E2E-005F：自定义端点输入护栏
 
@@ -2410,7 +2410,10 @@ hover/focus 不带移位标签，项目标题 hover/focus 路径显示
   窗口管理器压缩并重新定位外部窗口之前的位置
   显示更改回调。 13) 在打开时注入一项被拒绝的预订
   以及折叠时的一个，然后重试每个操作。 14) 发送字符串、布尔值、
-  空、小数和超出范围的预留有效负载。 15) 重新启动。
+  空、小数和超出范围的预留有效负载。 15) 重新启动。 16) 打开一个插件视图，
+  使用 Cmd/Ctrl+R 重新加载主渲染器。确认原生视图在新渲染器出现前分离，
+  然后重新打开对应选项卡，确认缓存的插件页面恢复。再测试同文档导航和
+  子框架导航；两者都不应分离活动视图。
 - **预期**：启动时不显示面板、欢迎选择器、固定工具按钮或
   titlebar/menu 启动器。 Cmd/Ctrl+J 打开活动会话的面板
   无需创建资源选项卡即可提交宽度；重复它是幂等的，
@@ -2479,15 +2482,18 @@ MainChat 弥补了缺口。 Maximized/fullscreen 调用保留最新的
   （`--ds-window-lead-inset`，即灯簇右缘 76px 加 12px 间隙，共 88px）作为自身的左内边距渲染出来，
   左侧第一个预览操作从该渲染值起或之后开始；检查读取的是解析后的内边距，而不是重述这个数字。
   打开真实工作面板标签后，其第一个标签从预览操作组右侧至少 8px 处开始；全屏时使用 8px 原生内缩但保留该操作带。
+  主渲染器完整主框架重新加载时，可见插件视图会分离但不会关闭缓存页面，因此新渲染器不会被孤儿原生层覆盖；重新打开选项卡会重新挂载同一页面。同文档和子框架导航保持视图附着。
   以前的上下文面板覆盖不再存在。
 - **链接规格**：`03-runtime/01-ipc-protocol.md`、`04-ux/01-ui-ia.md`、
   `04-ux/07-ui-design-system.md`、`04-ux/08-component-spec.md`、
   `04-ux/09-interaction-patterns.md`、ADR 0032、ADR 0068、D163、D207
 - **接受**：F（坚持），质量
 - **里程碑**：M5
-- **状态**：单位覆盖（`work-panel-resize.test.mjs`，
+- **状态**：单位覆盖（`work-panel-resize.test.mjs`、
   `work-panel-window.test.mjs`、`work-panel-presentation.test.mjs`、
-  `work-panel.test.mjs`);完整的 UI 场景草稿
+  `work-panel.test.mjs`、`plugin-work-panel-views.test.mjs`、
+  `plugin-view-navigation.test.mjs`）；隔离 Electron 菜单和关闭路径已覆盖；
+  完整渲染器重新加载 UI 场景仍为草稿
 
 #### E2E-057：消息拥有的审阅历史记录可以安全提交并回滚
 
@@ -2526,6 +2532,42 @@ MainChat 弥补了缺口。 Maximized/fullscreen 调用保留最新的
 - **验收**：D（工作空间），质量
 - **里程碑**：M5
 - **状态**：单位覆盖（`chat-review-entry.test.mjs`）；完整的 UI 场景草稿
+
+#### E2E-CHAT-turn-changed-files-summary：已完成的回合列出它改动的文件
+
+- **先决条件**：具有可写工作空间的项目绑定 Agent 会话。
+- **步骤**：1) 让代理创建一个文件并编辑另一个文件；观察流式中的回合。
+  2) 回复完成后，检查回答下方区域。3) 请求一次跨多个目录、超过十二个文件的
+  改动。4) 点击一行，再点击 `在「审阅」面板查看全部 N 个文件` 链接。
+  5) 在审阅中回滚一个文件的变更后回到该回合。6) 提一个不写文件的问题。
+  7) 切换会话后再切回来。
+- **预期**：回合流式期间或失败后不显示汇总。写过工作区文件的已完成回合在回答
+  下方、插件 `entryExtra` 块上方显示一张无边框的 `本轮改动` 卡片，带文件数和合计
+  `+`/`−`。每个路径只出现一次，带合并后的状态字母和计数；不超过四个文件用宽松行，
+  更多时用带目录数的密集行，超过 12 行折叠为 `+N more`。点击一行会打开该会话的
+  审阅选项卡，滚动到该文件并展开其变更；链接只打开审阅、不展开。已回滚的文件仍在
+  列表中并显示删除线。每个更早的已完成回合保留自己的卡片，没有写入的回合没有卡片，
+  切换会话不会额外取数。逐次调用的审核行保持不变。
+- **链接规格**：`04-ux/08-component-spec.md` §4.4，D674
+- **验收**：D（工作空间），质量
+- **里程碑**：M5
+- **状态**：单元覆盖（`turn-changes-card.test.mjs`）；完整的 UI 场景草稿
+
+#### E2E-CHAT-completed-turn-scrolls-to-prompt：完成的回复从它的提示读起
+
+- **先决条件**：一个 Agent 会话，其下一条回复比转录视口更长。
+- **步骤**：1) 发送提示，让转录跟随回复直到结束。2) 发送一个回复短到能在屏幕内
+  放下的提示。3) 再发送一个长回复的提示，并在流式期间向上滚动。4) 在长回复中途
+  停止。5) 在长回复流式期间排队一个后续提示。
+- **预期**：1) 回复完成时，它的提示位于视口顶部并出现“滚动到底部”。2) 短回复
+  停留在底部并保持跟随。3) 视图停留在用户滚动到的位置。4) 被中止的回合停在底部。
+  5) 后续回合继续在底部跟随。
+- **链接规格**：`04-ux/09-interaction-patterns.md` §2.2，
+  `04-ux/08-component-spec.md` §4.4，D676
+- **验收**：质量
+- **里程碑**：M5
+- **状态**：已自动化（`pnpm test:e2e:transcript-turn-completion`，在 Electron 中
+  运行真实的 `useTranscriptScroll`；`turn-completion-scroll.test.mjs`）
 
 #### E2E-058：内置交互式终端已移除
 
@@ -5862,6 +5904,7 @@ eleven-tool-round desktop paths are verified by
 | 验收 | 应用场景 |
 |---|---|
 | C / E / Security / Quality — Gemini work setup | E2E-LIVE-VOICE-gemini-work-schema |
+| C / Quality — Continue after malformed tool output | E2E-RUNTIME-malformed-tool-call-continue-recovery |
 | B / Security / Quality — Optional provider client certificate requests | E2E-PROVIDER-optional-client-certificate |
 | C / E / F / Quality / Security — Session Todo checklist | E2E-CHAT-session-todo-checklist |
 | C / E / Security / Quality — Live Voice 四阶段交互 | E2E-LIVE-VOICE-four-stage-ui |
@@ -6932,14 +6975,14 @@ eleven-tool-round desktop paths are verified by
   1) 打开设置 → 常规，确认外观卡片在字体行下方显示字体大小，「大杯」选中，滑杆为 100%。
   2) 选择「超大杯」。确认会话、输入框、设置标签、侧栏会话标题和 Lucide 图标无需重载即按相对阶一起变大，控件显示 115%。
   3) 把滑杆拖到 125%。确认「超超大杯」被选中，全部 `--text-*` 表面和图标继续变大。确认界面没有 px 输入。
-  4) 使用放大，再重置缩放。确认窗口缩放仍会放大 chrome，重置后文字比例仍为 125%。
+  4) 打开「浏览器」和「文件浏览器」两个工作面板标签，再使用放大与重置缩放。确认窗口缩放仍会放大 chrome、重置后文字比例仍为 125%，且两个停靠插件页跟随该比例：文字与控件和应用的相对大小一致，浏览器访客页仍铺满按新字号绘制的工具栏下方区域。
   5) 重启应用，确认 125% 仍然生效（`AppSettings.fontScale` = 1.25）。
   6) 选择「大杯」。确认整个界面立即回到 100%；重启后默认仍保留。
-- **预期**：字体大小为星巴克式杯型档位中杯 / 大杯 / 超大杯 / 超超大杯，加上 80%–150%、步进 2.5% 的百分比滑杆。选择持久化为 `AppSettings.fontScale`（缺失表示 1），并设置 `--font-scale` 乘以全部 `--text-*` 令牌和共享 Lucide 图标。窗口放大/缩小/重置保持独立。无效值被拒绝或钳制。无协议/存储版本升级。
+- **预期**：字体大小为星巴克式杯型档位中杯 / 大杯 / 超大杯 / 超超大杯，加上 80%–150%、步进 2.5% 的百分比滑杆。选择持久化为 `AppSettings.fontScale`（缺失表示 1），并设置 `--font-scale` 乘以全部 `--text-*` 令牌和共享 Lucide 图标。窗口放大/缩小/重置保持独立。停靠的插件工作面板视图（自带的「浏览器」和「文件浏览器」页）不导入应用令牌，而是把该倍率乘以窗口缩放作为自身页面缩放，因此在任何设置下都与应用保持比例，`pi.browser` 的访客矩形也按同一倍率换算。独立插件窗口与挂件保持自己的基础尺寸。无效值被拒绝或钳制。无协议/存储版本升级。
 - **关联规格**：`04-ux/06-settings-ia.md`、`04-ux/07-ui-design-system.md`、ADR 0180、D343
 - **验收**：A（核心 shell）、B（设置）、H（本地化）
 - **里程碑**：M5+
-- **状态**：单元覆盖（`packages/shared/src/font-size.test.ts`、`apps/desktop/test/settings-font-size.test.mjs`）；完整 UI 旅程为草稿（除非用户明确要求，否则不要本地跑 E2E）
+- **状态**：单元覆盖（`packages/shared/src/font-size.test.ts`、`apps/desktop/test/settings-font-size.test.mjs`、`apps/desktop/test/plugin-view-scale.test.mjs`、`apps/desktop/test/browser-guest-hole-scale.test.mjs`）；完整 UI 旅程为草稿（除非用户明确要求，否则不要本地跑 E2E）
 
 #### E2E-130：Read 生成的 tag 可被 Edit 直接使用而无需重读
 
@@ -10011,3 +10054,32 @@ PluginPack 产物的解包目录，仅用于开发验证。验收 #1711 前需�
   stubbed). Rust provider tests independently verify real SQLite persistence;
   `provider-reasoning-effort.test.ts` captures requests from the real pi-ai
   adapter with fixture SSE responses. No live gateway credentials are required.
+
+
+#### E2E-RUNTIME-malformed-tool-call-continue-recovery: Continue after malformed tool output
+
+- **Preconditions**: An isolated sidecar and loopback Responses fixture can
+  emit an empty tool name, then a corrected Read call. Unit fixtures also
+  cover missing names/IDs, empty Responses wire IDs, non-object arguments,
+  retained malformed context, compaction tails and resumed delegates.
+- **Steps**: Return one malformed response, then invoke the same `agent.prompt`
+  entry used by Continue three times. Repeat with three consecutive malformed
+  responses followed by a corrected response. Keep the runtime alive throughout.
+- **Expected**: Each malformed batch settles with one local
+  `context-validation` error before tool execution, with no transport retry.
+  All three later prompts complete; the corrected Read executes once, and the
+  runtime is reused rather than restarted. Model context retains valid history
+  and system updates while excluding malformed calls and associated results.
+  Optional usage estimation does not lose terminal tool events. The durable
+  transcript and Host permissions are unchanged; unrelated malformed hosted
+  search still fails strict validation.
+- **Specs linked**: `03-runtime/02-agent-runtime.md` §5d.
+- **Acceptance**: Conversation, runtime recovery and quality.
+- **Milestone**: M5 hardening.
+- **Automation**: `pnpm test:e2e:hosted-search` runs the production sidecar and
+  real Responses adapter against synthetic SSE, including one-error and
+  three-error recovery cases. `malformed-tool-recovery.test.ts`,
+  `tool-call-identity.test.ts` and `subagent.test.ts` cover retained state,
+  event/result agreement, batch rejection and delegate restoration.
+- **Status**: Automated offline; native UI clicking and live providers are
+  outside this fixture's coverage.

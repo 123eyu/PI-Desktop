@@ -3,7 +3,7 @@ import { X509Certificate } from "node:crypto";
 import { once } from "node:events";
 import { readFileSync } from "node:fs";
 import { createServer as createHttpsServer } from "node:https";
-import { createServer as createHttpServer, request as httpRequest } from "node:http";
+import { createServer as createHttpServer } from "node:http";
 import { connect, type Socket } from "node:net";
 import { join } from "node:path";
 import { getCACertificates, setDefaultCACertificates, type TLSSocket } from "node:tls";
@@ -45,11 +45,14 @@ const proxy = createHttpServer();
 let tunnels = 0;
 proxy.on("connect", (req, client, head) => {
   const target = new URL(`http://${req.url}`);
-  const address = server.address();
-  // This proxy only serves the local TLS fixture. Chromium background traffic
-  // is unrelated to provider discovery and must never be forwarded to it.
-  if (!address || typeof address === "string" || target.hostname !== "localhost" || Number(target.port) !== address.port) {
-    client.end("HTTP/1.1 502 Bad Gateway\r\nConnection: close\r\n\r\n");
+  // Chromium's own background fetches (component updater, CRL sets) can reach the
+  // session proxy while this probe is installed — a cold profile on a CI runner
+  // connects to a gvt1.com CDN host, for one. Anything but the fixture is that
+  // traffic, not the request under test: refuse it, and keep both the assertions
+  // and `tunnels` about the fixture, so the runner's own traffic cannot fail a
+  // probe that never asked for it.
+  if (target.hostname !== "localhost") {
+    client.end("HTTP/1.1 502 Bad Gateway\r\n\r\n");
     return;
   }
   assert.equal(req.headers["proxy-authorization"], `Basic ${Buffer.from("fixture:password").toString("base64")}`);
@@ -87,19 +90,21 @@ void app.whenReady().then(async () => {
     const proxyAddress = proxy.address();
     assert.ok(address && typeof address !== "string" && proxyAddress && typeof proxyAddress !== "string");
     const baseUrl = `https://localhost:${address.port}/v1`;
-    // Chromium can make background requests through this session's proxy.
-    // They must be denied, never forwarded or counted as fixture traffic.
-    const background = httpRequest({
-      host: "127.0.0.1", port: proxyAddress.port, method: "CONNECT",
-      path: "background.invalid:443",
-      headers: { "proxy-authorization": `Basic ${Buffer.from("fixture:password").toString("base64")}` },
+    // A CONNECT for any host but the fixture is Chromium's own traffic on a cold
+    // profile (component updater, CRL sets) and must be refused, never counted:
+    // it used to trip the tunnel assertions on CI runners (see the proxy handler).
+    const backgroundRefusal = await new Promise<string>((resolve, reject) => {
+      const socket = connect({ host: "127.0.0.1", port: proxyAddress.port });
+      let received = "";
+      socket.on("error", reject);
+      socket.on("connect", () => {
+        socket.write("CONNECT rr2.example.invalid:443 HTTP/1.1\r\nHost: rr2.example.invalid:443\r\n\r\n");
+      });
+      socket.on("data", (chunk) => { received += chunk.toString("latin1"); });
+      socket.on("close", () => resolve(received));
     });
-    const rejected = once(background, "connect");
-    background.end();
-    const [response, socket] = await rejected;
-    assert.equal(response.statusCode, 502);
-    socket.destroy();
-    assert.equal(tunnels, 0, "background traffic must not count as a fixture tunnel");
+    assert.match(backgroundRefusal, /^HTTP\/1\.1 502 Bad Gateway/);
+    assert.equal(tunnels, 0, "background CONNECTs must not count as fixture tunnels");
     await applyNetworkProxy({ mode: "direct" });
     let baselineTimer: ReturnType<typeof setTimeout> | undefined;
     const baselineTimeout = new Promise<{ kind: "timeout" }>((resolve) => {

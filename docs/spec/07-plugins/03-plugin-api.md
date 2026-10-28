@@ -1422,6 +1422,20 @@ works in either placement. The only differences are chrome and the view
 `location` below: a docked view has no window-control capsule and no drag band,
 and its `--pi-plugin-titlebar-height` is `0px` rather than `46px`.
 
+A docked view also follows the host's type size. Its page cannot inherit the
+renderer's `--font-scale`, because it is not the app document, so the host
+repeats the Appearance font size (D343 / ADR 0180) multiplied by the window zoom
+as that page's zoom factor and re-applies it to every fresh document. At that
+factor one CSS pixel inside the plugin paints at the same DIP size as one CSS
+pixel in the app, so author-sized text and controls keep their proportion with
+the panel around them at every setting — no reload, and no host design tokens for
+the plugin to adopt. Two consequences a view author can observe: page pixels are
+the scaled page's own pixels, so a rect handed back to a host API that positions
+native content (`browser.setBounds` in `pi.browser`) is converted by the host,
+and a page that pins layout to fixed window metrics must scale them itself.
+Detached `ui.panel` windows and floating widgets keep their own base size: they
+are their own windows, not a surface composited inside the app.
+
 Detached panel pages using the current chrome contract declare
 `<meta name="pi-plugin-chrome" content="v2">` and use the published variable
 for normal-flow top spacing. The host preserves that page-owned spacing. A
