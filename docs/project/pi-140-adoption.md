@@ -51,6 +51,14 @@ and [pi-coding-agent changelog](https://github.com/earendil-works/pi/blob/v1.4.0
 Validation was run from the dedicated request worktree based on
 `c014b32060ca2dc7ace4c83f181685a6e0140c78` (`origin/main`, 2026-10-28).
 
+- Task candidate: `b460e75806f433085c4915c6da4ceb57a60dd466`; base main:
+  `c014b32060ca2dc7ace4c83f181685a6e0140c78`. Candidate suites:
+  `pnpm --filter @pi-desktop/agent-runtime test` (1,556/1,556),
+  `pnpm test:e2e:hosted-search` (10/10), and
+  `PI_DESKTOP_HOST_BIN=<reused debug host binary> pnpm test:e2e:trusted-extensions`
+  (57/57). All three passed. E2E used isolated temporary profiles and fixtures,
+  Electron 43.6.0 from the primary checkout, and the existing debug Host binary;
+  it used no real provider credentials or live services.
 - `pnpm build:js`, Desktop typecheck, lint, and `pnpm docs:check` passed.
 - All 111 Agent Runtime test files passed (1,556 tests). The focused 1.4
   identity/contract/runtime/subagent set passed (426 tests).
