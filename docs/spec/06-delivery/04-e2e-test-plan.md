@@ -11891,8 +11891,11 @@ This test plan spec is accepted when:
   3) Drag the slider to 125%. Confirm Trenta becomes selected and
      every `--text-*` surface and icon grows further. Confirm the UI never
      shows a px field.
-  4) Use Zoom In, then Reset Zoom. Confirm window zoom still scales chrome
-     and that the type scale remains 125% after reset.
+  4) Open the Browser and Files work-panel tabs, then use Zoom In and Reset
+     Zoom. Confirm window zoom still scales chrome, that the type scale
+     remains 125% after reset, and that both docked plugin pages follow it:
+     their text and controls keep the same proportion as the app, and the
+     Browser guest page still fills the area under its per-type-size toolbar.
   5) Restart the app and confirm the 125% scale is still applied
      (`AppSettings.fontScale` = 1.25).
   6) Choose Grande. Confirm the whole UI returns to 100% immediately;
@@ -11903,13 +11906,20 @@ This test plan spec is accepted when:
   `AppSettings.fontScale` (absent means 1) and sets `--font-scale`, multiplying
   every `--text-*` token and shared Lucide icon. Window Zoom In/Out/Reset remains
   independent.
+  Docked plugin work-panel views (the bundled Browser and Files pages) repeat
+  that multiplier — times the window zoom — as their own page zoom instead of
+  importing the app tokens, so they stay in proportion at every setting, and a
+  `pi.browser` guest rect is converted with the same factor. Detached plugin
+  windows and widgets keep their own base size.
   Invalid values are rejected or clamped. No protocol or schema version bump.
 - **Specs linked**: `04-ux/06-settings-ia.md`, `04-ux/07-ui-design-system.md`,
   ADR 0180, D343
 - **Acceptance**: A (core shell), B (settings), H (localization)
 - **Milestone**: M5+
 - **Status**: Unit-covered (`packages/shared/src/font-size.test.ts`,
-  `apps/desktop/test/settings-font-size.test.mjs`); full UI journey Draft
+  `apps/desktop/test/settings-font-size.test.mjs`,
+  `apps/desktop/test/plugin-view-scale.test.mjs`,
+  `apps/desktop/test/browser-guest-hole-scale.test.mjs`); full UI journey Draft
   (run only in a capable environment when this surface changes)
 
 #### E2E-127: macOS keeps the app in the Dock and Cmd+Tab

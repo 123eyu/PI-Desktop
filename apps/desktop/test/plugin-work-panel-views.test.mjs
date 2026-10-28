@@ -295,3 +295,29 @@ test("host panel events reach docked views as well as detached windows", () => {
   assert.match(mainSource, /plugins\.broadcastEvent\("appearance:changed"/);
   assert.match(mainSource, /function setCurrentWorkspacePath/);
 });
+
+test("docked views follow the app's type scale and the window zoom", () => {
+  const lifecycleSource = readMainModuleSync("bootstrap/app-lifecycle.ts");
+  const browserHostSource = read("electron/main/browser-host.ts");
+  // A docked view is its own page, so the Appearance type scale has to be
+  // republished as that page's zoom: the settings path feeds it in, a live view
+  // is rescaled in place, and a window zoom re-asserts the composed factor.
+  assert.match(
+    lifecycleSource,
+    /pluginViews\.setFontScale\(resolveFontScale\(\{ fontScale: settings\?\.fontScale \}\)\)/,
+  );
+  assert.match(lifecycleSource, /function resyncDockedPluginZoom\(target: BrowserWindow\)/);
+  assert.match(lifecycleSource, /resyncDockedPluginZoom\(target\);/);
+  assert.match(viewHostSource, /setFontScale\(scale: number\): void/);
+  assert.match(viewHostSource, /wc\.setZoomFactor\(zoom\)/);
+  // Every fresh document re-applies it, so a reload or a navigation cannot
+  // leave a plugin page at its author size.
+  assert.match(viewHostSource, /wc\.on\("dom-ready", \(\) => this\.applyZoom\(wc, this\.viewZoom\(\)\)\)/);
+  // The browser guest is placed from chrome CSS pixels, so the surface carries
+  // the factor the chrome is painting at.
+  assert.match(viewHostSource, /scale: this\.viewZoom\(\)/);
+  assert.match(
+    browserHostSource,
+    /scaleGuestHole\(this\.hole, this\.chrome\.scale\)/,
+  );
+});
