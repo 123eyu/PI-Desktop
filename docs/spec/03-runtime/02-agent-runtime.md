@@ -182,8 +182,9 @@ host-confirmed transition.
 ### 5d. Bounded provider recovery and diagnostics (D186, D245, D259, D378, ADR 0091, ADR 0128, ADR 0206)
 
 Provider request setup and stream delivery are separate failure phases, but
-HTTP 429 handling is one response-recovery policy. pi-ai's nested adapter retry is
-disabled for this path so the runtime can share one budget across both phases.
+throughput-limit HTTP 429s use one response-recovery policy. pi-ai's nested
+adapter retry is disabled for this path so the runtime can share one budget
+across both phases.
 
 `PROVIDER_RATE_LIMITED` receives at most ten retries after the initial
 attempt, for eleven provider attempts total. A setup 429 is retried inside the
@@ -192,8 +193,10 @@ the next model context and calls `continue()` in the same turn. Both phases
 claim the same counter, so a setup 429 followed by a stream 429 cannot reset or
 multiply the budget. The captured response status is applied before classifying
 the provider message in both phases, so a generic 429 body still enters the
-429 budget while known non-retryable classifications remain terminal. The main
-session and builtin subagents use the same controller and policy.
+429 budget while known non-retryable classifications remain terminal. Explicit
+billing/account exhaustion (including `insufficient_quota` and spend-limit
+codes) is terminal `PROVIDER_ERROR` even with HTTP 429. The main session and
+builtin subagents use the same controller and policy.
 
 429 retries are silent at the transcript lifecycle: no intermediate assistant
 error, lifecycle `error`, `turn_end`, `agent_end`, or duplicate assistant
