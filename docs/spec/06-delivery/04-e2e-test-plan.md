@@ -37,6 +37,13 @@
 - **Expected:** Input stops the old browser animation at the current offset;
   later frames cannot move the reader toward its stale destination. Streaming,
   disclosure anchoring, pinned follow, and long-history work budgets still pass.
+- Repeat owned wheel, scroll-key, scrollbar-surface and touch inputs in the
+  main and delegated scrollers. Observe real browser calls to distinguish
+  application cancellation from Chromium's own pointer behavior. Button Space,
+  button presses, select arrows and nested wheel input must not request an
+  ancestor cancellation. Button Space must allow the original navigation to
+  finish. `e2e-transcript-turn-completion.mjs` also verifies normal completed-turn
+  prompt navigation and a reader's manually retained position.
 - **Coverage:** `node scripts/e2e-transcript-disclosure-anchor.mjs` and
   `node scripts/e2e-transcript-render.mjs`.
 - **Specs:** Interaction patterns §2.2. **Milestone:** Maintenance.
