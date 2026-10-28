@@ -4655,6 +4655,52 @@ describe("DesktopAgentRuntime thinking configuration", () => {
     await runtime.dispose();
   });
 
+  it("does not replay an echoed reasoning placeholder as the model's own thinking (#1945)", async () => {
+    const runtime = createRuntime({
+      provider: {
+        ...provider,
+        vendorKey: "deepseek",
+        baseUrl: "https://relay.example/v1",
+        modelId: "deepseek-v4",
+        modelConfig: {
+          ...provider.modelConfig!,
+          baseUrl: "https://relay.example/v1",
+        },
+      },
+      history: [
+        {
+          id: "assistant-echo-only",
+          role: "assistant",
+          content: "first answer",
+          thinking: "[reasoning not retained for this turn]",
+          createdAt: new Date().toISOString(),
+          status: "complete",
+        },
+        {
+          id: "assistant-echo-prefix",
+          role: "assistant",
+          content: "second answer",
+          thinking: "[reasoning not retained for this turn]real plan",
+          createdAt: new Date().toISOString(),
+          status: "complete",
+        },
+      ],
+    });
+    const assistants = (runtime as any).agent.state.messages.filter(
+      (message: any) => message.role === "assistant",
+    );
+
+    expect(assistants.map((message: any) => message.content)).toEqual([
+      [{ type: "text", text: "first answer" }],
+      [
+        { type: "thinking", thinking: "real plan", thinkingSignature: "reasoning_content" },
+        { type: "text", text: "second answer" },
+      ],
+    ]);
+
+    await runtime.dispose();
+  });
+
   it("keeps provider-native thinking unsigned for Anthropic history", async () => {
     const runtime = createRuntime({
       provider: {

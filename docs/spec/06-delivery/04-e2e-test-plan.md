@@ -1788,6 +1788,11 @@ identify the platform validation still needed.
   turns that had no thinking. Non-official DeepSeek-family relays use real
   retained thinking when available, otherwise the documented non-empty
   placeholder from ADR 0256 — never a silent empty string after compaction.
+  Each assistant message carries exactly one reasoning field, named after the
+  newest assistant row's field; real reasoning stored under another field name
+  is moved there rather than replaced by the placeholder, which only fills rows
+  with no reasoning at all (D677). The thinking panel and replayed history
+  never show a leading echo of the placeholder as reasoning.
   Relay requests omit the generic OpenAI `reasoning_effort` field because
   relays were reported rejecting it (#1664). Official `api.deepseek.com`
   requests send `thinking: {type: "enabled"}` together with the selected
@@ -1800,7 +1805,8 @@ identify the platform validation still needed.
 - **Acceptance**: B (provider Completions compatibility)
 - **Milestone**: M2
 - **Status**: Unit-covered (compat inject + convertMessages empty/non-empty fill +
-  compaction retained-reasoning wire proof); live OpenCode / aggregator
+  mixed-field normalization + echoed-placeholder strip + compaction
+  retained-reasoning wire proof); live OpenCode / aggregator
   verification deferred; rendered UI scenario pending
 
 #### E2E-006: Key survives restart
