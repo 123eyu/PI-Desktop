@@ -447,6 +447,20 @@ export class PluginViewHost {
     if (!entry.view.webContents.isDestroyed()) entry.view.webContents.close();
   }
 
+  /**
+   * Detach the on-screen view without closing its page (renderer reload path).
+   *
+   * A renderer reload drops the React tree that owns plugin-view visibility.
+   * The native view would keep compositing above the fresh renderer as an
+   * orphan layer nothing can hide or close — its owning tab is gone and the
+   * new tree starts with an empty panel. Main therefore detaches on every
+   * main-frame navigation; the reloaded renderer re-attaches a view through
+   * the normal open/setVisible path when the user opens the tab again.
+   */
+  hideVisibleView(): void {
+    this.detachVisible();
+  }
+
   private detachVisible(): void {
     const entry = this.visibleKey ? this.views.get(this.visibleKey) : null;
     this.visibleKey = null;

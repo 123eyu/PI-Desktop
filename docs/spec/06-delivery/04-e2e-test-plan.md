@@ -4832,7 +4832,11 @@ window; opening a normal panel afterward must still work.
   Move the normal window between displays and change the active display's
   work-area geometry. 12) Send valid and malformed reservation payloads,
   including positive values, and confirm the compatibility seam never changes
-  native bounds. 13) Relaunch.
+  native bounds. 13) Relaunch. 14) Open a contributed plugin view and reload
+  the main renderer with Cmd/Ctrl+R. Confirm the native view detaches before the
+  new renderer appears, then reopen its tab and verify the cached plugin page
+  returns. Repeat with a same-document navigation and a child-frame navigation;
+  neither may detach the active view.
 - **Expected**: Startup shows no panel, welcome chooser, or fixed tool buttons.
   A viewport-fixed toggle in the window's top-right corner is the pointer
   equivalent of Cmd/Ctrl+J; there is still no application-menu launcher.
@@ -4882,8 +4886,11 @@ window; opening a normal panel afterward must still work.
   that preferred panel width. The compatibility reservation seam returns
   `{requested: 0, reserved: 0}` for every valid request, including positive
   legacy values, and never changes native bounds. Malformed payloads fail with
-  `INVALID_ARGUMENT` and never coerce. The former context-panel overlay no
-  longer exists.
+  `INVALID_ARGUMENT` and never coerce. A full main-frame renderer reload
+  detaches the visible plugin view without closing its page, so no orphan
+  overlay covers the fresh renderer; reopening the tab reattaches that same
+  page. Same-document and child-frame navigation leave the view attached. The
+  former context-panel overlay no longer exists.
 - **Specs linked**: `03-runtime/01-ipc-protocol.md`, `04-ux/01-ui-ia.md`,
   `04-ux/07-ui-design-system.md`, `04-ux/08-component-spec.md`,
   `04-ux/09-interaction-patterns.md`, ADR 0068, ADR 0151, ADR 0195, D207, D292,
@@ -4893,7 +4900,8 @@ window; opening a normal panel afterward must still work.
 - **Status**: Unit-covered (`work-panel-resize.test.mjs`,
   `work-panel-window.test.mjs`, `work-panel-presentation.test.mjs`,
   `work-panel-tabs.test.mjs`, `browser-tab-restore.test.mjs`,
-  `work-panel.test.mjs`, `plugin-work-panel-views.test.mjs`); isolated Electron
+  `work-panel.test.mjs`, `plugin-work-panel-views.test.mjs`,
+  `plugin-view-navigation.test.mjs`); isolated Electron
   tab-menu, Browser native-menu page visibility, and close geometry in
   `scripts/e2e-work-panel-tab-close.mjs`; full UI scenario Draft
 
