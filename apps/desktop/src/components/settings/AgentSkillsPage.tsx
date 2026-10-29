@@ -145,7 +145,17 @@ export function AgentSkillsPage() {
     const next = !skill.enabled;
     patchRow(level, skill.id, { enabled: next });
     try {
-      await api.setUserSkillEnabled(skill.id, next, levelQuery(level));
+      // The switch writes the state for the row's own level. A global skill's
+      // toggle must record the global default - carrying the selected project
+      // here would store a per-project override while the switch reads as
+      // global, so one project's "off" silently left every other project on.
+      // Only project rows need the path: the host resolves the definition
+      // through that project's directory.
+      await api.setUserSkillEnabled(
+        skill.id,
+        next,
+        level === "global" ? { level } : levelQuery(level),
+      );
       showToast(
         t(next ? "settings.capabilityEnabled" : "settings.capabilityDisabled", {
           name: skill.name || skill.id,

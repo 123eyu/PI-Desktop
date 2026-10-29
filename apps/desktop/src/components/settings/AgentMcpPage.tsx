@@ -216,7 +216,17 @@ export function AgentMcpPage() {
     // on a switch reads as a broken control.
     patchRow(level, server.id, { enabled: next });
     try {
-      await api.setMcpServerEnabled(server.id, next, levelQuery(level));
+      // The switch writes the state for the row's own level. A global server's
+      // toggle must record the global default - carrying the selected project
+      // here would store a per-project override while the switch reads as
+      // global, so one project's "off" silently left every other project on.
+      // Only project rows need the path: the host scans that project's
+      // directory to find the definition.
+      await api.setMcpServerEnabled(
+        server.id,
+        next,
+        level === "global" ? { level } : levelQuery(level),
+      );
       showToast(
         t(next ? "settings.capabilityEnabled" : "settings.capabilityDisabled", {
           name: server.label || server.id,
