@@ -1549,6 +1549,11 @@ sweep promotes a leftover checkpoint whose final row never landed: as
 `aborted` turn. `completed`/`error` endTurn does not delete an unindexed
 checkpoint. A user Stop does not touch the checkpoint, because the runtime's
 own aborted final row is still on its way and removes it on arrival.
+Checkpoint writes are serialized per session even across message settlement:
+forgetting a pending snapshot does not cancel or release an already issued RPC.
+Shutdown drains both pending snapshots and unfinished writes before disposing
+the host. A final-message flush stays scoped to that message; later replies keep
+the streaming throttle, and other sessions can save independently.
 Electron handshake awaits the outbox drain before a cold `session.get`.
 Renderer-side Stop never rewrites a transcript that has a
 started reply (spec 01 §5.3); its only rewrite is the undo of an unanswered
