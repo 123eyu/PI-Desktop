@@ -1,5 +1,8 @@
 # Unreleased changes
 
+- Fixed duplicate `/、` when opening slash commands with a Chinese IME in an
+  empty composer. Keep pre-edit text intact and apply the slash alias only
+  after composition commits, preserving recovery from a missing end event.
 - Add OpenAI Fast mode (#1657). Allow it per model in Settings → Models for a
   ChatGPT subscription or an OpenAI Responses connection, then type `/fast` to
   turn it on for the current conversation. Requests ask for the priority

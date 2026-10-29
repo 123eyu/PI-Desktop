@@ -1547,6 +1547,10 @@ Project drag/drop follows these patterns:
   that is not part of a composition also ends the composition, so an IME that
   drops `compositionend` (a Windows Chinese IME deleting its composing text)
   cannot leave the menu frozen until the composer unmounts (#929).
+- Composing input updates the draft without rewriting the leading `、` or
+  repainting its native text nodes. On `compositionend`, read the final editor
+  text and apply the slash alias once if composition began in an empty draft.
+  This prevents the IME's commit from appending `、` after an already painted `/`.
 - Enter that confirms an IME candidate never sends and never accepts a menu
   item; ↑/↓ during candidate navigation belong to the IME.
 
