@@ -88,6 +88,23 @@
 - **Specs:** `04-ux/08-component-spec.md` §turn-process; **Milestone:** Maintenance.
 - **Status:** Unit and source-contract regression; visual Electron scenario Draft.
 
+### E2E-CHECKPOINT-drain-before-host-exit
+
+- **Entry:** `node scripts/e2e-checkpoint-lifecycle.mjs` after building shared
+  and host-runtime dependencies.
+- **Sequence:** Hold a streaming checkpoint RPC, start runtime disposal, release
+  the save and restart the host peer. Then hold an older turn's save, settle its
+  message, start a new reply, and save a second session while the first is held.
+- **Expected:** Host disposal waits for the checkpoint acknowledgement; the
+  restarted peer reads the saved progress. A new save in the same session waits
+  for the older write, so the newest reply remains on disk. The independent
+  session saves while the other is blocked.
+- **Coverage:** Production `HostProcess`, `TurnEventPipeline` and
+  `InflightCheckpointer`, real child processes and temporary disk files; a
+  controlled Node JSON-RPC peer replaces Rust host-core. Unit tests cover late
+  settlement, snapshots arriving during a drain, failure recovery and throttling.
+- **Specs:** `03-runtime/04-data-storage.md` §4.7, ADR 0153.
+
 ### E2E model discovery membership
 
 - **Entry:** `node scripts/e2e-model-discovery-state.mjs` after building Host,
