@@ -68,6 +68,26 @@
 - **Status:** Automated browser regression; the interruption assertion fails
   without explicit cancellation of the browser-owned smooth navigation.
 
+### E2E-TRANSCRIPT-live-turn-not-tail-stays-running
+
+- **Preconditions:** Real transcript projection with the production
+  `ChatTranscript`; a running session whose turn has streaming rows, and a
+  steering message or system row rendered after that turn.
+- **Steps:** While the turn's tool or reasoning rows stream, append a steering
+  user message so the turn is no longer the tail entry. Observe the process
+  header, the disclosure state, and the turn menu. Then settle the rows;
+  separately stop the session mid-turn with rows left streaming.
+- **Expected:** The non-tail live turn keeps a running process header with its
+  activity marker, its process stays open, and copy/regenerate stay gated on
+  completion; the settled turn then reads completed. In a stopped or idle
+  transcript the same stuck rows read as an unknown outcome instead (#1923),
+  and a reading window over older history never claims live status (#1900).
+- **Coverage:** `node --test apps/desktop/test/turn-process.test.mjs` and
+  `apps/desktop/test/transcript-live-turn.test.mjs` pin the liveness selection,
+  the phase reading, and the wiring contract. Full Electron journey Draft.
+- **Specs:** `04-ux/08-component-spec.md` §turn-process; **Milestone:** Maintenance.
+- **Status:** Unit and source-contract regression; visual Electron scenario Draft.
+
 ### E2E model discovery membership
 
 - **Entry:** `node scripts/e2e-model-discovery-state.mjs` after building Host,
