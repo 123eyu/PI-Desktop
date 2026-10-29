@@ -17155,10 +17155,30 @@ plugin-form fixtures in an isolated temporary directory at runtime.
 | E2E-MCP-MARKET-NET-BOUNDARY | The URL guard rejects credentials, cloud metadata, unspecified, multicast and reserved forms (trailing dot included) even when the user typed them, and rejects loopback, private, special-use IPv4, v4-mapped, ULA, site-local and link-local forms for *third-party* hops — a redirect target or a catalog body; the same forms typed by the user into a source field are accepted, with plain `http` behind `networkPolicy.allowInsecureUserEndpoints`; direct/unknown routes pin the checked address by default, while a fully proxied route uses the session transport and an explicit `allowFakeIp` opt-in can cover transparent-router fake-IP sources without allowing real private answers | deterministic guard assertions; source-contract coverage for DNS pin, proxy route selection, explicit fake-IP scope and bounded responses |
 | E2E-MCP-MARKET-SEMANTICS | Registry records map to install templates preserving package versions, named/positional runtime/package arguments and required/optional env variables; a remote header variable is recognized in both the registry's `{name}` and the catalog's `${NAME}` spelling, prompts for declared editable values, preserves unbound brace literals, and resolves header-local defaults, fixed values, and optional flags without merging same-named inputs across headers (ADR registry-header-variable-spelling) | deterministic mapping assertions |
 | E2E-MCP-MARKET-INSTALL | Builtin catalog entry resolves through `resolveCatalogEntry` and installs via the host `mcp.upsert` RPC; record lands in `~/.agents/servers/` | real host binary, isolated temp HOME |
+| E2E-MCP-MARKET-explicit-project-owner | Select Project on the MCP page, open Market, and install a builtin entry; the upsert carries the selected project and the saved row appears in that project. All and Global retain global installation, and an entry in another level does not block installation | real React page and market in isolated Electron; IPC boundary fixture (`apps/desktop/test/mcp-market-owner-user-path.test.mjs`) |
 | E2E-MCP-MARKET-HEADER-SCOPE | Registry header-local `{token}` resolves only in its header; same-named URL path/query tokens remain literal through mapping, resolution, host upsert/list and persistence. URL templates retain only legacy `${NAME}` substitution. When `headerBindings` exists (even empty or partial), unbound tokens in every header stay literal and never consume another header's input or default | shared regressions plus real host binary with isolated temporary storage; remote entry disabled, no network call |
 | E2E-MCP-MARKET-partial-header-bindings-stay-literal | Resolve a catalog with only Authorization bound and another header using the same `{token}` / `${token}`; an undeclared `${UNBOUND}` in a third header also remains literal through host upsert/list and disk persistence | real host binary, disabled remote entry, synthetic input and isolated temporary storage; no network call |
 | E2E-MARKET-CATALOG-RETRY | In Skill Market and MCP Market, a failed query and then a partial source failure expose Retry; clicking it announces loading, refreshes the same query, and clears the failure when the source recovers | real React components in Electron with deterministic mocked market API responses; no live network |
 
+
+#### E2E-MCP-MARKET-explicit-project-owner: Market installation respects an explicit Project filter
+
+- **Preconditions**: MCP settings with a selected project; isolated Electron
+  profile and deterministic IPC responses, without live market or MCP calls.
+- **Steps**: Select Project, open Market, install a builtin entry, and reopen
+  Market. Repeat with All and Global, with no project under All, and with the
+  same entry already present in the other level. Select Project with no
+  project, then try an install directly through the panel's public interface.
+- **Expected**: Project sends `level: "project"` and the selected `projectPath`;
+  All and Global send `level: "global"` without a project owner. The installed
+  row appears on return, and reopening Market marks it installed only for the
+  target level. A record in another level never blocks installation. With no
+  project selected, the Project market action is disabled and the panel guard
+  reports the missing selection without writing.
+- **Specs linked**: `04-ux/06-settings-ia.md`, ADR 0112.
+- **Acceptance**: Quality.
+- **Milestone**: M6+.
+- **Status**: Automated (`node --test apps/desktop/test/mcp-market-owner-user-path.test.mjs`).
 
 #### E2E-SKILL-MARKET-NET-BOUNDARY: A user-supplied source reaches the LAN, third-party content does not
 
