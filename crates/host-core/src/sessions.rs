@@ -277,6 +277,11 @@ pub struct UiMessage {
     /// Internal model-context state, preserved outside visible message text.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub model_system: Option<Value>,
+    /// Opaque provider replay data (thinking/text block boundaries and
+    /// signatures) for an assistant row. Stored in record meta; no SQL
+    /// migration, and older builds ignore it.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub provider_replay: Option<Value>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -392,6 +397,9 @@ pub(crate) fn ui_to_record(message: &UiMessage) -> (MessageRecord, Option<String
     let mut meta_obj = serde_json::Map::new();
     if let Some(system) = &message.model_system {
         meta_obj.insert("modelSystem".into(), system.clone());
+    }
+    if let Some(replay) = &message.provider_replay {
+        meta_obj.insert("providerReplay".into(), replay.clone());
     }
     if let Some(command) = &message.command {
         meta_obj.insert("command".into(), json!(command));
@@ -549,6 +557,7 @@ pub(crate) fn record_to_ui(record: MessageRecord) -> UiMessage {
     };
     let meta = record.meta.unwrap_or(Value::Null);
     let model_system = meta.get("modelSystem").cloned();
+    let provider_replay = meta.get("providerReplay").cloned();
     let command = meta
         .get("command")
         .and_then(Value::as_str)
@@ -727,6 +736,7 @@ pub(crate) fn record_to_ui(record: MessageRecord) -> UiMessage {
             agent_name,
             hosted_search: hosted_search.clone(),
             model_system: None,
+            provider_replay: None,
         }
     } else {
         let content = blocks
@@ -772,6 +782,7 @@ pub(crate) fn record_to_ui(record: MessageRecord) -> UiMessage {
             agent_name,
             hosted_search,
             model_system,
+            provider_replay,
         }
     }
 }
@@ -4452,6 +4463,7 @@ mod tests {
             agent_name: None,
             hosted_search: None,
             model_system: None,
+            provider_replay: None,
             session_message: None,
         }
     }
@@ -5415,6 +5427,7 @@ mod tests {
             agent_name: None,
             hosted_search: None,
             model_system: None,
+            provider_replay: None,
             session_message: None,
         };
         append_message(&db, &session.id, &tool, None).unwrap();
@@ -6217,6 +6230,7 @@ mod tests {
             agent_name: None,
             hosted_search: None,
             model_system: None,
+            provider_replay: None,
             session_message: None,
         };
         append_message(&db, &session.id, &assistant, None).unwrap();
@@ -6261,6 +6275,64 @@ mod tests {
     }
 
     #[test]
+    fn assistant_provider_replay_roundtrips_in_record_meta() {
+        let db = test_db();
+        let session = create_session(&db, None, None, None, None, None).unwrap();
+        let replay = json!({
+            "version": 1,
+            "blocks": [
+                { "type": "thinking", "length": 3, "signature": "sig-a" },
+                { "type": "text", "length": 6 }
+            ]
+        });
+        let assistant: UiMessage = serde_json::from_value(json!({
+            "id": "assistant-replay-1",
+            "role": "assistant",
+            "content": "answer",
+            "thinking": "abc",
+            "createdAt": "2025-05-01T00:00:01Z",
+            "status": "complete",
+            "providerReplay": replay,
+        }))
+        .unwrap();
+        let plain: UiMessage = serde_json::from_value(json!({
+            "id": "assistant-replay-2",
+            "role": "assistant",
+            "content": "plain",
+            "createdAt": "2025-05-01T00:00:02Z",
+            "status": "complete",
+        }))
+        .unwrap();
+        append_message(&db, &session.id, &assistant, None).unwrap();
+        append_message(&db, &session.id, &plain, None).unwrap();
+
+        let records = transcripts::read_transcript(db.data_dir(), &session.id).unwrap();
+        assert_eq!(
+            records[0]
+                .meta
+                .as_ref()
+                .and_then(|m| m.get("providerReplay")),
+            Some(&replay)
+        );
+        // Replay data lives in meta only: the visible blocks are unchanged.
+        assert_eq!(
+            records[0].blocks,
+            json!([{ "type": "thinking", "text": "abc" }, { "type": "text", "text": "answer" }])
+        );
+        assert!(records[1]
+            .meta
+            .as_ref()
+            .and_then(|m| m.get("providerReplay"))
+            .is_none());
+
+        let detail = get_session(&db, &session.id).unwrap().unwrap();
+        assert_eq!(detail.messages[0].provider_replay, Some(replay));
+        assert_eq!(detail.messages[0].thinking.as_deref(), Some("abc"));
+        assert_eq!(detail.messages[0].content, "answer");
+        assert_eq!(detail.messages[1].provider_replay, None);
+    }
+
+    #[test]
     fn assistant_hosted_search_roundtrips_as_canonical_blocks() {
         let db = test_db();
         let session = create_session(&db, None, None, None, None, None).unwrap();
@@ -6297,6 +6369,7 @@ mod tests {
             nested_parent_tool_call_id: None,
             agent_name: None,
             model_system: None,
+            provider_replay: None,
             hosted_search: Some(json!({
                 "status": "completed",
                 "rounds": [
