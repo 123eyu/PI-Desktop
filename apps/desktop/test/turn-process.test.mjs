@@ -709,6 +709,41 @@ test("the last assistant-turn of the current run is the live turn when it is not
     undefined,
   );
 
+  // A system row renders after the running turn's rows when a system update
+  // lands during a tool call; it stays inside the run, so the walk reaches
+  // the turn instead of stopping at the row.
+  const systemTailed = buildTranscriptEntries([
+    message("u8", "user", "go"),
+    message("a8", "assistant", "partial answer", { status: "streaming" }),
+    message("sys8", "system", "model config updated mid-turn"),
+  ]);
+  const systemHistory = systemTailed.entries.slice(0, -1);
+  const systemTurn = systemHistory.find((entry) => entry.kind === "assistant-turn");
+  assert.equal(systemTurn.kind, "assistant-turn");
+  assert.equal(
+    liveHistoryTurnId(systemHistory, systemTailed.entries.at(-1)),
+    systemTurn.id,
+  );
+
+  // modelSystem rows never render: the projection filters them from the
+  // entries, so they cannot end the walk either way.
+  const modelSystemTailed = buildTranscriptEntries([
+    message("u9", "user", "go"),
+    message("a9", "assistant", "partial answer", { status: "streaming" }),
+    message("ms9", "system", "hidden model system note", { modelSystem: true }),
+    message("steer9", "user", "keep going", { steering: true }),
+  ]);
+  const msHistory = modelSystemTailed.entries.slice(0, -1);
+  assert.equal(
+    msHistory.some((entry) => entry.kind === "message" && entry.message.id === "ms9"),
+    false,
+  );
+  const msTurn = msHistory.find((entry) => entry.kind === "assistant-turn");
+  assert.equal(
+    liveHistoryTurnId(msHistory, modelSystemTailed.entries.at(-1)),
+    msTurn.id,
+  );
+
   // A turn left streaming behind a later ordinary prompt keeps the unsettled
   // reading: the later run's boundary excludes it (#1923).
   const crashedThenNew = buildTranscriptEntries([
