@@ -7,7 +7,11 @@ import {
   type McpServerStatus,
 } from "@pi-desktop/shared";
 import { api } from "../../lib/api";
-import { capabilityQuery } from "../../lib/capability-scope";
+import {
+  capabilityQuery,
+  deriveProjectOverrides,
+  type CapabilityOverride,
+} from "../../lib/capability-scope";
 import { useAppStore } from "../../stores/app-store";
 import { useHostCollection } from "../../hooks/use-host-collection";
 import { useRowBusy } from "../../hooks/use-row-busy";
@@ -46,6 +50,7 @@ import {
   IconPencil,
   IconPlay,
   IconPlus,
+  IconRefresh,
   IconServer,
   IconTerminal,
   IconTrash,
@@ -86,8 +91,10 @@ export function AgentMcpPage() {
   const fetchServers = useCallback(async (): Promise<McpCollection> => {
     // The global list omits the selected project on purpose: its rows read the
     // global default, the same scope the switch writes, so the two can never
-    // disagree (#1957). Only project rows are per-project state.
-    const [global, project] = await Promise.all([
+    // disagree (#1957). The project-scoped global query runs beside it only to
+    // surface stored overrides: the runtime gives them precedence, so a stale
+    // one written by the old UI must stay visible and resettable, not hidden.
+    const [global, project, globalEffective] = await Promise.all([
       api.listMcpServers({ level: "global" }),
       selectedProjectPath
         ? api.listMcpServers({ level: "project", projectPath: selectedProjectPath })
@@ -95,7 +102,16 @@ export function AgentMcpPage() {
             servers: [] as McpServerRecord[],
             statuses: [] as McpServerStatus[],
           }),
+      selectedProjectPath
+        ? api.listMcpServers({ level: "global", projectPath: selectedProjectPath })
+        : Promise.resolve({
+            servers: [] as McpServerRecord[],
+            statuses: [] as McpServerStatus[],
+          }),
     ]);
+    setGlobalOverrides(
+      deriveProjectOverrides(global.servers ?? [], globalEffective.servers ?? []),
+    );
     return {
       global: global.servers ?? [],
       project: project.servers ?? [],
@@ -114,6 +130,9 @@ export function AgentMcpPage() {
   const setStatuses = (update: (current: McpServerStatus[]) => McpServerStatus[]) =>
     setServers((current) => ({ ...current, statuses: update(current.statuses) }));
   const [filter, setFilter] = useState<CapabilityFilter>("all");
+  const [globalOverrides, setGlobalOverrides] = useState<Map<string, CapabilityOverride>>(
+    () => new Map(),
+  );
   const [importOpen, setImportOpen] = useState(false);
   const [search, setSearch] = useState("");
   const rowBusy = useRowBusy();
@@ -226,6 +245,31 @@ export function AgentMcpPage() {
       );
     } catch (error) {
       patchRow(level, server.id, { enabled: server.enabled });
+      showToast(error instanceof Error ? error.message : String(error), { variant: "error" });
+    } finally {
+      rowBusy.end(key);
+    }
+  };
+
+  // A stored per-project override keeps runtime precedence over the global
+  // default, so it has to be visible and clearable, never just hidden. Writing
+  // the current default under the project's scope removes the key: the host
+  // drops a per-project entry whose value matches the default.
+  const resetProjectOverride = async (server: McpServerRecord) => {
+    if (!selectedProjectPath) return;
+    const key = rowKey("global", server.id);
+    if (!rowBusy.begin(key)) return;
+    try {
+      await api.setMcpServerEnabled(server.id, server.enabled, {
+        level: "global",
+        projectPath: selectedProjectPath,
+      });
+      showToast(
+        t("settings.capabilityOverrideReset", { name: server.label || server.id }),
+        { variant: "success" },
+      );
+      await load();
+    } catch (error) {
       showToast(error instanceof Error ? error.message : String(error), { variant: "error" });
     } finally {
       rowBusy.end(key);
@@ -470,6 +514,20 @@ export function AgentMcpPage() {
             } satisfies CapabilityMenuItem,
           ]
         : []),
+      ...(level === "global" && selectedProjectPath && globalOverrides.get(server.id)
+        ? [
+            {
+              key: "reset-override",
+              label: t("settings.capabilityOverrideResetItem"),
+              icon: <IconRefresh size={14} />,
+              disabled: busy,
+              onSelect: () => {
+                setMenuFor(null);
+                void resetProjectOverride(server);
+              },
+            } satisfies CapabilityMenuItem,
+          ]
+        : []),
       /**
        * A move needs a destination, so a global row offers it only while the
        * picker names a project; a project row always has Global to go back to.
@@ -524,6 +582,13 @@ export function AgentMcpPage() {
                 ? t("settings.capabilityFilterGlobal")
                 : t("settings.capabilityFilterProject")}
             </span>
+            {level === "global" && selectedProjectPath && globalOverrides.get(server.id) ? (
+              <span className="agent-capability-badge is-override">
+                {globalOverrides.get(server.id) === "off"
+                  ? t("settings.capabilityOverrideOff")
+                  : t("settings.capabilityOverrideOn")}
+              </span>
+            ) : null}
             <span className="agent-capability-badge">
               {server.transport === "http"
                 ? t("settings.transportHttp")

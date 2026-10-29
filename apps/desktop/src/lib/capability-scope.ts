@@ -22,3 +22,30 @@ export function capabilityQuery(
       : {}),
   };
 }
+
+/** A global row carries a stored override for the selected project. */
+export type CapabilityOverride = "on" | "off";
+
+/**
+ * Per-row direction of a stored per-project override on a global row.
+ *
+ * The scope-free global list reports the global default while the
+ * project-scoped query reports effective state (`enabled()` gives a stored
+ * override precedence), so a row whose effective toggle differs from the
+ * default has an override underneath. The difference is surfaced, not hidden:
+ * a stale override written by the old UI stays runtime-authoritative for its
+ * project until the reader resets the row (#1957).
+ */
+export function deriveProjectOverrides(
+  defaults: readonly { id: string; enabled: boolean }[],
+  effective: readonly { id: string; enabled: boolean }[],
+): Map<string, CapabilityOverride> {
+  const effectiveById = new Map(effective.map((row) => [row.id, row.enabled]));
+  const overrides = new Map<string, CapabilityOverride>();
+  for (const row of defaults) {
+    const effectiveEnabled = effectiveById.get(row.id);
+    if (effectiveEnabled === undefined || effectiveEnabled === row.enabled) continue;
+    overrides.set(row.id, effectiveEnabled ? "on" : "off");
+  }
+  return overrides;
+}

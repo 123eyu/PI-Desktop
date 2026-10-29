@@ -278,6 +278,16 @@ test("a global row's toggle records the global default, never a per-project over
   // The scope rule itself: the path rides only on project-level rows.
   const scope = read("../src/lib/capability-scope.ts");
   assert.match(scope, /level === "project" && selectedProjectPath/);
+  // Stored overrides keep runtime precedence, so they are surfaced and
+  // resettable rather than hidden: the project-scoped global query runs beside
+  // the scope-free one, the difference gets a badge, and the row menu offers
+  // the reset (writing the default under the project's scope drops the key).
+  for (const source of [skills, mcp]) {
+    assert.match(source, /deriveProjectOverrides\(/);
+    assert.match(source, /level: "global", projectPath: selectedProjectPath/);
+    assert.match(source, /is-override/);
+    assert.match(source, /resetProjectOverride/);
+  }
   // Subagents are global-only: no project scope exists to mix in.
   assert.doesNotMatch(subagents, /projectPath/);
 });
