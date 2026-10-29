@@ -40,6 +40,23 @@
 
 ## 1. Goals
 
+### E2E-PROVIDER-retry-backoff-is-not-idle
+
+- **Entry:** Build shared and the production sidecar bundle, then run
+  `node scripts/e2e-provider-retry-idle.mjs` (about one minute).
+- **Sequence:** Use the supported 30-second idle setting. Return one HTTP 429
+  with a 30-second retry delay, then succeed. Separately hold an HTTP request
+  silent until its idle deadline, then let the retry succeed. Stop another
+  turn during its rate-limit backoff.
+- **Expected:** The planned wait consumes exactly one retry; the successful
+  follow-up is sent. A real stalled request closes before its replacement
+  begins, and Stop prevents a later retry request.
+- **Coverage:** Real production sidecar, provider adapter and localhost HTTP
+  server with fixture Host responses. Real-clock process checks are supplemented
+  by real Agent-loop tests under a controlled clock, including all ten allowed
+  rate-limit retries and exhaustion after eleven genuinely stalled attempts.
+- **Specs:** `03-runtime/02-agent-runtime.md` provider retry behavior.
+
 ### E2E-TRANSCRIPT-scroll-interruption
 
 - **Preconditions:** Real Chromium with the production transcript scroll hook;
