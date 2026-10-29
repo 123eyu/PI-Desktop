@@ -7,6 +7,7 @@ import {
   type McpServerStatus,
 } from "@pi-desktop/shared";
 import { api } from "../../lib/api";
+import { capabilityQuery } from "../../lib/capability-scope";
 import { useAppStore } from "../../stores/app-store";
 import { useHostCollection } from "../../hooks/use-host-collection";
 import { useRowBusy } from "../../hooks/use-row-busy";
@@ -83,11 +84,11 @@ export function AgentMcpPage() {
   const showToast = useAppStore((state) => state.showToast);
   const { selectedProjectPath, setSelectedProjectPath, options } = useAgentProjects();
   const fetchServers = useCallback(async (): Promise<McpCollection> => {
+    // The global list omits the selected project on purpose: its rows read the
+    // global default, the same scope the switch writes, so the two can never
+    // disagree (#1957). Only project rows are per-project state.
     const [global, project] = await Promise.all([
-      api.listMcpServers({
-        level: "global",
-        ...(selectedProjectPath ? { projectPath: selectedProjectPath } : {}),
-      }),
+      api.listMcpServers({ level: "global" }),
       selectedProjectPath
         ? api.listMcpServers({ level: "project", projectPath: selectedProjectPath })
         : Promise.resolve({
@@ -133,10 +134,8 @@ export function AgentMcpPage() {
   const { armed, setArmed } = useArmedDelete();
 
   const rowKey = (level: AgentCapabilityLevel, id: string) => `${level}:${id}`;
-  const levelQuery = (level: AgentCapabilityLevel) => ({
-    level,
-    ...(selectedProjectPath ? { projectPath: selectedProjectPath } : {}),
-  });
+  const levelQuery = (level: AgentCapabilityLevel) =>
+    capabilityQuery(level, selectedProjectPath);
 
   const patchRow = (
     level: AgentCapabilityLevel,
@@ -216,17 +215,9 @@ export function AgentMcpPage() {
     // on a switch reads as a broken control.
     patchRow(level, server.id, { enabled: next });
     try {
-      // The switch writes the state for the row's own level. A global server's
-      // toggle must record the global default - carrying the selected project
-      // here would store a per-project override while the switch reads as
-      // global, so one project's "off" silently left every other project on.
-      // Only project rows need the path: the host scans that project's
-      // directory to find the definition.
-      await api.setMcpServerEnabled(
-        server.id,
-        next,
-        level === "global" ? { level } : levelQuery(level),
-      );
+      // The switch writes the row's own level scope: a global server records
+      // the global default, a project row records that project's override.
+      await api.setMcpServerEnabled(server.id, next, levelQuery(level));
       showToast(
         t(next ? "settings.capabilityEnabled" : "settings.capabilityDisabled", {
           name: server.label || server.id,

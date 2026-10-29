@@ -260,26 +260,24 @@ test("toggling a capability flips locally and reverts only if the host refuses",
 });
 
 test("a global row's toggle records the global default, never a per-project override", () => {
-  // The selected project legitimately scopes the list calls (effective
-  // per-project state), but the switch itself writes the state for the row's
-  // own level: a global toggle carrying projectPath stored an override, so
-  // one project's "off" left every other project on (#1957).
-  for (const [source, method] of [
-    [skills, "setUserSkillEnabled"],
-    [mcp, "setMcpServerEnabled"],
-  ]) {
-    const toggle = source.slice(
-      source.indexOf("const toggle = async"),
-      source.indexOf("catch", source.indexOf(`api.${method}`)),
-    );
-    assert.notEqual(toggle, "", `${method} toggle should be present`);
+  // The selected project legitimately scopes the project-list calls, but the
+  // switch and the global list must speak the global default's scope: the old
+  // helper attached the project everywhere, so toggling stored an override
+  // while the switch read as global (#1957). The pages delegate every query
+  // to the scope module, which attaches the path to project rows only.
+  for (const source of [skills, mcp]) {
     assert.match(
-      toggle,
-      new RegExp(
-        `api\\.${method}\\([\\s\\S]*?level === "global" \\? \\{ level \\} : levelQuery\\(level\\)`,
-      ),
+      source,
+      /const levelQuery = \(level: AgentCapabilityLevel\) =>\s*\n\s*capabilityQuery\(level, selectedProjectPath\)/,
     );
   }
+  // The global list reads the global default: same scope the switch writes,
+  // so the row and the switch can never disagree.
+  assert.match(mcp, /api\.listMcpServers\(\{ level: "global" \}\)/);
+  assert.match(skills, /api\.listUserSkills\(\{ level: "global" \}\)/);
+  // The scope rule itself: the path rides only on project-level rows.
+  const scope = read("../src/lib/capability-scope.ts");
+  assert.match(scope, /level === "project" && selectedProjectPath/);
   // Subagents are global-only: no project scope exists to mix in.
   assert.doesNotMatch(subagents, /projectPath/);
 });

@@ -7,6 +7,7 @@ import {
   type UserSkillRecord,
 } from "@pi-desktop/shared";
 import { api } from "../../lib/api";
+import { capabilityQuery } from "../../lib/capability-scope";
 import { useAppStore } from "../../stores/app-store";
 import { useHostCollection } from "../../hooks/use-host-collection";
 import { useRowBusy } from "../../hooks/use-row-busy";
@@ -76,10 +77,10 @@ export function AgentSkillsPage() {
   const fetchSkills = useCallback(async (): Promise<SkillCollection> => {
     const [builtins, global, project] = await Promise.all([
       api.listBuiltinSkills(),
-      api.listUserSkills({
-        level: "global",
-        ...(selectedProjectPath ? { projectPath: selectedProjectPath } : {}),
-      }),
+      // The global list omits the selected project on purpose: its rows read
+      // the global default, the same scope the switch writes, so the two can
+      // never disagree (#1957). Only project rows are per-project state.
+      api.listUserSkills({ level: "global" }),
       selectedProjectPath
         ? api.listUserSkills({ level: "project", projectPath: selectedProjectPath })
         : Promise.resolve({ skills: [] as UserSkillRecord[] }),
@@ -130,10 +131,8 @@ export function AgentSkillsPage() {
     }));
   };
 
-  const levelQuery = (level: AgentCapabilityLevel) => ({
-    level,
-    ...(selectedProjectPath ? { projectPath: selectedProjectPath } : {}),
-  });
+  const levelQuery = (level: AgentCapabilityLevel) =>
+    capabilityQuery(level, selectedProjectPath);
 
   /**
    * The switch flips locally first and only reverts if the host refuses, so one
@@ -145,17 +144,9 @@ export function AgentSkillsPage() {
     const next = !skill.enabled;
     patchRow(level, skill.id, { enabled: next });
     try {
-      // The switch writes the state for the row's own level. A global skill's
-      // toggle must record the global default - carrying the selected project
-      // here would store a per-project override while the switch reads as
-      // global, so one project's "off" silently left every other project on.
-      // Only project rows need the path: the host resolves the definition
-      // through that project's directory.
-      await api.setUserSkillEnabled(
-        skill.id,
-        next,
-        level === "global" ? { level } : levelQuery(level),
-      );
+      // The switch writes the row's own level scope: a global skill records
+      // the global default, a project row records that project's override.
+      await api.setUserSkillEnabled(skill.id, next, levelQuery(level));
       showToast(
         t(next ? "settings.capabilityEnabled" : "settings.capabilityDisabled", {
           name: skill.name || skill.id,
