@@ -2,9 +2,8 @@
 
 - Status: Proposed
 - Date: 2026-10-12
-- Amended: 2026-10-28 by `perf(agent-runtime): order parallel tool batches by
-  resource conflicts` (Write/Edit join parallel batches, ordered by resource
-  claims)
+- Amended: 2026-10-29 by #1982 (Write/Edit join parallel batches, ordered by
+  resource claims)
 
 ## Context
 
