@@ -911,9 +911,10 @@ without expanding the process. An untouched process closes on completion, leavin
 the final answer; with no final text, the process header and those surfaces
 remain. Liveness follows the turn's rows, not the transcript's tail position:
 while the session runs, a turn whose rows are still streaming stays open and
-reads as running even when a steering message renders after it. An ordinary
-user message or a system row ends the run's boundary, so a turn left streaming
-by an earlier crash keeps reading as an unknown outcome.
+reads as running even when a steering message or a system row renders after
+it — both stay inside the run. An ordinary user message ends the run's
+boundary, so a turn left streaming by an earlier crash keeps reading as an
+unknown outcome.
 
 Within the process, the `Transcript display` mode decides the grouping.
 `fully-folded` (the default; absent or unknown values use it) forms ordinary
