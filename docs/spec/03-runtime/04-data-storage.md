@@ -317,6 +317,16 @@ live one and keeps the provider prompt cache. If the stored lengths no longer
 add up to the row's text, or the reasoning text was cleaned on replay, the row
 falls back to the plain thinking-and-text rebuild.
 
+`meta.providerReplay.toolCalls = [{ id, signature }]` keeps the signature a
+provider put on a function call (Gemini `thoughtSignature`), keyed by the tool
+call id. The calls are rebuilt from their tool rows, which carry the same id,
+and get their signature back; this does not depend on the text lengths. A
+call-only reply that carries such signatures is persisted even though it has no
+text. pi-ai still drops a signature whose row came from a different provider or
+model. A row whose serialized replay data exceeds 64 KiB is stored without it
+and uses the plain rebuild, so opaque payloads cannot grow the transcript
+without bound.
+
 Compaction details may include one `systemMessageJson` checkpoint. It replaces old
 system updates in the retained tail and is restored before the summary. These
 optional metadata fields use the existing JSONL/SQLite index and require no

@@ -820,6 +820,12 @@ reasoning item 与 message id、Gemini thought signature、Completions 推理字
 runtime 从转录重建时按原块和签名还原，使重放请求与在线请求一致，保住 provider 的
 prompt cache。长度对不上，或推理文本在回放时被清理过，就退回原来的纯文本重建。
 
+`meta.providerReplay.toolCalls = [{ id, signature }]` 按工具调用 id 保存 provider
+挂在函数调用上的签名（Gemini `thoughtSignature`）。工具调用从带同一 id 的工具行重建，
+并据此补回签名，这一步不依赖文本长度。只有函数调用、但带这类签名的回复即使没有文本
+也会持久化。来自不同 provider 或模型的行，pi-ai 仍会丢弃其签名。序列化后的回放数据
+超过 64 KiB 的行不保存该字段，改用纯文本重建，避免不透明载荷让转录无限增长。
+
 这两个字段都可以在重新加载后保存下来，这就是恢复会话嵌套的原因
 就像现场一样（`04-ux/08-component-spec.md` §9.9）。两位消费者阅读了它们：
 

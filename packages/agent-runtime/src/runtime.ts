@@ -137,6 +137,8 @@ import { classifyAgentError } from "./agent-errors.js";
 import {
   captureAssistantProviderReplay,
   restoreAssistantProviderReplay,
+  providerReplayForBubble,
+  providerReplayToolCallSignatures,
 } from "./assistant-provider-replay.js";
 import {
   assistantContent,
@@ -3142,6 +3144,8 @@ Do not invent objections or turn speculative risks into blockers. Stop when the 
     // (the nearest one above), keeping each call adjacent to its result as
     // the provider APIs require.
     let toolCarrier: AssistantMessage | undefined;
+    // Function-call signatures of the carrier's row, restored by call id.
+    let carrierToolSignatures = new Map<string, string>();
     for (const m of orderSystemRows(history)) {
       // Subagent rows belong to the transcript and to review, never to the
       // parent's model context (ADR 0062): the parent only ever saw the `Task`
@@ -3231,6 +3235,7 @@ Do not invent objections or turn speculative risks into blockers. Stop when the 
         };
         append(m.id, assistant);
         toolCarrier = assistant;
+        carrierToolSignatures = providerReplayToolCallSignatures(m.providerReplay);
       } else if (m.role === "tool") {
         if (!m.toolCallId || !m.toolName) continue;
         if (!toolCarrier) {
@@ -3247,12 +3252,15 @@ Do not invent objections or turn speculative risks into blockers. Stop when the 
             timestamp,
           };
           append(`${m.id}:carrier`, toolCarrier);
+          carrierToolSignatures = new Map();
         }
+        const thoughtSignature = carrierToolSignatures.get(m.toolCallId);
         toolCarrier.content.push({
           type: "toolCall",
           id: m.toolCallId,
           name: m.toolName,
           arguments: toJsonObject(m.toolArgs),
+          ...(thoughtSignature ? { thoughtSignature } : {}),
         });
         toolCarrier.stopReason = "toolUse";
         append(m.id, toolResultFromUi(m, timestamp));
@@ -8708,11 +8716,14 @@ Do not invent objections or turn speculative risks into blockers. Stop when the 
             ...(hostedSearch ? { hostedSearch } : {}),
             // Signatures only describe this response's own blocks. A bubble
             // that kept text from an earlier recovery attempt no longer lines
-            // up with them, so it is persisted without replay data.
-            providerReplay:
-              !failed && nextText === content.text && nextThinking === content.thinking
-                ? captureAssistantProviderReplay((event.message as any).content)
-                : undefined,
+            // up with them, so it keeps only the function-call signatures,
+            // which are linked by call id rather than by text position.
+            providerReplay: failed
+              ? undefined
+              : providerReplayForBubble(
+                  captureAssistantProviderReplay((event.message as any).content),
+                  nextText === content.text && nextThinking === content.thinking,
+                ),
           };
           if (!this.currentAssistant.providerReplay) delete this.currentAssistant.providerReplay;
           this.emit({ type: "message_end", message: this.currentAssistant });

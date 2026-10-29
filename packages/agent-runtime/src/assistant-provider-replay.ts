@@ -18,7 +18,16 @@ import type { AssistantMessage } from "@earendil-works/pi-ai";
 import type {
   AssistantProviderReplay,
   AssistantProviderReplayBlock,
+  AssistantProviderReplayToolCall,
 } from "@pi-desktop/shared";
+
+/**
+ * Per-row ceiling for the serialized replay data. Signatures are opaque and
+ * redacted or encrypted reasoning can be kilobytes per block; a row above the
+ * ceiling is stored without replay data and falls back to the plain rebuild
+ * instead of growing the transcript without bound.
+ */
+export const MAX_PROVIDER_REPLAY_BYTES = 64 * 1024;
 
 type ReplayContent = Extract<
   AssistantMessage["content"][number],
@@ -39,6 +48,7 @@ export function captureAssistantProviderReplay(
 ): AssistantProviderReplay | undefined {
   if (!Array.isArray(content)) return undefined;
   const blocks: AssistantProviderReplayBlock[] = [];
+  const toolCalls: AssistantProviderReplayToolCall[] = [];
   let carriesReplay = false;
   for (const part of content) {
     if (!part || typeof part !== "object") continue;
@@ -48,6 +58,8 @@ export function captureAssistantProviderReplay(
       thinking?: unknown;
       thinkingSignature?: unknown;
       textSignature?: unknown;
+      thoughtSignature?: unknown;
+      id?: unknown;
       redacted?: unknown;
     };
     if (block.type === "thinking") {
@@ -66,6 +78,15 @@ export function captureAssistantProviderReplay(
         ...(signature ? { signature } : {}),
         ...(redacted ? { redacted: true as const } : {}),
       });
+    } else if (block.type === "toolCall") {
+      // Gemini signs function calls separately from thinking and text. The
+      // call is rebuilt from its tool row, so only the id link is kept.
+      const id = nonEmpty(block.id);
+      const signature = nonEmpty(block.thoughtSignature);
+      if (id && signature) {
+        carriesReplay = true;
+        toolCalls.push({ id, signature });
+      }
     } else if (block.type === "text" && typeof block.text === "string") {
       const signature = nonEmpty(block.textSignature);
       if (signature) carriesReplay = true;
@@ -76,7 +97,15 @@ export function captureAssistantProviderReplay(
       });
     }
   }
-  return carriesReplay ? { version: 1, blocks } : undefined;
+  if (!carriesReplay) return undefined;
+  const replay: AssistantProviderReplay = {
+    version: 1,
+    blocks,
+    ...(toolCalls.length > 0 ? { toolCalls } : {}),
+  };
+  return Buffer.byteLength(JSON.stringify(replay), "utf8") > MAX_PROVIDER_REPLAY_BYTES
+    ? undefined
+    : replay;
 }
 
 function validBlocks(replay: unknown): AssistantProviderReplayBlock[] | undefined {
@@ -97,6 +126,25 @@ function validBlocks(replay: unknown): AssistantProviderReplayBlock[] | undefine
     if (signature !== undefined && typeof signature !== "string") return undefined;
   }
   return blocks as AssistantProviderReplayBlock[];
+}
+
+/**
+ * Signatures of the row's function calls by call id. Independent of the
+ * thinking/text lengths, so they survive a row whose text no longer matches.
+ */
+export function providerReplayToolCallSignatures(replay: unknown): Map<string, string> {
+  const signatures = new Map<string, string>();
+  if (!replay || typeof replay !== "object") return signatures;
+  const { version, toolCalls } = replay as { version?: unknown; toolCalls?: unknown };
+  if (version !== 1 || !Array.isArray(toolCalls)) return signatures;
+  for (const entry of toolCalls) {
+    if (!entry || typeof entry !== "object") continue;
+    const { id, signature } = entry as { id?: unknown; signature?: unknown };
+    const callId = nonEmpty(id);
+    const value = nonEmpty(signature);
+    if (callId && value) signatures.set(callId, value);
+  }
+  return signatures;
 }
 
 /**
@@ -147,4 +195,19 @@ export function restoreAssistantProviderReplay(
     }
   }
   return restored;
+}
+
+/**
+ * Replay data for a finished bubble. When the bubble's text is not this
+ * response's own (it kept text from an earlier recovery attempt), the block
+ * boundaries no longer apply; only the call-id-linked signatures remain.
+ */
+export function providerReplayForBubble(
+  replay: AssistantProviderReplay | undefined,
+  textMatchesResponse: boolean,
+): AssistantProviderReplay | undefined {
+  if (!replay || textMatchesResponse) return replay;
+  return replay.toolCalls?.length
+    ? { version: 1, blocks: [], toolCalls: replay.toolCalls }
+    : undefined;
 }

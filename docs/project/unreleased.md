@@ -3,9 +3,9 @@
 - Fixed prompt cache misses after a conversation's agent runtime is rebuilt
   (#1972). Rebuilding happens after a restart or when the thinking level, mode,
   project rules, or model settings change. Assistant replies now keep the
-  provider's thinking and reasoning signatures in the transcript, so Claude,
-  OpenAI Responses, Gemini, and other reasoning models receive the same history
-  as before the rebuild instead of a rewritten one.
+  provider's thinking, reasoning, and Gemini function-call signatures in the
+  transcript, so Claude, OpenAI Responses, Gemini, and other reasoning models
+  receive the same history as before the rebuild instead of a rewritten one.
 - Fixed duplicate `/、` when opening slash commands with a Chinese IME in an
   empty composer. Keep pre-edit text intact and apply the slash alias only
   after composition commits, preserving recovery from a missing end event.
