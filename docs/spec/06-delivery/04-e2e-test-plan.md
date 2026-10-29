@@ -16500,24 +16500,34 @@ plugin-form fixtures in an isolated temporary directory at runtime.
   and at least one slash entry exists (builtin alias, template, plugin command,
   or Skill).
 - **Steps**:
-  1. With the draft empty, type `、` and inspect the composer.
+  1. With the draft empty, compose `、`, inspect the pre-edit text, then commit.
   2. Continue typing a command name and accept the highlighted row.
   3. Type a draft that contains `、` between other characters.
   4. Send a draft whose first character was typed as `、` without accepting any
      row.
+  5. Cancel a composition, then type `/` again. Also delete text after a
+     dropped `compositionend` and confirm the slash menu still reopens.
 - **Expected**: The committed `、` is rewritten to `/` in place, the ordinary
   slash menu opens with the same filtering and keyboard behavior as a typed
   `/`, and the caret stays after the substituted character. A `、` anywhere
   later in the draft stays untouched text, and the `@` file menu never reacts
-  to the mark.
+  to the mark. Pre-edit `、` remains unchanged until commit; the result is `/`,
+  never `/、`. Ordinary Chinese composition and punctuation in existing drafts
+  remain unchanged. Cancelling leaves a blank draft, and replacing the draft
+  releases the old composition's empty-draft origin.
 - **Specs linked**: `04-ux/04-builtin-commands.md` (§9),
   `04-ux/08-component-spec.md` (§11), `08-meta/decisions-log.md` (D405),
   ADR 0024, ADR 0231
 - **Acceptance**: C (conversation & stream), Localization, Quality
 - **Milestone**: M2
-- **Status**: Unit-covered (`packages/shared/src/composer-trigger.test.ts`,
-  `apps/desktop/test/composer-ime.test.mjs`); rendered desktop journey Draft
-  (run only in a capable environment when this surface changes)
+- **Status**: Partially automated. Unit coverage:
+  `packages/shared/src/composer-trigger.test.ts`,
+  `apps/desktop/test/composer-ime.test.mjs`. Rendered Electron coverage:
+  `node scripts/e2e-composer-ime-stack.mjs` mounts the production input, draft,
+  and completion components, drives Chromium composition through CDP, and
+  covers alias commit, ordinary Chinese text, cancellation, draft replacement,
+  completion acceptance, and lost-end recovery. Sending and a physical OS IME
+  candidate window remain manual checks.
 
 #### E2E-256: Empty-home project name switches among sidebar projects
 
