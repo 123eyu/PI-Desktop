@@ -267,6 +267,7 @@ import {
   addSummaryUsage,
   compactionSummaryInputLimit,
   compactionSummaryOutputBudget,
+  compactionSummaryReserveTokens,
   COMPACTION_SUMMARY_RETRY_POLICY,
   estimateSummaryPromptTokens,
   planSummaryChunks,
@@ -7687,13 +7688,13 @@ Do not invent objections or turn speculative risks into blockers. Stop when the 
     budget: { hardLimit: number; requestHeadroom: number },
   ): AgentMessage[][] | undefined {
     const reduced = reduceSummaryInput(preparation) ?? preparation;
-    const reserveTokens = Math.max(
-      Math.ceil((preparation.previousSummary?.length ?? 0) / 4),
-      compactionSummaryOutputBudget({
+    const reserveTokens = compactionSummaryReserveTokens({
+      previousSummary: preparation.previousSummary,
+      outputBudget: compactionSummaryOutputBudget({
         requestHeadroom: budget.requestHeadroom,
         modelMaxTokens: this.model.maxTokens,
       }),
-    );
+    });
     return planSummaryChunks(reduced, {
       summaryInputLimit: this.summaryInputLimit(budget),
       reserveTokens,
