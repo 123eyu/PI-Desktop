@@ -3736,8 +3736,13 @@ Do not invent objections or turn speculative risks into blockers. Stop when the 
           // it armed is released here instead.
           if (abortGraceTimer) clearTimeout(abortGraceTimer);
         }
-        if (abortPromise) await abortPromise;
-        if (abortError) throw abortError;
+        // A local read-only stop cannot depend on the same Host answering a
+        // second RPC. Its abort request already observes late rejections.
+        // Other tools retain Host settlement ownership for their side effects.
+        if (!canAbandonWait) {
+          if (abortPromise) await abortPromise;
+          if (abortError) throw abortError;
+        }
         if (stopped) {
           throw Object.assign(
             new Error(`tool execution aborted while ${toolName} was running`),

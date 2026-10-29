@@ -2127,6 +2127,7 @@ identify the platform validation still needed.
   for partial output, then stop during the stream. 4) Immediately send a new
   prompt after Stop returns, without waiting for an idle delay. 5) Start a
   read-only Grep that does not return, press Stop, then start another prompt.
+  Hold its `tools.abort` acknowledgement as well and repeat for Read and Glob.
   6) Start a Write that is waiting for permission, press Stop, then try to
   approve the stale request. 7) Observe the transcript, composer, and workspace.
 - **Expected**: The first Stop is honored even if prompt admission is still in
@@ -2134,7 +2135,9 @@ identify the platform validation still needed.
   streaming send stops with its partial response preserved and no draft
   restoration or duplicate user turn. The read-only tool returns
   `TOOL_ABORTED`, its late result is discarded, and the follow-up starts
-  without `AGENT_BUSY`. Stopping the pending Write cancels its permission;
+  without `AGENT_BUSY`, even while the cancellation acknowledgement is pending.
+  Late results or cancellation failures cannot change the follow-up turn.
+  Stopping the pending Write cancels its permission;
   approving the stale request fails and creates no file. A mutating operation
   that already started is not reported stopped before its Host result arrives.
 - **Specs linked**: `03-runtime/02-agent-runtime.md`,
@@ -2144,7 +2147,13 @@ identify the platform validation still needed.
 - **Milestone**: M2
 - **Status**: Runtime and Host cancellation contracts automated by
   `packages/agent-runtime/src/runtime.test.ts` and the pending-Write regression
-  in `crates/host-core/src/rpc/mod.rs`; rendered Electron interaction remains
+  in `crates/host-core/src/rpc/mod.rs`. `read-only-stop.test.ts` covers held
+  acknowledgements and late failures through real Agent loops.
+  After building shared and running `node packages/agent-runtime/scripts/bundle.mjs`,
+  `node scripts/e2e-read-only-stop.mjs` runs the production sidecar bundle and
+  a localhost provider, holding execution and cancellation responses at the Host
+  edge. It verifies follow-up prompts and the Write settlement boundary;
+  rendered Electron interaction remains
   a manual validation run.
 
 #### E2E-171: Streaming reply survives quit, crash, and stop
