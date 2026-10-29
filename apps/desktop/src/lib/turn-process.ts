@@ -266,12 +266,15 @@ export function turnHasStreamingRows(
  * entry. Tail position alone cannot identify it: a steering message or a
  * system row may render after the live turn (#1949), while the history list
  * renders every entry as inactive. Walk back like
- * `collectLiveDelegationEntries`: steering user messages stay inside the run,
- * an ordinary user message or system row ends it. The last assistant-turn of
- * the current run is live only while it still has streaming rows; an earlier
- * turn left streaming by a crash is outside this run's boundary and keeps
+ * `collectLiveDelegationEntries`, with one deliberate difference: system rows
+ * stay inside the run, because a system update can land during a tool call
+ * and render after the turn's rows. The last assistant-turn of the current
+ * run is live only while it still has streaming rows; an earlier turn left
+ * streaming by a crash is outside this run's boundary and keeps
  * `turnProcessPhase`'s unsettled reading (#1923). A tail assistant-turn
- * reports its own active state, so it yields no history id.
+ * reports its own active state, so it yields no history id. `modelSystem`
+ * rows never reach this walk: `isVisibleMessage` filters them from the
+ * projected entries entirely.
  */
 export function liveHistoryTurnId(
   entries: readonly TranscriptEntry[],
@@ -286,8 +289,10 @@ export function liveHistoryTurnId(
     }
     if (entry.kind === "message") {
       const { message } = entry;
+      // System rows arrive mid-run and stay inside it, like steering messages.
+      if (message.role === "system") continue;
       if (message.role === "user" && message.steering) continue;
-      if (message.role === "user" || message.role === "system") break;
+      break;
     }
   }
   return undefined;
