@@ -67,9 +67,16 @@ type SkillCollection = {
   builtins: BuiltinSkillRecord[];
   global: UserSkillRecord[];
   project: UserSkillRecord[];
+  /** Stored per-project overrides on global rows, from the accepted fetch. */
+  globalOverrides: Record<string, CapabilityOverride>;
 };
 
-const EMPTY_SKILL_COLLECTION: SkillCollection = { builtins: [], global: [], project: [] };
+const EMPTY_SKILL_COLLECTION: SkillCollection = {
+  builtins: [],
+  global: [],
+  project: [],
+  globalOverrides: {},
+};
 
 export function AgentSkillsPage() {
   const { t } = useTranslation();
@@ -91,15 +98,20 @@ export function AgentSkillsPage() {
         ? api.listUserSkills({ level: "global", projectPath: selectedProjectPath })
         : Promise.resolve({ skills: [] as UserSkillRecord[] }),
     ]);
-    setGlobalOverrides(deriveProjectOverrides(global.skills ?? [], globalEffective.skills ?? []));
+    // The derived map rides inside the collection: useHostCollection only
+    // accepts the newest request, so a late stale fetch can never repaint the
+    // override badges of the project the reader has since switched to.
     return {
       builtins: builtins.builtins ?? [],
       global: global.skills ?? [],
       project: project.skills ?? [],
+      globalOverrides: selectedProjectPath
+        ? Object.fromEntries(deriveProjectOverrides(global.skills ?? [], globalEffective.skills ?? []))
+        : {},
     };
   }, [selectedProjectPath]);
   const {
-    data: { builtins: builtinSkills, global: globalSkills, project: projectSkills },
+    data: { builtins: builtinSkills, global: globalSkills, project: projectSkills, globalOverrides },
     setData: setSkills,
     loading,
     refreshing,
@@ -108,9 +120,6 @@ export function AgentSkillsPage() {
     showToast(error instanceof Error ? error.message : String(error), { variant: "error" }),
   );
   const [filter, setFilter] = useState<CapabilityFilter>("all");
-  const [globalOverrides, setGlobalOverrides] = useState<Map<string, CapabilityOverride>>(
-    () => new Map(),
-  );
   const [importOpen, setImportOpen] = useState(false);
   const [search, setSearch] = useState("");
   const rowBusy = useRowBusy();
@@ -471,7 +480,7 @@ export function AgentSkillsPage() {
             } satisfies CapabilityMenuItem,
           ]
         : []),
-      ...(level === "global" && selectedProjectPath && globalOverrides.get(skill.id)
+      ...(level === "global" && selectedProjectPath && globalOverrides[skill.id]
         ? [
             {
               key: "reset-override",
@@ -514,9 +523,9 @@ export function AgentSkillsPage() {
                 ? t("settings.capabilityFilterGlobal")
                 : t("settings.capabilityFilterProject")}
             </span>
-            {level === "global" && selectedProjectPath && globalOverrides.get(skill.id) ? (
+            {level === "global" && selectedProjectPath && globalOverrides[skill.id] ? (
               <span className="agent-capability-badge is-override">
-                {globalOverrides.get(skill.id) === "off"
+                {globalOverrides[skill.id] === "off"
                   ? t("settings.capabilityOverrideOff")
                   : t("settings.capabilityOverrideOn")}
               </span>

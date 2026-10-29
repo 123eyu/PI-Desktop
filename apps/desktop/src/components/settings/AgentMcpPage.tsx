@@ -80,9 +80,16 @@ type McpCollection = {
   global: McpServerRecord[];
   project: McpServerRecord[];
   statuses: McpServerStatus[];
+  /** Stored per-project overrides on global rows, from the accepted fetch. */
+  globalOverrides: Record<string, CapabilityOverride>;
 };
 
-const EMPTY_MCP_COLLECTION: McpCollection = { global: [], project: [], statuses: [] };
+const EMPTY_MCP_COLLECTION: McpCollection = {
+  global: [],
+  project: [],
+  statuses: [],
+  globalOverrides: {},
+};
 
 export function AgentMcpPage() {
   const { t } = useTranslation();
@@ -109,17 +116,22 @@ export function AgentMcpPage() {
             statuses: [] as McpServerStatus[],
           }),
     ]);
-    setGlobalOverrides(
-      deriveProjectOverrides(global.servers ?? [], globalEffective.servers ?? []),
-    );
+    // The derived map rides inside the collection: useHostCollection only
+    // accepts the newest request, so a late stale fetch can never repaint the
+    // override badges of the project the reader has since switched to.
     return {
       global: global.servers ?? [],
       project: project.servers ?? [],
       statuses: [...(global.statuses ?? []), ...(project.statuses ?? [])],
+      globalOverrides: selectedProjectPath
+        ? Object.fromEntries(
+            deriveProjectOverrides(global.servers ?? [], globalEffective.servers ?? []),
+          )
+        : {},
     };
   }, [selectedProjectPath]);
   const {
-    data: { global: globalServers, project: projectServers, statuses },
+    data: { global: globalServers, project: projectServers, statuses, globalOverrides },
     setData: setServers,
     loading,
     refreshing,
@@ -130,9 +142,6 @@ export function AgentMcpPage() {
   const setStatuses = (update: (current: McpServerStatus[]) => McpServerStatus[]) =>
     setServers((current) => ({ ...current, statuses: update(current.statuses) }));
   const [filter, setFilter] = useState<CapabilityFilter>("all");
-  const [globalOverrides, setGlobalOverrides] = useState<Map<string, CapabilityOverride>>(
-    () => new Map(),
-  );
   const [importOpen, setImportOpen] = useState(false);
   const [search, setSearch] = useState("");
   const rowBusy = useRowBusy();
@@ -514,7 +523,7 @@ export function AgentMcpPage() {
             } satisfies CapabilityMenuItem,
           ]
         : []),
-      ...(level === "global" && selectedProjectPath && globalOverrides.get(server.id)
+      ...(level === "global" && selectedProjectPath && globalOverrides[server.id]
         ? [
             {
               key: "reset-override",
@@ -582,9 +591,9 @@ export function AgentMcpPage() {
                 ? t("settings.capabilityFilterGlobal")
                 : t("settings.capabilityFilterProject")}
             </span>
-            {level === "global" && selectedProjectPath && globalOverrides.get(server.id) ? (
+            {level === "global" && selectedProjectPath && globalOverrides[server.id] ? (
               <span className="agent-capability-badge is-override">
-                {globalOverrides.get(server.id) === "off"
+                {globalOverrides[server.id] === "off"
                   ? t("settings.capabilityOverrideOff")
                   : t("settings.capabilityOverrideOn")}
               </span>
