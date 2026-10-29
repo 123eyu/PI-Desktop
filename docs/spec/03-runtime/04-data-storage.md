@@ -302,6 +302,31 @@ precedence, then a preceding anchor, then the record's continuation position.
 Forks remap surviving anchor IDs. Normal system notices remain visible; internal
 model-state rows do not produce transcript bubbles or search text.
 
+Assistant rows may carry `meta.providerReplay = { version: 1, blocks: [...] }`
+(#1972). Each block is `{ type: "thinking", length, signature?, redacted? }` or
+`{ type: "text", length, signature? }` in content order; `length` counts UTF-16
+units of that block's text inside the row's concatenated `thinking` or answer
+text, which are not duplicated here. The signatures are the provider replay
+data pi-ai keeps on content blocks (Anthropic thinking signatures and redacted
+payloads, Responses reasoning items and message ids, Gemini thought signatures,
+Completions reasoning field names). The field is written only when a block
+carries one, is never rendered or searched, and needs no migration; older
+builds ignore it. When a runtime is rebuilt from the transcript, the row's
+blocks are restored with their signatures so the replayed request matches the
+live one and keeps the provider prompt cache. If the stored lengths no longer
+add up to the row's text, or the reasoning text was cleaned on replay, the row
+falls back to the plain thinking-and-text rebuild.
+
+`meta.providerReplay.toolCalls = [{ id, signature }]` keeps the signature a
+provider put on a function call (Gemini `thoughtSignature`), keyed by the tool
+call id. The calls are rebuilt from their tool rows, which carry the same id,
+and get their signature back; this does not depend on the text lengths. A
+call-only reply that carries such signatures is persisted even though it has no
+text. pi-ai still drops a signature whose row came from a different provider or
+model. A row whose serialized replay data exceeds 64 KiB is stored without it
+and uses the plain rebuild, so opaque payloads cannot grow the transcript
+without bound.
+
 Compaction details may include one `systemMessageJson` checkpoint. It replaces old
 system updates in the retained tail and is restored before the summary. These
 optional metadata fields use the existing JSONL/SQLite index and require no
@@ -1524,6 +1549,11 @@ sweep promotes a leftover checkpoint whose final row never landed: as
 `aborted` turn. `completed`/`error` endTurn does not delete an unindexed
 checkpoint. A user Stop does not touch the checkpoint, because the runtime's
 own aborted final row is still on its way and removes it on arrival.
+Checkpoint writes are serialized per session even across message settlement:
+forgetting a pending snapshot does not cancel or release an already issued RPC.
+Shutdown drains both pending snapshots and unfinished writes before disposing
+the host. A final-message flush stays scoped to that message; later replies keep
+the streaming throttle, and other sessions can save independently.
 Electron handshake awaits the outbox drain before a cold `session.get`.
 Renderer-side Stop never rewrites a transcript that has a
 started reply (spec 01 §5.3); its only rewrite is the undo of an unanswered

@@ -3,6 +3,7 @@ import type {
   AssistantActivityItem,
   AssistantTurnEntry,
   AssistantTurnPart,
+  TranscriptEntry,
 } from "./assistant-turns";
 import { isStandaloneRunActivity } from "./assistant-turns";
 import type { TranscriptDisplayMode } from "./transcript-display-mode";
@@ -245,13 +246,51 @@ export function turnProcessPhase({
   );
   if (stopped) return { kind: "stopped" };
   if (isActive) return { kind: "running", phase: activity?.phase };
-  const unsettled = parts.some((part) =>
+  if (turnHasStreamingRows(parts)) return { kind: "unsettled" };
+  return { kind: "completed" };
+}
+
+/** A row of the turn is still streaming, so the turn has unsettled live work. */
+export function turnHasStreamingRows(
+  parts: readonly AssistantTurnPart[],
+): boolean {
+  return parts.some((part) =>
     part.kind === "message"
       ? part.message.status === "streaming"
       : part.items.some((item) => item.message.status === "streaming"),
   );
-  if (unsettled) return { kind: "unsettled" };
-  return { kind: "completed" };
+}
+
+/**
+ * The turn a running transcript is driving, when that turn is not the tail
+ * entry. Tail position alone cannot identify it: a steering message or a
+ * system row may render after the live turn (#1949), while the history list
+ * renders every entry as inactive. Walk back like
+ * `collectLiveDelegationEntries`: steering user messages stay inside the run,
+ * an ordinary user message or system row ends it. The last assistant-turn of
+ * the current run is live only while it still has streaming rows; an earlier
+ * turn left streaming by a crash is outside this run's boundary and keeps
+ * `turnProcessPhase`'s unsettled reading (#1923). A tail assistant-turn
+ * reports its own active state, so it yields no history id.
+ */
+export function liveHistoryTurnId(
+  entries: readonly TranscriptEntry[],
+  tailEntry?: TranscriptEntry | null,
+): string | undefined {
+  if (tailEntry?.kind === "assistant-turn") return undefined;
+  for (let index = entries.length; index >= 0; index -= 1) {
+    const entry = index === entries.length ? (tailEntry ?? undefined) : entries[index];
+    if (!entry) continue;
+    if (entry.kind === "assistant-turn") {
+      return turnHasStreamingRows(entry.parts) ? entry.id : undefined;
+    }
+    if (entry.kind === "message") {
+      const { message } = entry;
+      if (message.role === "user" && message.steering) continue;
+      if (message.role === "user" || message.role === "system") break;
+    }
+  }
+  return undefined;
 }
 
 /**
