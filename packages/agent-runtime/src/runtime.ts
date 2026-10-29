@@ -135,6 +135,10 @@ import { checkGenUiFragment, genUiFragmentCheckNote, isGenUiFragmentPath } from 
 import type { RuntimeHost } from "./host-client.js";
 import { classifyAgentError } from "./agent-errors.js";
 import {
+  captureAssistantProviderReplay,
+  restoreAssistantProviderReplay,
+} from "./assistant-provider-replay.js";
+import {
   assistantContent,
   isRecord,
   nowIso,
@@ -3177,21 +3181,35 @@ Do not invent objections or turn speculative risks into blockers. Stop when the 
         const content: AssistantMessage["content"] = [];
         // A replay placeholder the model echoed is not its reasoning; sending
         // it back is what kept the model continuing it (#1945).
-        const thinking = withoutReasoningReplayPlaceholder(m.thinking ?? "");
-        if (thinking.trim()) {
-          // Completions DeepSeek replay needs thinkingSignature so convertMessages
-          // maps the block to reasoning_content instead of dropping it (#296).
-          content.push({
-            type: "thinking" as const,
-            thinking,
-            ...(deepSeekCompletionsReplay
-              ? { thinkingSignature: "reasoning_content" as const }
-              : {}),
-          });
-        }
-        content.push(...restoreHostedSearchReplay(m.hostedSearch));
-        if (m.content?.trim()) {
-          content.push({ type: "text" as const, text: m.content });
+        const rawThinking = m.thinking ?? "";
+        const thinking = withoutReasoningReplayPlaceholder(rawThinking);
+        // Signed blocks restore the request the live runtime sent, so a
+        // rebuild keeps the provider's prompt cache (#1972). Rows that were
+        // cleaned above, or whose text no longer matches, keep the plain path.
+        const replayed = thinking === rawThinking
+          ? restoreAssistantProviderReplay(m.providerReplay, rawThinking, m.content ?? "")
+          : undefined;
+        if (replayed) {
+          const firstText = replayed.findIndex((block) => block.type === "text");
+          const hosted = restoreHostedSearchReplay(m.hostedSearch);
+          if (firstText < 0) content.push(...replayed, ...hosted);
+          else content.push(...replayed.slice(0, firstText), ...hosted, ...replayed.slice(firstText));
+        } else {
+          if (thinking.trim()) {
+            // Completions DeepSeek replay needs thinkingSignature so convertMessages
+            // maps the block to reasoning_content instead of dropping it (#296).
+            content.push({
+              type: "thinking" as const,
+              thinking,
+              ...(deepSeekCompletionsReplay
+                ? { thinkingSignature: "reasoning_content" as const }
+                : {}),
+            });
+          }
+          content.push(...restoreHostedSearchReplay(m.hostedSearch));
+          if (m.content?.trim()) {
+            content.push({ type: "text" as const, text: m.content });
+          }
         }
         // Kept even when empty: a call-only turn has no text of its own and
         // becomes the carrier for the tool rows that follow. Assistants that
@@ -8688,7 +8706,15 @@ Do not invent objections or turn speculative risks into blockers. Stop when the 
               ? { error: classifiedError, isError: true }
               : {}),
             ...(hostedSearch ? { hostedSearch } : {}),
+            // Signatures only describe this response's own blocks. A bubble
+            // that kept text from an earlier recovery attempt no longer lines
+            // up with them, so it is persisted without replay data.
+            providerReplay:
+              !failed && nextText === content.text && nextThinking === content.thinking
+                ? captureAssistantProviderReplay((event.message as any).content)
+                : undefined,
           };
+          if (!this.currentAssistant.providerReplay) delete this.currentAssistant.providerReplay;
           this.emit({ type: "message_end", message: this.currentAssistant });
           this.activeProviderRetryAttempt = 0;
           this.streamStartedAt = undefined;

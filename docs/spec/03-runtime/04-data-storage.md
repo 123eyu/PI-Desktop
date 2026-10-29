@@ -302,6 +302,21 @@ precedence, then a preceding anchor, then the record's continuation position.
 Forks remap surviving anchor IDs. Normal system notices remain visible; internal
 model-state rows do not produce transcript bubbles or search text.
 
+Assistant rows may carry `meta.providerReplay = { version: 1, blocks: [...] }`
+(#1972). Each block is `{ type: "thinking", length, signature?, redacted? }` or
+`{ type: "text", length, signature? }` in content order; `length` counts UTF-16
+units of that block's text inside the row's concatenated `thinking` or answer
+text, which are not duplicated here. The signatures are the provider replay
+data pi-ai keeps on content blocks (Anthropic thinking signatures and redacted
+payloads, Responses reasoning items and message ids, Gemini thought signatures,
+Completions reasoning field names). The field is written only when a block
+carries one, is never rendered or searched, and needs no migration; older
+builds ignore it. When a runtime is rebuilt from the transcript, the row's
+blocks are restored with their signatures so the replayed request matches the
+live one and keeps the provider prompt cache. If the stored lengths no longer
+add up to the row's text, or the reasoning text was cleaned on replay, the row
+falls back to the plain thinking-and-text rebuild.
+
 Compaction details may include one `systemMessageJson` checkpoint. It replaces old
 system updates in the retained tail and is restored before the summary. These
 optional metadata fields use the existing JSONL/SQLite index and require no

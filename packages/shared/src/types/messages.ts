@@ -170,7 +170,29 @@ export type UiMessage = {
    * searched.
    */
   hostedSearch?: HostedSearch;
+  /**
+   * Opaque provider replay data for an assistant row: the signatures pi-ai
+   * keeps on thinking/text blocks. Never shown; the runtime uses it to send a
+   * restored history byte-for-byte as the live one, so a rebuilt runtime keeps
+   * the prompt cache and the model's own reasoning.
+   */
+  providerReplay?: AssistantProviderReplay;
 };
+
+/**
+ * Per-block replay metadata for one assistant message, in content order.
+ * `length` is the UTF-16 length of the block's text; the texts themselves are
+ * already stored as `thinking` and `content` (concatenated), so only the
+ * boundaries and signatures are kept here.
+ */
+export type AssistantProviderReplay = {
+  version: 1;
+  blocks: AssistantProviderReplayBlock[];
+};
+
+export type AssistantProviderReplayBlock =
+  | { type: "thinking"; length: number; signature?: string; redacted?: true }
+  | { type: "text"; length: number; signature?: string };
 
 /**
  * Normalized provider-hosted web search activity for one assistant message.
