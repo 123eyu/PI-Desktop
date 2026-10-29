@@ -8449,6 +8449,35 @@ must keep splitting are covered by `markdown-blocks.test.mjs`.
   3,484-message transcript, three follow-up turns, restart, and a revision
   round trip. Set `PI_DESKTOP_HOST_BIN` to a host built from the candidate.
 
+#### E2E-REVIEW-append-state: Rolling back a historical tool card does not rewrite its session
+
+- **Preconditions**: An isolated real Host process, a temporary workspace with
+  a file changed by `Write`, and a transcript with 16 MiB of synthetic retained
+  tool output after the review-owning message. Use `--large` for 384 MiB.
+- **Steps**: Run `review.rollback`, compare the transcript prefix hash and
+  appended bytes, read the review with a one-message `messageAround` window,
+  read the tail, restart the Host, and retry the same rollback.
+- **Expected**: Workspace bytes are restored. The original transcript prefix
+  is unchanged and fewer than 256 bytes are appended. The selected card reads
+  `rolledBack` before and after restart, its original position and the last
+  message remain correct, and message count is unchanged. Retrying returns
+  `alreadyRolledBack` without appending another state record.
+- **Specs linked**: `03-runtime/04-data-storage.md` §2.0; ADR
+  [append-only-review-state](../../adr/append-only-review-state.md).
+- **Acceptance**: C (conversation), F (persistence), Quality.
+- **Milestone**: M6.
+- **Status**: Automated by `pnpm test:e2e:review-state`; set
+  `PI_DESKTOP_HOST_BIN` to the candidate Host binary. No provider or user data
+  is used. `transcripts::review_state_tests` additionally covers duplicate IDs,
+  snapshot isolation, disk cache reuse, intentional rewrites and torn appends.
+  `equal_length_state_appends_replay_in_file_order_across_cached_reads` pins
+  file-order precedence for equal-sized state appends through warm and cold
+  layouts. `truncate_from_folds_review_state_into_the_retained_prefix` verifies
+  that a later truncate removes the state log while retaining the effective
+  state in the surviving canonical tool message.
+  This validates the review-state trigger in #1836; it does not assert Windows
+  UI timing or eliminate full rewrites for deliberate history replacement.
+
 #### E2E-246: Retrying a large session truncates without a whole-transcript RPC
 
 
