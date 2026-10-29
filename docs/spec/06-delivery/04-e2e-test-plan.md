@@ -25,6 +25,19 @@
   deterministic regression does not claim to recover that missing evidence.
 
 
+### Windows background process snapshot clock
+
+- **Preconditions:** Isolated Windows Host and a synthetic background task.
+- **Steps:** Start a child and grandchild after Host startup, exercise stopping
+  through the production process-tree helper, and observe both owned processes.
+- **Expected:** Children created before the snapshot are not rejected as recycled
+  PIDs merely because they started after the Host. Descendants terminate before
+  their parent; unrelated/newer processes remain excluded and failures surface.
+- **Coverage:** `windows_process_tree` unit tests, including a real owned child
+  creation-time check; `e2e-background-tasks-host.mjs` for the Host workflow.
+- **Qualification:** A foreign-API fixture and Windows target compilation are
+  separate from native Windows execution; record which actually ran.
+
 ## 1. Goals
 
 ### E2E-TRANSCRIPT-scroll-interruption
