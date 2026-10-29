@@ -214,6 +214,13 @@ server or calculated value is capped at 30 seconds. The runtime captures the
 failed response status and headers from fetch because pi-ai's ordinary response
 callback only covers an established response.
 
+The main turn's idle watchdog measures each active provider attempt separately;
+retry backoff is outside that clock. Its default is 180 seconds with no provider
+events. `PI_DESKTOP_STREAM_IDLE_TIMEOUT_MS` keeps the 30-second positive minimum,
+and `0` disables the watchdog. A genuine stall aborts that attempt before recovery
+starts another one. It does not abort the retry loop's user-owned signal or spend
+an additional retry merely because a requested backoff elapsed.
+
 Non-429 transient failures share their own bounded response-recovery budget of ten
 retries after the initial attempt, for eleven provider attempts total. The budget
 is shared by request setup and stream delivery, so a fault that moves between
