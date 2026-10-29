@@ -265,23 +265,32 @@ export function turnHasStreamingRows(
  * The turn a running transcript is driving, when that turn is not the tail
  * entry. Tail position alone cannot identify it: a steering message or a
  * system row may render after the live turn (#1949), while the history list
- * renders every entry as inactive. The last assistant-turn with streaming
- * rows is the running one; an earlier turn with stuck rows is a crash or a
- * lost host, which `turnProcessPhase` keeps reading as unsettled (#1923).
- * A tail assistant-turn reports its own active state, so it yields no
- * history id, and a turn whose rows all settled yields none either: without
- * a streaming row the turn may genuinely have finished.
+ * renders every entry as inactive. Walk back like
+ * `collectLiveDelegationEntries`: steering user messages stay inside the run,
+ * an ordinary user message or system row ends it. The last assistant-turn of
+ * the current run is live only while it still has streaming rows; an earlier
+ * turn left streaming by a crash is outside this run's boundary and keeps
+ * `turnProcessPhase`'s unsettled reading (#1923). A tail assistant-turn
+ * reports its own active state, so it yields no history id.
  */
 export function liveHistoryTurnId(
   entries: readonly TranscriptEntry[],
   tailEntry?: TranscriptEntry | null,
 ): string | undefined {
   if (tailEntry?.kind === "assistant-turn") return undefined;
-  let live: AssistantTurnEntry | undefined;
-  for (const entry of entries) {
-    if (entry.kind === "assistant-turn") live = entry;
+  for (let index = entries.length; index >= 0; index -= 1) {
+    const entry = index === entries.length ? (tailEntry ?? undefined) : entries[index];
+    if (!entry) continue;
+    if (entry.kind === "assistant-turn") {
+      return turnHasStreamingRows(entry.parts) ? entry.id : undefined;
+    }
+    if (entry.kind === "message") {
+      const { message } = entry;
+      if (message.role === "user" && message.steering) continue;
+      if (message.role === "user" || message.role === "system") break;
+    }
   }
-  return live && turnHasStreamingRows(live.parts) ? live.id : undefined;
+  return undefined;
 }
 
 /**
