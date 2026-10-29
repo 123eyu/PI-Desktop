@@ -69,7 +69,7 @@ process.stdout.write(JSON.stringify({jsonrpc:'2.0',method:'test.trust',params:{s
     // them from `node:path` / `node:url` themselves, and a same-scope redeclare
     // is a syntax error. `__dirname` therefore resolves through the injected
     // `createRequire` as well - `.pathname` is not a usable path on Windows.
-    banner: { js: "import { createRequire as __piCreateRequire } from 'node:module'; const require = __piCreateRequire(import.meta.url); const __dirname = __piCreateRequire('node:url').fileURLToPath(new URL('.', import.meta.url));" },
+    banner: { js: "import { createRequire as __piCreateRequire } from 'node:module'; const require = __piCreateRequire(import.meta.url); const __dirname = require('node:url').fileURLToPath(new URL('.', import.meta.url));" },
   });
   await run("localhost", "DEPTH_ZERO_SELF_SIGNED_CERT", false);
   await run("localhost", "success", true);
