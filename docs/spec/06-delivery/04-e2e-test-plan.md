@@ -27,6 +27,34 @@
 
 ## 1. Goals
 
+### E2E-TRANSCRIPT-scroll-interruption
+
+- **Preconditions:** Real Chromium with the production transcript scroll hook;
+  a scrollable transcript, manual disclosure reading, and normal motion.
+- **Steps:** Start a smooth navigation toward earlier history. Deliver
+  transcript-owned wheel input before yielding to its first animation frame.
+  Observe subsequent animation frames and run the long-history streaming probe.
+- **Expected:** Input stops the old browser animation at the current offset;
+  later frames cannot move the reader toward its stale destination. Streaming,
+  disclosure anchoring, pinned follow, and long-history work budgets still pass.
+- Repeat owned wheel, scroll-key, scrollbar-surface and touch inputs in the
+  main and delegated scrollers. Observe real browser calls to distinguish
+  application cancellation from Chromium's own pointer behavior. Button Space,
+  button presses, select arrows and nested wheel input must not request an
+  ancestor cancellation. Button Space must allow the original navigation to
+  finish. `e2e-transcript-turn-completion.mjs` also verifies normal completed-turn
+  prompt navigation and a reader's manually retained position.
+  Start smooth navigation immediately before toggling a real disclosure in
+  both main and delegated scrollers; its clicked title must keep its offset.
+- **Coverage:** `node scripts/e2e-transcript-disclosure-anchor.mjs` and
+  `node scripts/e2e-transcript-render.mjs`, plus
+  `node scripts/e2e-transcript-turn-completion.mjs`. CI runs the completion
+  probe in a visible window under Xvfb/Openbox: never-shown Linux windows can
+  throttle animation frames despite `backgroundThrottling: false`.
+- **Specs:** Interaction patterns §2.2. **Milestone:** Maintenance.
+- **Status:** Automated browser regression; the interruption assertion fails
+  without explicit cancellation of the browser-owned smooth navigation.
+
 ### E2E model discovery membership
 
 - **Entry:** `node scripts/e2e-model-discovery-state.mjs` after building Host,
@@ -8449,6 +8477,35 @@ must keep splitting are covered by `markdown-blocks.test.mjs`.
   3,484-message transcript, three follow-up turns, restart, and a revision
   round trip. Set `PI_DESKTOP_HOST_BIN` to a host built from the candidate.
 
+#### E2E-REVIEW-append-state: Rolling back a historical tool card does not rewrite its session
+
+- **Preconditions**: An isolated real Host process, a temporary workspace with
+  a file changed by `Write`, and a transcript with 16 MiB of synthetic retained
+  tool output after the review-owning message. Use `--large` for 384 MiB.
+- **Steps**: Run `review.rollback`, compare the transcript prefix hash and
+  appended bytes, read the review with a one-message `messageAround` window,
+  read the tail, restart the Host, and retry the same rollback.
+- **Expected**: Workspace bytes are restored. The original transcript prefix
+  is unchanged and fewer than 256 bytes are appended. The selected card reads
+  `rolledBack` before and after restart, its original position and the last
+  message remain correct, and message count is unchanged. Retrying returns
+  `alreadyRolledBack` without appending another state record.
+- **Specs linked**: `03-runtime/04-data-storage.md` §2.0; ADR
+  [append-only-review-state](../../adr/append-only-review-state.md).
+- **Acceptance**: C (conversation), F (persistence), Quality.
+- **Milestone**: M6.
+- **Status**: Automated by `pnpm test:e2e:review-state`; set
+  `PI_DESKTOP_HOST_BIN` to the candidate Host binary. No provider or user data
+  is used. `transcripts::review_state_tests` additionally covers duplicate IDs,
+  snapshot isolation, disk cache reuse, intentional rewrites and torn appends.
+  `equal_length_state_appends_replay_in_file_order_across_cached_reads` pins
+  file-order precedence for equal-sized state appends through warm and cold
+  layouts. `truncate_from_folds_review_state_into_the_retained_prefix` verifies
+  that a later truncate removes the state log while retaining the effective
+  state in the surviving canonical tool message.
+  This validates the review-state trigger in #1836; it does not assert Windows
+  UI timing or eliminate full rewrites for deliberate history replacement.
+
 #### E2E-246: Retrying a large session truncates without a whole-transcript RPC
 
 
@@ -16443,24 +16500,34 @@ plugin-form fixtures in an isolated temporary directory at runtime.
   and at least one slash entry exists (builtin alias, template, plugin command,
   or Skill).
 - **Steps**:
-  1. With the draft empty, type `、` and inspect the composer.
+  1. With the draft empty, compose `、`, inspect the pre-edit text, then commit.
   2. Continue typing a command name and accept the highlighted row.
   3. Type a draft that contains `、` between other characters.
   4. Send a draft whose first character was typed as `、` without accepting any
      row.
+  5. Cancel a composition, then type `/` again. Also delete text after a
+     dropped `compositionend` and confirm the slash menu still reopens.
 - **Expected**: The committed `、` is rewritten to `/` in place, the ordinary
   slash menu opens with the same filtering and keyboard behavior as a typed
   `/`, and the caret stays after the substituted character. A `、` anywhere
   later in the draft stays untouched text, and the `@` file menu never reacts
-  to the mark.
+  to the mark. Pre-edit `、` remains unchanged until commit; the result is `/`,
+  never `/、`. Ordinary Chinese composition and punctuation in existing drafts
+  remain unchanged. Cancelling leaves a blank draft, and replacing the draft
+  releases the old composition's empty-draft origin.
 - **Specs linked**: `04-ux/04-builtin-commands.md` (§9),
   `04-ux/08-component-spec.md` (§11), `08-meta/decisions-log.md` (D405),
   ADR 0024, ADR 0231
 - **Acceptance**: C (conversation & stream), Localization, Quality
 - **Milestone**: M2
-- **Status**: Unit-covered (`packages/shared/src/composer-trigger.test.ts`,
-  `apps/desktop/test/composer-ime.test.mjs`); rendered desktop journey Draft
-  (run only in a capable environment when this surface changes)
+- **Status**: Partially automated. Unit coverage:
+  `packages/shared/src/composer-trigger.test.ts`,
+  `apps/desktop/test/composer-ime.test.mjs`. Rendered Electron coverage:
+  `node scripts/e2e-composer-ime-stack.mjs` mounts the production input, draft,
+  and completion components, drives Chromium composition through CDP, and
+  covers alias commit, ordinary Chinese text, cancellation, draft replacement,
+  completion acceptance, and lost-end recovery. Sending and a physical OS IME
+  candidate window remain manual checks.
 
 #### E2E-256: Empty-home project name switches among sidebar projects
 
