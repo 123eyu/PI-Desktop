@@ -27,3 +27,9 @@
   card now says so and shows the error instead of staying blank, and the
   model's write result flags syntax errors and missing chart containers so it
   can fix them with one edit.
+- Fixed cramped inline visualizations. A visualization's title, controls,
+  chart, legend, and captions no longer touch: top-level blocks, and the
+  blocks inside a single wrapping root element (the shape most visualizations
+  use), are now spaced 12px apart. Visualizations that lay out their own root
+  keep their layout, and existing cards pick up the spacing when they next
+  load.

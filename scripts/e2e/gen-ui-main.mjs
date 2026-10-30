@@ -48,6 +48,10 @@ async function run() {
     "<p>CROSS_SESSION_PRIVATE_MARKER</p><script>parent.postMessage({type:'fixture:loaded'},'*')</script>");
   await writeFile(join(sessionDir, "broken.html"),
     `<div id="chart"></div><script>viz.render("missing-chart", { mark: "bar", data: [{ k: "a", v: 1 }], x: "k", y: "v" });</script>`);
+  // The usual model shape: one id'd root wrapping title, controls, stage, and
+  // caption, with the script beside it.
+  await writeFile(join(sessionDir, "stack.html"),
+    `<div id="stack-root"><h3>Title</h3><div class="viz-controls"><button class="btn" type="button">Next</button></div><div style="height:40px"></div><p>Caption</p></div><script>parent.postMessage({type:'fixture:loaded'},'*')</script>`);
   await writeFile(join(sessionDir, "attacker.html"), `<p>attacker</p><script>addEventListener('message',event=>{if(event.data!=='attack')return;try{parent.postMessage({type:'cross-read',stolen:parent.frames[1].document.querySelector('p').textContent},'*')}catch(error){parent.postMessage({type:'cross-read',error:error.name},'*')}});parent.postMessage({type:'fixture:loaded'},'*')</script>`);
   await writeFile(join(sessionDir, "limit.html"), Buffer.alloc(GEN_UI_MAX_FRAGMENT_BYTES, 0x20));
   const limit = await readFragment({ sessionId: "probe_session", fileName: "limit.html" });
@@ -175,6 +179,20 @@ async function run() {
     assert.match(await host('document.querySelector(".gen-ui-script-error").textContent'), /viz: no element missing-chart/);
     assert.equal(await host('document.querySelectorAll(".gen-ui-card iframe").length'), 1);
     checks.push("fragment script errors show in the card");
+
+    // Blocks inside a single wrapping root used to touch (no gap at either
+    // level); the kit now stacks them, and a root that sets its own layout
+    // keeps it.
+    const stack = message(0).replace("chart0.html", "stack.html");
+    await host(`window.genUiProbe.mount(${JSON.stringify(stack)});window.genUiProbe.waitLoaded(1)`);
+    const stackGuest = guests()[0];
+    const gaps = 'new Promise((resolve)=>requestAnimationFrame(()=>{const boxes=Array.from(document.getElementById("stack-root").children,(el)=>el.getBoundingClientRect());resolve(boxes.slice(1).map((box,index)=>Math.round(box.top-boxes[index].bottom)))}))';
+    const stacked = await stackGuest.executeJavaScript(gaps);
+    assert.equal(stacked.length, 3);
+    for (const gap of stacked) assert.ok(gap >= 8, `blocks in a wrapping root are spaced: ${stacked}`);
+    const own = await stackGuest.executeJavaScript(`document.getElementById("stack-root").style.display="block";${gaps}`);
+    assert.deepEqual(own, [0, 0, 0]);
+    checks.push("blocks in a wrapping root are spaced; fragment layout wins");
 
     window.setContentSize(900, 2600);
     const all = Array.from({ length: 8 }, (_, index) => message(index)).join("\n");

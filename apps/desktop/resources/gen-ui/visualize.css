@@ -310,6 +310,30 @@ code:not(pre code) {
   background: transparent !important;
 }
 
+/*
+ * Vertical rhythm. PI-Desktop writes the fragment straight into the body (there
+ * is no #widget wrapper), and the skill asks for one root element with a unique
+ * id, so neither level spaced its blocks: headings, controls, charts, legends,
+ * and captions touched. Stack the blocks of the body and of a sole root container
+ * with the #widget gap. Zero specificity, so a fragment that lays out its own
+ * root (any display or gap) keeps it. Only a container with a block child is
+ * stacked, so a root of inline controls keeps flowing inline. Scripts, styles,
+ * and out-of-flow nodes such as the tooltip are not flex items and take no gap.
+ */
+:where(
+    :is(
+        body,
+        body:not(:has(> :not(script, style, template, .tooltip) ~ :not(script, style, template, .tooltip)))
+          > :is(div, section, article, main, form)
+      ):has(
+        > :is(div, p, section, article, header, footer, nav, figure, form, fieldset, details, table, ul, ol, dl, pre, blockquote, hr, h1, h2, h3, h4, h5, h6, svg, canvas)
+      )
+  ) {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
 .card {
   min-width: 0;
   padding: 12px;
