@@ -48,10 +48,24 @@ async function run() {
     "<p>CROSS_SESSION_PRIVATE_MARKER</p><script>parent.postMessage({type:'fixture:loaded'},'*')</script>");
   await writeFile(join(sessionDir, "broken.html"),
     `<div id="chart"></div><script>viz.render("missing-chart", { mark: "bar", data: [{ k: "a", v: 1 }], x: "k", y: "v" });</script>`);
-  // The usual model shape: one id'd root wrapping title, controls, stage, and
-  // caption, with the script beside it.
-  await writeFile(join(sessionDir, "stack.html"),
-    `<div id="stack-root"><h3>Title</h3><div class="viz-controls"><button class="btn" type="button">Next</button></div><div style="height:40px"></div><p>Caption</p></div><script>parent.postMessage({type:'fixture:loaded'},'*')</script>`);
+  // Layout shapes model fragments use; only plain block flow gets spaced.
+  const loaded = "<script>parent.postMessage({type:'fixture:loaded'},'*')</script>";
+  const layouts = {
+    // The shape the skill asks for: top-level blocks, no wrapper.
+    flat: `<h3 id="a">Title</h3><div id="b" class="viz-controls"><button class="btn" type="button" id="b1">One</button><button class="btn" type="button" id="b2">Two</button></div><div id="c" style="height:40px"></div><p id="d">Caption</p>`,
+    // Top-level inline controls keep flowing on their line, unstretched.
+    inline: `<button class="btn" type="button" id="b1">One</button><button class="btn" type="button" id="b2">Two</button><div id="c" style="height:40px"></div><p id="d">Caption</p>`,
+    // A top-level block keeps its own padding and background.
+    styled: `<div id="a" style="padding:10px;background:rgb(1, 2, 3)">Stage</div>`,
+    // Fragments written before: one wrapping root keeps its exact geometry.
+    wrapped: `<div id="r"><h3 id="a">Title</h3><div id="b" style="height:40px"></div><p id="c">Caption</p></div>`,
+    // Roots that lay themselves out keep their geometry.
+    flexRow: `<div id="r" style="display:flex;gap:8px"><div id="a" style="width:100px;height:40px">A</div><div id="b" style="width:100px;height:40px">B</div></div>`,
+    flexColumn: `<div id="r" style="display:flex;flex-direction:column;gap:5px"><div id="a" style="height:40px">A</div><div id="b" style="height:40px">B</div></div>`,
+    grid: `<div id="r" style="display:grid;grid-template-columns:100px 100px;gap:4px"><div id="a" style="height:40px">A</div><div id="b" style="height:40px">B</div></div>`,
+  };
+
+  for (const [name, markup] of Object.entries(layouts)) await writeFile(join(sessionDir, `layout-${name}.html`), markup + loaded);
   await writeFile(join(sessionDir, "attacker.html"), `<p>attacker</p><script>addEventListener('message',event=>{if(event.data!=='attack')return;try{parent.postMessage({type:'cross-read',stolen:parent.frames[1].document.querySelector('p').textContent},'*')}catch(error){parent.postMessage({type:'cross-read',error:error.name},'*')}});parent.postMessage({type:'fixture:loaded'},'*')</script>`);
   await writeFile(join(sessionDir, "limit.html"), Buffer.alloc(GEN_UI_MAX_FRAGMENT_BYTES, 0x20));
   const limit = await readFragment({ sessionId: "probe_session", fileName: "limit.html" });
@@ -180,19 +194,39 @@ async function run() {
     assert.equal(await host('document.querySelectorAll(".gen-ui-card iframe").length'), 1);
     checks.push("fragment script errors show in the card");
 
-    // Blocks inside a single wrapping root used to touch (no gap at either
-    // level); the kit now stacks them, and a root that sets its own layout
-    // keeps it.
-    const stack = message(0).replace("chart0.html", "stack.html");
-    await host(`window.genUiProbe.mount(${JSON.stringify(stack)});window.genUiProbe.waitLoaded(1)`);
-    const stackGuest = guests()[0];
-    const gaps = 'new Promise((resolve)=>requestAnimationFrame(()=>{const boxes=Array.from(document.getElementById("stack-root").children,(el)=>el.getBoundingClientRect());resolve(boxes.slice(1).map((box,index)=>Math.round(box.top-boxes[index].bottom)))}))';
-    const stacked = await stackGuest.executeJavaScript(gaps);
-    assert.equal(stacked.length, 3);
-    for (const gap of stacked) assert.ok(gap >= 8, `blocks in a wrapping root are spaced: ${stacked}`);
-    const own = await stackGuest.executeJavaScript(`document.getElementById("stack-root").style.display="block";${gaps}`);
-    assert.deepEqual(own, [0, 0, 0]);
-    checks.push("blocks in a wrapping root are spaced; fragment layout wins");
+    // The shell had no #widget container, so the kit's block spacing never
+    // applied and blocks touched. Top-level blocks are now spaced; inline
+    // controls, block styling, and every root that lays itself out keep their
+    // geometry.
+    const layoutBoxes = async (name, ids) => {
+      const at = message(0).replace("chart0.html", `layout-${name}.html`);
+      await host(`window.genUiProbe.mount(${JSON.stringify(at)});window.genUiProbe.waitLoaded(1)`);
+      return guests()[0].executeJavaScript(`new Promise((resolve) => requestAnimationFrame(() => resolve(${JSON.stringify(ids)}.map((id) => {
+        const el = document.getElementById(id);
+        const box = el.getBoundingClientRect();
+        return { top: Math.round(box.top), bottom: Math.round(box.bottom), left: Math.round(box.left), width: Math.round(box.width), padding: getComputedStyle(el).paddingTop, inWidget: document.getElementById("widget").contains(el) };
+      }))))`);
+    };
+    const spaced = (boxes) => boxes.slice(1).map((box, index) => box.top - boxes[index].bottom);
+    const flat = await layoutBoxes("flat", ["a", "b", "c", "d", "b1", "b2"]);
+    assert.ok(flat.every((box) => box.inWidget), "the fragment renders inside #widget");
+    for (const gap of spaced(flat.slice(0, 4))) assert.ok(gap >= 8, `top-level blocks are spaced: ${spaced(flat.slice(0, 4))}`);
+    assert.equal(flat[4].top, flat[5].top, "controls in a row stay on one line");
+    const inlineRow = await layoutBoxes("inline", ["b1", "b2", "c", "d"]);
+    assert.equal(inlineRow[0].top, inlineRow[1].top, "top-level inline controls stay on one line");
+    assert.ok(inlineRow[0].width < 300, `top-level inline controls are not stretched: ${inlineRow[0].width}`);
+    assert.ok(inlineRow[3].top - inlineRow[2].bottom >= 8, `blocks after inline controls are spaced: ${JSON.stringify(inlineRow)}`);
+    const styled = await layoutBoxes("styled", ["a"]);
+    assert.equal(styled[0].padding, "10px", "a top-level block keeps its own padding");
+    const wrapped = await layoutBoxes("wrapped", ["a", "b", "c"]);
+    assert.deepEqual(spaced(wrapped), [0, 0], "a wrapped root from an earlier fragment keeps its geometry");
+    const flexRow = await layoutBoxes("flexRow", ["a", "b"]);
+    assert.deepEqual([flexRow[1].left - flexRow[0].left, flexRow[1].top - flexRow[0].top], [108, 0], "default-row flex root keeps its row");
+    const flexColumn = await layoutBoxes("flexColumn", ["a", "b"]);
+    assert.equal(flexColumn[1].top - flexColumn[0].bottom, 5, "flex column root keeps its own gap");
+    const grid = await layoutBoxes("grid", ["a", "b"]);
+    assert.deepEqual([grid[1].left - grid[0].left, grid[1].top - grid[0].top], [104, 0], "grid root keeps its columns");
+    checks.push("top-level blocks are spaced in #widget; inline, styled, wrapped, flex, and grid layouts keep their geometry");
 
     window.setContentSize(900, 2600);
     const all = Array.from({ length: 8 }, (_, index) => message(index)).join("\n");

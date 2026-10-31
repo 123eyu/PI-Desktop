@@ -19304,7 +19304,9 @@ their separate platform acceptance.
   including real protocol responses, bundled assets, the preloaded `viz`
   helpers (`viz.chart` sizing, `viz.render` charts and their date, year,
   re-render, and donut edge cases), a fragment script error shown in the
-  card, block spacing inside a single wrapping root, focus/guest Escape,
+  card, the fragment inside the kit's `#widget` container with its top-level
+  blocks spaced while inline controls, block styling, wrapped roots, and flex,
+  grid, and column roots keep their geometry, focus/guest Escape,
   viewport release, and unsandboxed callers through a real isolated Host.
   Native directory, FIFO, and ABA regressions run in `visualizations/files`;
   `gen-ui-file-safety.test.mjs` validates the private Host-to-Main boundary.

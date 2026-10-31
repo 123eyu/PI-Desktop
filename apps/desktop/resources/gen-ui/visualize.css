@@ -301,37 +301,26 @@ code:not(pre code) {
   white-space: nowrap;
 }
 
+/*
+ * The shell writes the fragment into #widget. Its top-level blocks are
+ * stacked 12px apart with a top margin rather than the upstream kit's flex
+ * column, so a top-level inline control or image keeps flowing as it did
+ * and is not stretched. Element-level specificity, placed after the heading
+ * and paragraph margin reset so it beats that, while any margin the fragment
+ * sets still wins. A block whose own layout is flex or grid is unaffected.
+ */
 #widget {
-  display: flex;
-  flex-direction: column;
-  gap: 12px;
+  display: flow-root;
   width: 100%;
   padding: 0;
   background: transparent !important;
 }
 
-/*
- * Vertical rhythm. PI-Desktop writes the fragment straight into the body (there
- * is no #widget wrapper), and the skill asks for one root element with a unique
- * id, so neither level spaced its blocks: headings, controls, charts, legends,
- * and captions touched. Stack the blocks of the body and of a sole root container
- * with the #widget gap. Zero specificity, so a fragment that lays out its own
- * root (any display or gap) keeps it. Only a container with a block child is
- * stacked, so a root of inline controls keeps flowing inline. Scripts, styles,
- * and out-of-flow nodes such as the tooltip are not flex items and take no gap.
- */
-:where(
-    :is(
-        body,
-        body:not(:has(> :not(script, style, template, .tooltip) ~ :not(script, style, template, .tooltip)))
-          > :is(div, section, article, main, form)
-      ):has(
-        > :is(div, p, section, article, header, footer, nav, figure, form, fieldset, details, table, ul, ol, dl, pre, blockquote, hr, h1, h2, h3, h4, h5, h6, svg, canvas)
-      )
+:where(#widget)
+  > :is(div, p, section, article, header, footer, nav, figure, form, fieldset, details, table, ul, ol, dl, pre, blockquote, hr, h1, h2, h3, h4, h5, h6, svg, canvas):where(
+    :not(script, style, template) ~ *
   ) {
-  display: flex;
-  flex-direction: column;
-  gap: 12px;
+  margin-block-start: 12px;
 }
 
 .card {
@@ -354,17 +343,6 @@ code:not(pre code) {
   box-shadow: 0 0 0 0.5px var(--border-strong, var(--border));
   color: var(--foreground);
   background: var(--background);
-}
-
-#widget > :not(.card, .widget, .progress) {
-  width: 100% !important;
-  max-width: none !important;
-  margin: 0 !important;
-  padding: 0 !important;
-  border: 0 !important;
-  border-radius: 0 !important;
-  background: transparent !important;
-  box-shadow: none !important;
 }
 
 .tooltip {
@@ -1031,9 +1009,6 @@ svg {
   height: auto;
 }
 
-#widget > svg {
-  width: 100%;
-}
 
 /* Axes drawn by `viz.axes` (visualize-helpers.js). */
 .viz-axis {
