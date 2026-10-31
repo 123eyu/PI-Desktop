@@ -4959,7 +4959,10 @@ window; opening a normal panel afterward must still work.
   still work without moving it.
   4) Click `+` twice and verify each creates and activates a separate New
   launcher tab. Confirm its body lists Review and each in-scope plugin view
-  exactly once. Open Browser and confirm its native surface opens at unchanged
+  exactly once. Shrink the window (or install enough plugins) so the launcher
+  rows exceed the panel height: the New title stays pinned, the row list
+  scrolls, the bottom rows stay reachable by wheel, scrollbar, and Tab focus
+  (#2026). Open Browser and confirm its native surface opens at unchanged
   bounds. Open its context menu and verify the native popup appears above Browser
   chrome while the page remains visible. With Browser active, right-click another
   tab and confirm it still uses the native menu. Repeat at 50% and 150% app zoom;
