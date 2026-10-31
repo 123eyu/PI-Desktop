@@ -1291,6 +1291,29 @@ function runtimeMatches(
   });
 }
 
+function runtimeFirstMismatch(
+  runtime: DesktopAgentRuntime,
+  overrides: Partial<RuntimeMatchConfig> = {},
+): string | null {
+  return runtime.firstMismatch({
+    mode: runtime.getMode(),
+    provider: (runtime as any).provider,
+    thinkingLevel: (runtime as any).thinkingLevel,
+    pluginTools: (runtime as any).pluginTools,
+    pluginSkills: (runtime as any).pluginSkills,
+    projectInstructions: (runtime as any).baseProjectInstructions,
+    customSystemPrompt: (runtime as any).customSystemPrompt,
+    projectMemory: (runtime as any).projectMemory,
+    projectPath: (runtime as any).projectPath,
+    workspaceRoot: (runtime as any).workspaceRoot,
+    commandShell: (runtime as any).commandShell,
+    subagents: (runtime as any).subagents,
+    subagentProviders: (runtime as any).subagentProviders,
+    subagentModelKeys: [...(runtime as any).subagentModelKeys],
+    ...overrides,
+  });
+}
+
 describe("system transcript reconstruction", () => {
   it("keeps provider usage valid when rebuilding an unchanged prefix", async () => {
     const runtime = createRuntime();
@@ -1471,6 +1494,45 @@ describe("custom system prompt files (issue #542)", () => {
     ).toBe(false);
 
     await runtime.dispose();
+  });
+});
+
+describe("DesktopAgentRuntime configuration matching", () => {
+  // #1948: a bool leaves "why did my cache reset" unanswerable. The field name
+  // is the diagnostic.
+  it("firstMismatch names the field that changed", async () => {
+    const runtime = createRuntime({ projectMemory: "Use the staging database." });
+    expect(runtimeFirstMismatch(runtime)).toBeNull();
+    expect(
+      runtimeFirstMismatch(runtime, { projectMemory: "Use the production database." }),
+    ).toBe("projectMemory");
+    expect(runtimeFirstMismatch(runtime, { mode: "plan" })).toBe("mode");
+    await runtime.dispose();
+  });
+
+  it("firstMismatch names the provider field, including a refreshed key", async () => {
+    const runtime = createRuntime();
+    const refreshedProvider = {
+      ...(runtime as any).provider,
+      apiKey: "sk-refreshed",
+    };
+    expect(runtimeFirstMismatch(runtime, { provider: refreshedProvider })).toBe(
+      "provider.apiKey",
+    );
+    const otherModel = {
+      ...(runtime as any).provider,
+      modelId: "other-model",
+    };
+    expect(runtimeFirstMismatch(runtime, { provider: otherModel })).toBe(
+      "provider.modelId",
+    );
+    await runtime.dispose();
+  });
+
+  it("a disposed runtime reports itself instead of a field", async () => {
+    const runtime = createRuntime();
+    await runtime.dispose();
+    expect(runtimeFirstMismatch(runtime)).toBe("disposed");
   });
 });
 
