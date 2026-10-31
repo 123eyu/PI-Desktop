@@ -201,21 +201,54 @@ async function run() {
     const layoutBoxes = async (name, ids) => {
       const at = message(0).replace("chart0.html", `layout-${name}.html`);
       await host(`window.genUiProbe.mount(${JSON.stringify(at)});window.genUiProbe.waitLoaded(1)`);
-      return guests()[0].executeJavaScript(`new Promise((resolve) => requestAnimationFrame(() => resolve(${JSON.stringify(ids)}.map((id) => {
-        const el = document.getElementById(id);
-        const box = el.getBoundingClientRect();
-        return { top: Math.round(box.top), bottom: Math.round(box.bottom), left: Math.round(box.left), width: Math.round(box.width), padding: getComputedStyle(el).paddingTop, inWidget: document.getElementById("widget").contains(el) };
-      }))))`);
+      // fixture:loaded fires from the guest before the card has necessarily
+      // settled the frame's width, so measure only once the guest viewport
+      // matches the mounted iframe and has held that width for two frames.
+      const frameWidth = await host(`window.genUiProbe.wait(() => (document.querySelector(".gen-ui-card iframe")?.clientWidth ?? 0) > 200, "layout frame width").then(() => document.querySelector(".gen-ui-card iframe").clientWidth)`);
+      // Measure the frame that serves this fixture, not one still unloading.
+      const guest = guests().find((frame) => frame.url.includes(`layout-${name}.html`));
+      assert.ok(guest, `layout-${name} guest frame is mounted: ${guests().map((frame) => frame.url)}`);
+      const result = await guest.executeJavaScript(`new Promise((resolve, reject) => {
+        const expected = ${frameWidth};
+        const deadline = Date.now() + 5000;
+        let stable = 0;
+        const tick = () => {
+          stable = document.documentElement.clientWidth === expected ? stable + 1 : 0;
+          if (stable >= 2) return resolve(measure());
+          if (Date.now() > deadline) return resolve(measure());
+          requestAnimationFrame(tick);
+        };
+        const measure = () => {
+          const widget = document.getElementById("widget");
+          return {
+            viewport: document.documentElement.clientWidth,
+            widget: Math.round(widget.getBoundingClientRect().width),
+            boxes: ${JSON.stringify(ids)}.map((id) => {
+              const el = document.getElementById(id);
+              const box = el.getBoundingClientRect();
+              const style = getComputedStyle(el);
+              return { id, top: Math.round(box.top), bottom: Math.round(box.bottom), left: Math.round(box.left), width: Math.round(box.width), display: style.display, padding: style.paddingTop, parentWidth: Math.round(el.parentElement.getBoundingClientRect().width), inWidget: widget.contains(el) };
+            }),
+          };
+        };
+        requestAnimationFrame(tick);
+      })`);
+      result.frame = frameWidth;
+      assert.equal(result.viewport, frameWidth, `guest viewport settles to the frame width: ${JSON.stringify(result)}`);
+      layoutDiagnostics.set(result.boxes, result);
+      return result.boxes;
     };
+    const layoutDiagnostics = new WeakMap();
+    const why = (boxes) => JSON.stringify(layoutDiagnostics.get(boxes));
     const spaced = (boxes) => boxes.slice(1).map((box, index) => box.top - boxes[index].bottom);
     const flat = await layoutBoxes("flat", ["a", "b", "c", "d", "b1", "b2"]);
-    assert.ok(flat.every((box) => box.inWidget), "the fragment renders inside #widget");
-    for (const gap of spaced(flat.slice(0, 4))) assert.ok(gap >= 8, `top-level blocks are spaced: ${spaced(flat.slice(0, 4))}`);
-    assert.equal(flat[4].top, flat[5].top, "controls in a row stay on one line");
+    assert.ok(flat.every((box) => box.inWidget), `the fragment renders inside #widget: ${why(flat)}`);
+    for (const gap of spaced(flat.slice(0, 4))) assert.ok(gap >= 8, `top-level blocks are spaced: ${why(flat)}`);
+    assert.equal(flat[4].top, flat[5].top, `controls in a row stay on one line: ${why(flat)}`);
     const inlineRow = await layoutBoxes("inline", ["b1", "b2", "c", "d"]);
-    assert.equal(inlineRow[0].top, inlineRow[1].top, "top-level inline controls stay on one line");
-    assert.ok(inlineRow[0].width < 300, `top-level inline controls are not stretched: ${inlineRow[0].width}`);
-    assert.ok(inlineRow[3].top - inlineRow[2].bottom >= 8, `blocks after inline controls are spaced: ${JSON.stringify(inlineRow)}`);
+    assert.equal(inlineRow[0].top, inlineRow[1].top, `top-level inline controls stay on one line: ${why(inlineRow)}`);
+    assert.ok(inlineRow[0].width < 300, `top-level inline controls are not stretched: ${why(inlineRow)}`);
+    assert.ok(inlineRow[3].top - inlineRow[2].bottom >= 8, `blocks after inline controls are spaced: ${why(inlineRow)}`);
     const styled = await layoutBoxes("styled", ["a"]);
     assert.equal(styled[0].padding, "10px", "a top-level block keeps its own padding");
     const wrapped = await layoutBoxes("wrapped", ["a", "b", "c"]);
