@@ -252,12 +252,17 @@ Add Service 的 provider 目录同样由宿主渲染。它只读取已加载且�
 
 - **面板 session。** `sandbox: true` 去掉的是 Node，不是网络，所以面板以前
   是一个完整的浏览器，而且从不经过 `net.fetch`。现在该 session 跑一个
-  `webRequest` 过滤器、拒绝所有设备权限，并禁止 `window.open` ——
-  否则它会造出一个不受过滤的窗口
+  `webRequest` 过滤器，拒绝所有设备权限（唯一例外是获得 `ui.microphone` 的插件
+  发起的纯音频麦克风请求，见 §8.2），并禁止 `window.open` —— 否则它会造出一个
+  不受过滤的窗口。该 session 是每个插件一个的持久化分区
+  （`persist:pi-plugin-<pluginId>`），由插件的面板窗口和停靠视图共用，两者应用同一个
+  过滤器。`file:`、`data:`、`blob:`、`devtools:`、`chrome-extension:` 和只读的
+  主题资源 scheme 不属于网络请求，会直接放行
 - **`pi.net.fetch`。** 检查白名单并手工跟随重定向，因为一个被允许的主机
-  30x 跳到未声明的主机上，就会把请求带出去。运行时的逐跳循环是唯一的
-  fetch 路径：Electron 主进程不提供任何替代的 `fetch` 服务，所以没有东西
-  能绕过逐跳重新检查去跟随重定向
+  30x 跳到未声明的主机上，就会把请求带出去。宿主共享的逐跳循环同时负责默认
+  传输和注入的单跳传输。`redirect: "error"` 遇到 3xx 直接拒绝、不访问目标；
+  `manual` 返回原始响应。默认仍是 `follow`，每一跳都重新检查。能力探测和错误码
+  见 [API 契约](/zh-CN/spec/07-plugins/03-plugin-api#网)
 - **远程 MCP 端点。** 同样听这份列表，而不是只看它自己的权限。HTTP 端点可以
   位于可信局域网，但明文 HTTP 不加密，配置或插件权限审查时会明确提示。
   MCP 客户端手动跟随重定向，最多允许五次 HTTP(S) 跳转，并在每一跳之前重新
@@ -269,8 +274,9 @@ Add Service 的 provider 目录同样由宿主渲染。它只读取已加载且�
   超大帧会关闭连接而不是被缓冲，超过 4 MiB 的发送队列会被拒绝而不是继续
   增长。帧只会送达持有它的那个插件。
 
-列表缺失、为空或非法就完全不放行出网，而裸 `*` 在安装时被拒绝，
-免得有人靠声明绕出去。正是这一点让一个宽松的 `fs.read` 范围变得可以接受（§6）。
+列表缺失、为空或非法就完全不放行出网，而裸 `*` 无法通过 `validateManifest()`，
+免得有人靠声明绕出去：`pi-plugin check` 会报错，宿主也会拒绝加载该插件。
+host-core 安装器不读取 `net.domains`，所以这样的包能装上，但随后加载失败。正是这一点让一个宽松的 `fs.read` 范围变得可以接受（§6）。
 
 仍然敞着、单独跟踪的：`agent.prompt.inject`（技能文本可以让一个有 shell
 能力的 Agent 替它搬运）、`shell.openExternal`、`bus.publish` 转给一个有网络
@@ -424,7 +430,7 @@ PI-Desktop 自己当前占用（默认是 `Alt+Space` 与 `Alt+Shift+W`；用户
 `UNSUPPORTED` 拒绝并记入审计，因为当前宿主还没有设备后端，所以没有任何东西
 能到达设备。
 `net.websocket` 已实现：连接由宿主持有、经过白名单检查、有界，并随插件一起
-释放（§8.1）。
+释放（§8.0）。
 
 尚未强制执行：
 
@@ -433,7 +439,9 @@ PI-Desktop 自己当前占用（默认是 `Alt+Space` 与 `Alt+Shift+W`；用户
   约束的是一个按规矩用 API 的插件，不是一个绕过 API 的插件（ADR 0008 D009）
 - CPU/内存限制
 - 签名验证（仅对包进行 sha256 检查）
-- 声明的清单权限在加载时自动授予
+- 声明的清单权限整体授予。安装审核没有逐项开关，授权缺少任何一项声明权限时
+  安装器会拒绝（`PLUGIN_PERMISSION_DENIED: missing grant for <permission>`）；
+  没有已记录授权的加载直接使用声明的权限集合
 - `userSelected` root 不跨重启保留，插件每个会话都得重新问一次
 
 ### Fetch redirect policy
