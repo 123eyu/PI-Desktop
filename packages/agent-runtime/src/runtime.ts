@@ -2686,8 +2686,13 @@ Do not invent objections or turn speculative risks into blockers. Stop when the 
     this.emit({ type: "planning_state", state, ...details });
   }
 
-  /** True when this runtime can be reused for a prompt with the given config. */
-  matches(config: RuntimeMatchConfig): boolean {
+  /**
+   * First reason this runtime cannot be reused for the given config, or null
+   * when it matches. Field names are diagnostics, not API: they name the
+   * comparison that failed so a rebuild can be attributed (#1948) instead of
+   * leaving "why did my cache reset" unanswerable.
+   */
+  firstMismatch(config: RuntimeMatchConfig): string | null {
     const requestedPluginTools = config.pluginTools ?? [];
     const current = safeJson([...this.pluginTools].sort((a, b) => a.name.localeCompare(b.name)));
     const next = safeJson([...requestedPluginTools].sort((a, b) => a.name.localeCompare(b.name)));
@@ -2705,49 +2710,59 @@ Do not invent objections or turn speculative risks into blockers. Stop when the 
       Boolean(this.provider.extensionAgentKey) &&
       this.provider.extensionAgentKey === config.provider.extensionAgentKey &&
       this.provider.modelId === config.provider.modelId;
-    const providerMatches = extensionAgentMatches || (
-      this.provider.id === config.provider.id &&
-      this.provider.modelId === config.provider.modelId &&
-      (this.provider.baseUrl ?? "") === (config.provider.baseUrl ?? "") &&
-      this.provider.apiKey === config.provider.apiKey &&
-      this.provider.authKind === config.provider.authKind &&
-      (this.provider.apiStyle ?? "") === (config.provider.apiStyle ?? "") &&
-      providerHeadersEqual(this.provider.headers, config.provider.headers) &&
-      this.provider.supportsReasoning === config.provider.supportsReasoning &&
-      currentThinkingLevels === nextThinkingLevels &&
-      safeJson(this.provider.modelConfig ?? null) === safeJson(config.provider.modelConfig ?? null)
-    );
-    return (
-      !this.disposed &&
-      providerMatches &&
-      this.mode === config.mode &&
-      this.jevApiKey === config.jevApiKey &&
-      this.thinkingLevel ===
-        clampThinkingLevel(config.provider, config.thinkingLevel) &&
-      current === next &&
-      safeJson(this.commandShell) === safeJson(config.commandShell) &&
-      safeJson(this.baseProjectInstructions ?? null) ===
-        safeJson(config.projectInstructions ?? null) &&
+    // An extension agent is identified by its key and model alone; the other
+    // provider fields belong to the plugin that declared it.
+    if (!extensionAgentMatches) {
+      const providerChecks: Array<[string, boolean]> = [
+        ["provider.id", this.provider.id === config.provider.id],
+        ["provider.modelId", this.provider.modelId === config.provider.modelId],
+        ["provider.baseUrl", (this.provider.baseUrl ?? "") === (config.provider.baseUrl ?? "")],
+        ["provider.apiKey", this.provider.apiKey === config.provider.apiKey],
+        ["provider.authKind", this.provider.authKind === config.provider.authKind],
+        ["provider.apiStyle", (this.provider.apiStyle ?? "") === (config.provider.apiStyle ?? "")],
+        ["provider.headers", providerHeadersEqual(this.provider.headers, config.provider.headers)],
+        ["provider.supportsReasoning", this.provider.supportsReasoning === config.provider.supportsReasoning],
+        ["provider.supportedThinkingLevels", currentThinkingLevels === nextThinkingLevels],
+        ["provider.modelConfig", safeJson(this.provider.modelConfig ?? null) === safeJson(config.provider.modelConfig ?? null)],
+      ];
+      for (const [field, ok] of providerChecks) {
+        if (!ok) return field;
+      }
+    }
+    const checks: Array<[string, boolean]> = [
+      ["disposed", !this.disposed],
+      ["mode", this.mode === config.mode],
+      ["jevApiKey", this.jevApiKey === config.jevApiKey],
+      ["thinkingLevel", this.thinkingLevel === clampThinkingLevel(config.provider, config.thinkingLevel)],
+      ["pluginTools", current === next],
+      ["commandShell", safeJson(this.commandShell) === safeJson(config.commandShell)],
+      ["projectInstructions", safeJson(this.baseProjectInstructions ?? null) === safeJson(config.projectInstructions ?? null)],
       // Editing SYSTEM.md / APPEND_SYSTEM.md retires the runtime so the next
       // prompt recomposes from the fresh content.
-      safeJson(this.customSystemPrompt ?? null) ===
-        safeJson(config.customSystemPrompt ?? null) &&
-      (this.projectMemory ?? "") === (config.projectMemory?.trim() ?? "") &&
-      (this.projectPath ?? "") === (config.remoteWorkspace?.path ?? config.projectPath?.trim() ?? "") &&
-      safeJson(this.remoteWorkspace ?? null) === safeJson(config.remoteWorkspace ?? null) &&
-      (this.workspaceRoot ?? "") === (config.workspaceRoot?.trim() ?? "") &&
+      ["customSystemPrompt", safeJson(this.customSystemPrompt ?? null) === safeJson(config.customSystemPrompt ?? null)],
+      ["projectMemory", (this.projectMemory ?? "") === (config.projectMemory?.trim() ?? "")],
+      ["projectPath", (this.projectPath ?? "") === (config.remoteWorkspace?.path ?? config.projectPath?.trim() ?? "")],
+      ["remoteWorkspace", safeJson(this.remoteWorkspace ?? null) === safeJson(config.remoteWorkspace ?? null)],
+      ["workspaceRoot", (this.workspaceRoot ?? "") === (config.workspaceRoot?.trim() ?? "")],
       // Editing `~/.agents/subagents/*.md` must reach the next prompt. Definition
       // bodies are part of the `Task` tool's behavior, so unlike skills they
       // are compared in full.
-      safeJson(this.subagents) === safeJson(config.subagents ?? []) &&
-      safeJson(this.subagentProviders) === safeJson(config.subagentProviders ?? {}) &&
-      safeJson([...this.subagentModelKeys].sort()) ===
-        safeJson([...new Set(config.subagentModelKeys ?? [])].sort()) &&
+      ["subagents", safeJson(this.subagents) === safeJson(config.subagents ?? [])],
+      ["subagentProviders", safeJson(this.subagentProviders) === safeJson(config.subagentProviders ?? {})],
+      ["subagentModelKeys", safeJson([...this.subagentModelKeys].sort()) === safeJson([...new Set(config.subagentModelKeys ?? [])].sort())],
       // Enabling or disabling a trusted extension retires the runtime so the
       // next prompt reloads the set (spec 16 §4.3).
-      trustedExtensionIds(this.trustedExtensionSpecs) ===
-        trustedExtensionIds(config.trustedExtensions ?? [])
-    );
+      ["trustedExtensions", trustedExtensionIds(this.trustedExtensionSpecs) === trustedExtensionIds(config.trustedExtensions ?? [])],
+    ];
+    for (const [field, ok] of checks) {
+      if (!ok) return field;
+    }
+    return null;
+  }
+
+  /** True when this runtime can be reused for a prompt with the given config. */
+  matches(config: RuntimeMatchConfig): boolean {
+    return this.firstMismatch(config) === null;
   }
 
   /**
