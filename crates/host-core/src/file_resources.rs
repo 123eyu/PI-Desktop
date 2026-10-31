@@ -156,7 +156,7 @@ fn file_id(file: &File, _address: &Path) -> Option<FileId> {
         return None;
     }
     #[cfg(target_os = "macos")]
-    if fs.f_flags & libc::MNT_LOCAL == 0 {
+    if fs.f_flags & (libc::MNT_LOCAL as u32) == 0 {
         return None;
     }
     let metadata = file.metadata().ok()?;
