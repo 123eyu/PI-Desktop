@@ -316,7 +316,7 @@ export class SubagentRun {
               ...tool,
               executionMode:
                 tool.executionMode === "parallel"
-                  ? toolExecutionMode(tool.name)
+                  ? toolExecutionMode(tool.name, true)
                   : "sequential",
             },
             () => this.agent?.state.messages.at(-1),

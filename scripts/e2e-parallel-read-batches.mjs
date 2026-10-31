@@ -2,7 +2,7 @@
 // A response barrier proves concurrent dispatch, not filesystem-body overlap.
 import assert from "node:assert/strict";
 import { createServer } from "node:http";
-import { mkdtemp, mkdir, readFile, writeFile, rm } from "node:fs/promises";
+import { link, symlink, mkdtemp, mkdir, readFile, writeFile, rm } from "node:fs/promises";
 import { existsSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
@@ -153,7 +153,7 @@ try {
     tools: runtime.scopeDelegateTools(tools, definition, "fixture-delegate", apply),
     beforeToolCall: async context => {
       await runtime.preparePathToolCall(context, apply, names);
-      runtime.registerBatchCall(context, names);
+      await runtime.registerBatchCall(context, names);
       return undefined;
     },
     onTurnEnd: message => runtime.batchPlanner.settleBatch(message),
@@ -189,9 +189,9 @@ try {
   assert.match(JSON.stringify(mixedResults[2].content), /gamma-marker/);
   gated = new Set();
 
-  // [Read a, Edit a]: the Edit claims the file the Read shares, so Host sees
-  // read:start, read:end, edit:start. The Edit uses the tag of a real Read
-  // from the previous model step and must succeed.
+  // Both RPCs may be submitted together; Host now owns the actual body order.
+  // The native RPC regression separately gates/reverses arrivals to prove it.
+  // Edit still uses a real previous-step tag and must succeed.
   let tag;
   respond = body => {
     const results = toolMessages(body);
@@ -210,12 +210,66 @@ try {
   };
   dispatch.length = 0;
   await runTurn(session, "Read a, then edit it.");
-  assert.deepEqual(
-    dispatch.filter(entry => entry.startsWith("order-")),
-    ["order-read:start", "order-read:end", "order-edit:start", "order-edit:end"],
-  );
+  assert.ok(dispatch.includes("order-read:end") && dispatch.includes("order-edit:end"));
   assert.equal(hostResults.get("order-edit")?.ok, true, `Edit failed: ${JSON.stringify(hostResults.get("order-edit"))}`);
   assert.match(await readFile(join(workspace, "a.txt"), "utf8"), /alpha-marker\n[\s\S]*edited-marker/);
+
+  // Real differently named aliases through production parent Runtime/pi/Host.
+  // They are intentionally not represented by a basename or local realpath key.
+  await link(join(workspace,"a.txt"),join(workspace,"hard-alias.txt"));
+  const aliases = ["hard-alias.txt"];
+  try {
+    await symlink(join(workspace,"a.txt"),join(workspace,"symbolic-alias.txt"),"file");
+    aliases.push("symbolic-alias.txt");
+  } catch (error) {
+    if (error.code !== "EPERM" && error.code !== "EACCES") throw error;
+    console.log("SKIP file symlink E2E: OS does not grant symlink creation; hard-link cases still run");
+  }
+  for (const alias of aliases) for (const writeFirst of [false,true]) {
+    const before = await readFile(join(workspace,"a.txt"),"utf8");
+    const after = `alias-written-${alias}-${writeFirst}\n`;
+    const readId = `alias-read-${alias}-${writeFirst}`, writeId = `alias-write-${alias}-${writeFirst}`;
+    const pair = [
+      {id:readId,name:"Read",arguments:{path:alias}},
+      {id:writeId,name:"Write",arguments:{path:"a.txt",content:after}},
+    ];
+    if(writeFirst) pair.reverse();
+    respond = body => toolMessages(body).some(m=>m.tool_call_id===writeId) ? undefined : pair;
+    const round = await runTurn(session,"Run the alias file batch in source order.");
+    assert.equal(hostResults.get(writeId)?.ok,true,JSON.stringify(hostResults.get(writeId)));
+    const readResult = toolMessages(round.at(-1)).find(m=>m.tool_call_id===readId);
+    const readText = JSON.parse(readResult.content).content;
+    for (const line of (writeFirst ? after : before).trim().split(/\r?\n/)) {
+      assert.ok(readText.includes(line),JSON.stringify(readResult));
+    }
+    assert.equal(await readFile(join(workspace,alias),"utf8"),after);
+    assert.deepEqual(toolMessages(round.at(-1)).filter(m=>[readId,writeId].includes(m.tool_call_id)).map(m=>m.tool_call_id),pair.map(c=>c.id));
+    // Repeat through the real delegate loop and the runtime's scoped catalog.
+    const childAfter = `child-${after}`;
+    const childPair = pair.map(call => call.name === "Write"
+      ? { ...call, arguments: { ...call.arguments, content: childAfter } } : call);
+    respond = body => toolMessages(body).some(m=>m.tool_call_id===writeId) ? undefined : childPair;
+    const childStart = requests.length;
+    const writer = { name:"alias-writer",description:"Read and write aliases",tools:["Read","Write"],prompt:"Run the batch",source:"builtin" };
+    const writerNames = new Set(writer.tools);
+    const writerTools = [...runtime.toolCatalog.values()].filter(tool=>writerNames.has(tool.name));
+    let writerRun;
+    const childInstructions = instructions => writerRun.setSystemPrompt(`Child rules: ${JSON.stringify(instructions)}`);
+    writerRun = new SubagentRun({ definition:writer,sessionId:session.id,task:"Run the file batch.",
+      provider:runtime.provider,thinkingLevel:"off",systemPrompt:"Run the file batch.",
+      tools:runtime.scopeDelegateTools(writerTools,writer,"alias-child",childInstructions),
+      beforeToolCall:async context=>{
+        await runtime.preparePathToolCall(context,childInstructions,writerNames);
+        await runtime.registerBatchCall(context,writerNames);
+      },
+      onTurnEnd:message=>runtime.batchPlanner.settleBatch(message),onEvent:envelope=>events.push(envelope.event),
+    });
+    assert.equal((await writerRun.run()).status,"completed");
+    await runtime.batchPlanner.drain();
+    const childRead = toolMessages(requests.slice(childStart).at(-1)).find(m=>m.tool_call_id===readId);
+    assert.ok(JSON.parse(childRead.content).content.includes((writeFirst ? childAfter : after).trim()),JSON.stringify(childRead));
+    assert.equal(await readFile(join(workspace,alias),"utf8"),childAfter);
+  }
 
   // Two same-batch Writes to different files each leave a review snapshot;
   // rolling both back restores both files.
@@ -260,7 +314,7 @@ try {
   assert.equal(hostResults.get("ask-write-e")?.ok, false);
   assert.equal(hostResults.get("ask-write-f")?.ok, true);
   assert.equal(events.some(event => event.type === "error"), false);
-  console.log("PASS parallel-read E2E: local HTTP provider, parent/delegate concurrent Read dispatch, real Read/Glob/Grep, source-order results, parent prompt isolation; [Read, Write, Read] overlap, [Read a, Edit a] Host order with a real tag, two-Write rollback, concurrent ask-mode approvals");
+  console.log("PASS parallel-file E2E: parent/delegate Runtime/pi with real Host, concurrent dispatch, source-order results, alias Read/Write both orders, real-tag Edit, two-Write rollback, concurrent ask-mode approvals");
 } finally {
   releaseReads();
   releaseGate();

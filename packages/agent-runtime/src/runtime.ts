@@ -6,7 +6,7 @@ import {
 import { DESKTOP_AGENT_IDENTITY } from "./agent-identity.js";
 import { resolveMcpToolSelection } from "./mcp-tool-selection.js";
 import { BatchPlanner, withBatchTurn } from "./batch-planner.js";
-import { TOOL_EXECUTION_SPECS, toolExecutionMode, withDynamicTaskExecutionMode } from "./tool-execution-policy.js";
+import { TOOL_EXECUTION_SPECS, resolveBatchExecutionMode, toolExecutionMode, withDynamicTaskExecutionMode } from "./tool-execution-policy.js";
 import { AsyncLocalStorage } from "node:async_hooks";
 import { TOOL_ACTIVATION_SECTION, toolDeclarationPolicy, toolActivationSection, restoredToolActivation, syncToolActivation, type ToolDeclarationPolicy } from "./fixed-tool-declarations.js";
 import { orderSystemRows, SystemTranscriptJournal } from "./system-transcript-journal.js";
@@ -154,7 +154,10 @@ import {
 } from "./agent-messages.js";
 import { withExplicitRequired } from "./tool-schema.js";
 import { buildSessionContext } from "./session-context.js";
-import { prepareCompaction } from "./pi-runtime-compaction-plan.js";
+import {
+  collectMessageFileOperations,
+  prepareCompaction,
+} from "./pi-runtime-compaction-plan.js";
 import { compact } from "./pi-runtime-compaction-summary.js";
 import {
   ESTIMATED_TEXT_CHARS_PER_TOKEN,
@@ -265,6 +268,7 @@ import {
   addSummaryUsage,
   compactionSummaryInputLimit,
   compactionSummaryOutputBudget,
+  compactionSummaryReserveTokens,
   COMPACTION_SUMMARY_RETRY_POLICY,
   estimateSummaryPromptTokens,
   planSummaryChunks,
@@ -1929,7 +1933,7 @@ export class DesktopAgentRuntime {
   /** Serializes same-path mutations across the parent and its delegates. */
   private writeLocks = new PathMutex();
   /** Orders one parallel batch's calls by the resources they claim. */
-  private batchPlanner = new BatchPlanner();
+  private batchPlanner: BatchPlanner;
   /** Complete tool registry; only the active subset is sent to the provider. */
   private toolCatalog = new Map<string, AgentTool>();
   /** Tools intentionally omitted from the initial provider request. */
@@ -2120,6 +2124,7 @@ export class DesktopAgentRuntime {
     this.fastMode = opts.fastMode === true;
     this.jevApiKey = opts.jevApiKey;
     this.host = opts.host;
+    this.batchPlanner = new BatchPlanner(this.host, this.sessionId);
     this.onDiagnostic = opts.onDiagnostic ?? (() => undefined);
     this.hostCloseUnsubscribe = this.host.onClose?.(() => {
       this.cleanupActiveToolProgress();
@@ -2721,7 +2726,7 @@ Do not invent objections or turn speculative risks into blockers. Stop when the 
       const blocked = await this.extensionToolCall(context);
       if (blocked?.block) return blocked;
       await this.preparePathToolCall(context);
-      this.registerBatchCall(context);
+      await this.registerBatchCall(context);
       return undefined;
     }
     const enterKind = enterToolKind(context.toolCall.name);
@@ -3675,6 +3680,7 @@ Do not invent objections or turn speculative risks into blockers. Stop when the 
               toolCallId,
               toolName,
               args: params,
+              ...(this.batchPlanner.ticket(toolCallId) ? { fileBatchTicket: this.batchPlanner.ticket(toolCallId) } : {}),
               mode: this.mode,
               ...(isBash
                 ? {
@@ -3978,13 +3984,13 @@ Do not invent objections or turn speculative risks into blockers. Stop when the 
           // Direct/internal invocations retain preflight. pi invocations have
           // already committed instructions in the ordered preparation phase.
           if (!prepared) await this.loadPathInstructions(toolName, params, this.instructionExecution.getStore());
-          if (PATH_MUTATING_TOOLS.has(toolName)) {
+          if (!this.batchPlanner.supported && PATH_MUTATING_TOOLS.has(toolName)) {
             return this.writeLocks.run(
               this.pathLockKey(toolCallId, params),
               () => run(toolCallId, params, signal, onUpdate),
             );
           }
-          if (toolName === "Read") {
+          if (!this.batchPlanner.supported && toolName === "Read") {
             return this.writeLocks.read(
               this.pathLockKey(toolCallId, params),
               () => run(toolCallId, params, signal, onUpdate),
@@ -4183,14 +4189,14 @@ Do not invent objections or turn speculative risks into blockers. Stop when the 
       const guarded = withModeExecutionGuard(
         withExplicitRequired({
           ...tool,
-          executionMode: builtin ? toolExecutionMode(tool.name) : "sequential",
+          executionMode: builtin ? toolExecutionMode(tool.name, this.batchPlanner.supported) : "sequential",
         }),
         () => this.isToolAllowedInMode(tool.name) ? undefined : modeToolDenial(tool.name, this.mode),
       );
       // Batch ordering wraps the mode guard: a call the guard rejects must
       // still release the calls ordered behind it in its batch.
       const catalogTool = withDynamicTaskExecutionMode(
-        builtin && TOOL_EXECUTION_SPECS[tool.name]?.claims ? withBatchTurn(guarded, this.batchPlanner) : guarded,
+        builtin && TOOL_EXECUTION_SPECS[tool.name]?.file ? withBatchTurn(guarded, this.batchPlanner) : guarded,
         () => this.agent?.state.messages.at(-1),
       );
       if (builtin) this.builtinTools.add(catalogTool);
@@ -5137,7 +5143,7 @@ Do not invent objections or turn speculative risks into blockers. Stop when the 
             tools: scopedTools,
             beforeToolCall: async (context) => {
               await this.preparePathToolCall(context, applyInstructions, builtinToolNames);
-              this.registerBatchCall(context, builtinToolNames);
+              await this.registerBatchCall(context, builtinToolNames, worktreeKey);
               return undefined;
             },
             onTurnEnd: (message) => this.batchPlanner.settleBatch(message),
@@ -6421,21 +6427,28 @@ Do not invent objections or turn speculative risks into blockers. Stop when the 
    * without claims are sequential, or Task, whose mixed batches pi already
    * runs sequentially.
    */
-  private registerBatchCall(
+  private async registerBatchCall(
     context: BeforeToolCallContext,
     builtinToolNames?: ReadonlySet<string>,
-  ): void {
+    delegationId?: string,
+  ): Promise<void> {
     const name = context.toolCall.name;
-    const claims = TOOL_EXECUTION_SPECS[name]?.claims;
-    if (!claims) return;
+    if (!this.batchPlanner.supported || !TOOL_EXECUTION_SPECS[name]?.file) return;
+    // pi prepares/executes sequential batches one call at a time. They must
+    // not seal a partial registration and later try to append to it.
+    const calls = context.assistantMessage.content.filter((block) => block.type === "toolCall");
+    if (resolveBatchExecutionMode(context.assistantMessage) === "sequential"
+      || calls.some((call) => context.context?.tools?.find((tool) => tool.name === call.name)?.executionMode !== "parallel")) return;
     const selected = context.context?.tools?.find((tool) => tool.name === name);
     const builtin = builtinToolNames ? builtinToolNames.has(name) : selected && this.builtinTools.has(selected);
     const batch: unknown = context.assistantMessage;
     if (!builtin || !isRecord(context.args) || !isRecord(batch)) return;
-    this.batchPlanner.register(
+    await this.batchPlanner.register(
       batch,
       context.args,
-      claims(normalizeToolParams(name, context.args), this.workspaceRoot ?? this.projectPath ?? ""),
+      { toolName: name, toolCallId: context.toolCall.id,
+        ordinal: context.assistantMessage.content.findIndex((block) => block.type === "toolCall" && block.id === context.toolCall.id),
+        args: normalizeToolParams(name, context.args), delegationId },
     );
   }
 
@@ -7080,8 +7093,8 @@ Do not invent objections or turn speculative risks into blockers. Stop when the 
    *
    * pi's cut point is still what marks the boundary, but the split it produces
    * is folded back together (see `codexShapedPreparation`), so
-   * `budget.keepRecentTokens` no longer decides what survives — it only decides
-   * which messages pi attributes file operations to.
+   * `budget.keepRecentTokens` no longer decides what survives. File operations
+   * are collected from that whole folded range, including the retained tail.
    */
   private prepareCompactionInput(
     entries: Entry[],
@@ -7152,6 +7165,18 @@ Do not invent objections or turn speculative risks into blockers. Stop when the 
       ...preparation.turnPrefixMessages,
       ...preparation.retainedTail,
     ];
+    // pi records file operations for `messagesToSummarize` and, on a split
+    // turn, `turnPrefixMessages`. The tail is summarized too — including the
+    // suffix a split left uncollected — so copy the sets and record it there.
+    // The sets pi returned stay unchanged.
+    const fileOps: CompactionPreparation["fileOps"] = {
+      read: new Set(preparation.fileOps.read),
+      written: new Set(preparation.fileOps.written),
+      edited: new Set(preparation.fileOps.edited),
+    };
+    for (const message of preparation.retainedTail) {
+      collectMessageFileOperations(message, fileOps);
+    }
     const latestUser = messagesToSummarize
       .filter((message): message is UserMessage => message.role === "user")
       .at(-1);
@@ -7164,6 +7189,7 @@ Do not invent objections or turn speculative risks into blockers. Stop when the 
       turnPrefixMessages: [],
       isSplitTurn: false,
       retainedTail: selectRetainedUserMessages(candidates, retainedUserTokens),
+      fileOps,
     };
   }
 
@@ -7705,13 +7731,13 @@ Do not invent objections or turn speculative risks into blockers. Stop when the 
     budget: { hardLimit: number; requestHeadroom: number },
   ): AgentMessage[][] | undefined {
     const reduced = reduceSummaryInput(preparation) ?? preparation;
-    const reserveTokens = Math.max(
-      Math.ceil((preparation.previousSummary?.length ?? 0) / 4),
-      compactionSummaryOutputBudget({
+    const reserveTokens = compactionSummaryReserveTokens({
+      previousSummary: preparation.previousSummary,
+      outputBudget: compactionSummaryOutputBudget({
         requestHeadroom: budget.requestHeadroom,
         modelMaxTokens: this.model.maxTokens,
       }),
-    );
+    });
     return planSummaryChunks(reduced, {
       summaryInputLimit: this.summaryInputLimit(budget),
       reserveTokens,
@@ -9162,9 +9188,10 @@ Do not invent objections or turn speculative risks into blockers. Stop when the 
     if (this.disposed) throw new Error("runtime disposed");
     this.assertNotRunning();
     const turnId = durableTurnId?.trim() || randomUUID();
-    return this.trackTurnOperation(turnId, () =>
-      this.promptTurn(input, userMessageId, turnId),
-    );
+    return this.trackTurnOperation(turnId, async () => {
+      try { return await this.promptTurn(input, userMessageId, turnId); }
+      finally { await this.batchPlanner.drain(); }
+    });
   }
 
   private async promptTurn(
@@ -9172,6 +9199,9 @@ Do not invent objections or turn speculative risks into blockers. Stop when the 
     userMessageId: string | undefined,
     durableTurnId: string,
   ): Promise<{ turnId: string }> {
+    await this.batchPlanner.negotiate(Boolean(this.remoteWorkspace));
+    this.rebuildToolCatalog();
+    this.setAgentTools(this.activeTools());
     const selectedTools = this.selectedMcpTools(input);
     const modelInput = typeof input !== "string" && input.sessionMessage
       ? { ...input, text: formatSessionMessage(input.text, input.sessionMessage), sessionMessage: undefined }

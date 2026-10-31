@@ -2,89 +2,58 @@
 
 - Status: Proposed
 - Date: 2026-10-12
-- Amended: 2026-10-29 by #1982 (Write/Edit join parallel batches, ordered by
-  resource claims)
+- Amended: 2026-10-30 by #1982; see [Host file admission](host-file-batch-admission.md)
 
 ## Context
 
-The runtime globally permits parallel execution but overrides every tool except
-Task to sequential. pi consequently serializes independent Read/Glob/Grep calls.
-Simply changing those flags is unsafe: file preflight currently changes the
-parent prompt, including when invoked through delegated tool closures.
+Independent Read/Glob/Grep calls were serialized. Simply changing execution
+flags was unsafe because preflight mutated the prompt in completion order and
+Task could start a writable delegate beside a parent read. The initial #1982
+amendment later tried lexical-path claims for Write/Edit; review demonstrated
+that different file names can reference the same object.
 
 ## Decision
 
-Use pi-agent-core's ordered preparation / concurrent execution /
-ordered result submission contract. Centralize the Read/Glob/Grep candidate
-allowlist and the batch rule that keeps Task mixed with those reads sequential;
-unknown tools default to sequential. Keep existing Host permission and capacity
-ownership. Do not introduce another batch executor.
+Use pi-agent-core's ordered preparation, concurrent execution and source-order
+result submission contract. Native path instruction preparation follows parent
+mode/extension checks; children only mutate their own prompt. Prepared argument
+identity keeps execution on the same normalized parameters. Direct calls retain
+preflight. Do not fork pi or add another executor.
 
-Amendment (2026-10-28): Write and Edit join the candidates. The allowlist
-becomes one execution spec table in `tool-execution-policy.ts`: each candidate
-declares its pi mode and, for file tools, the resources one call claims (a
-shared or exclusive claim on a lexical path key or on the whole workspace). A
-batch-local planner orders a parallel batch by those claims: each call waits
-only for earlier calls of the same assistant message whose claims conflict.
-Claims are registered at the end of the runtime's `beforeToolCall`; waiting and
-releasing wrap the catalog executor outside the mode guard and every argument
-check (a delegate's scoping wrapper calls that same executor), so a call that
-throws, is rejected or aborts still releases its successors. A Task mixed
-with any file tool, including Write and Edit, keeps the whole batch sequential.
-Host-core, `PathMutex`, Bash/Task semantics and the delegate completion barrier
-for reads are unchanged.
+Read/Glob/Grep remain parallel candidates. A supported local Host allows
+Write/Edit to join; legacy and remote Hosts retain sequential writes. Task-only
+fan-out is preserved; Task mixed with any file tool keeps the entire batch
+sequential. Reads/searches after a writable Task still wait for that delegate's
+completion; Task itself returns its started notice immediately.
 
-Move parent file preflight after mode and extension checks in beforeToolCall.
-Use a weak argument-identity map to bind canonical parameters to the validated
-call; unused records are collectible after cancellation or rejection. Direct
-invocations still run preflight. Delegate preparation has an explicit prompt
-sink, and AsyncLocalStorage preserves that sink for direct delegated executions
-without sharing mutable current-agent state. Delegate prompt updates use the
-same chronological system transcript sections as the parent.
+Eligible parallel file calls register in source order, seal before dispatch,
+and carry Host tickets. The Host owns actual identity, conflicts, capacity and
+execution lease lifetime as specified in the companion ADR. Basename and
+lexical keys no longer authorize overlap. Outer executor cleanup includes
+argument failures, mode denials, cancellation and calls that never reach Host.
+Batch-end cleanup only abandons unstarted records, never active disk work.
 
 ## Consequences
 
-Independent reads/searches overlap without changing writes or Bash policy.
-Task-only batches retain fan-out, while a mixed Task/read batch is kept
-sequential: a read ordered before `Task` finishes before the delegate starts, and
-a read ordered after a writable `Task` in the same batch waits for that delegate
-to settle before dispatching to Host, while `Task` itself still returns its ADR
-0089 started notice immediately. Per-path shared-read / exclusive-write
-locking in `PathMutex` also prevents a parent `Read` from overlapping an
-in-flight shared-workspace delegate `Write` or `Edit` on the same file.
-Regression tests pin both model orders (read then `Task`, and `Task` then read),
-Task-only fan-out, read-only batches, same-path `Edit` vs `Read` serialization,
-and a failed delegate that still lets the parent read proceed. Delegate path
-rules now follow their own ordered calls instead of mutating the parent.
-Instruction resolution claims remain immutable, per-prompt cached promises;
-shared caching does not share the prompt mutation sink. Source-order results
-still come from pi.
+Independent known-file reads and writes may overlap while aliases keep source
+order. Uncertain paths, namespace changes, searches and registers conservatively
+coordinate through the Host file domain. Per-session write capacity remains
+one. Results still enter the model in source order. Task/Bash semantics and
+permissions are unchanged. Legacy PathMutex behavior remains only on the legacy
+path; the negotiated path uses the Host authority for participating parent,
+delegate and session calls.
 
-Existing running file RPCs drain on Stop; finer cancellation and Host-owned
-file resource leases belong to separate changes.
-
-With the amendment, a read and an unrelated write in one batch overlap, and
-same-file work keeps source order (for example `[Read a, Edit a, Read b, Write
-c]` holds only Edit a behind Read a). The rules are conservative: Glob and Grep
-claim the whole workspace, so they keep source order against every write in the
-batch; an Edit with `MV`, `REM` or a named `@register` (kept per session by
-host-core) claims the whole workspace exclusively; two
-paths with the same file name are treated as one file, because host-core writes
-are not atomic and a lexical key cannot see every alias. Host still admits one
-mutation per session, so several non-conflicting writes of one batch queue in
-Host, may run out of source order and are subject to its 30-second admission
-timeout; results still reach the model in source order. Bash, TodoWrite,
-plugin/MCP and unknown tools keep their batch sequential. A Rust-side mirror of
-the claim table and Host resource leases are deferred to the Host change that
-would consume them.
+Regression tests must distinguish RPC submission from actual file-body order.
+Real Host tests cover differently named links and reversed RPC arrival; a
+blocking-pool gate proves cancellation cannot release a running file lease.
+Local-provider E2E covers parent/delegate wiring, results, real-tag Edit,
+approvals, aliases and rollback. Performance measurements include metadata RPCs
+and do not claim the diagram's illustrative timings as observed throughput.
 
 ## Alternatives
 
-- Parallelize execute while retaining prompt updates there: completion order
-  would select sibling rules and delegates would still overwrite parent state.
-- Serialize all reads behind a prompt mutex: would preserve the bottleneck.
-- Fork pi's batch executor: duplicates an already-supported contract.
-- Keep Write/Edit sequential and rely on `PathMutex`: any write still
-  serializes its whole batch, including unrelated reads.
-- Wait and release inside the builtin executor: argument validation and the
-  mode guard can fail before that code runs, leaving successors waiting forever.
+- Completion-order preflight: sibling calls race to choose prompt instructions.
+- Sidecar lexical locks: miss aliases and other sessions.
+- Write-only Host capacity: does not exclude a read of the same file.
+- Waiting/releasing only inside the builtin body: validation/mode errors can
+  strand registered successors before reaching that body.
