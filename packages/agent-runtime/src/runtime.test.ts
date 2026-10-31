@@ -8996,6 +8996,8 @@ describe("DesktopAgentRuntime inline context compaction", () => {
         compaction: expect.objectContaining({
           summary: SUMMARY,
           throughMessageId: "recent-user",
+          // The compacted request estimate survives a reload (#2015).
+          details: expect.objectContaining({ contextTokens: 40_000 }),
         }),
       }),
     );
@@ -9011,6 +9013,7 @@ describe("DesktopAgentRuntime inline context compaction", () => {
           throughMessageId: "recent-user",
           generation: 1,
           summaryTokens: 7,
+          contextTokens: 40_000,
           summarized: true,
         },
       }),
