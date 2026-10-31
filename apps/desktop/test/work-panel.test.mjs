@@ -642,6 +642,10 @@ test("the launcher tool list scrolls when it outgrows the panel body", () => {
   const list = globalStyles.match(/\.work-panel-launcher-list \{[^}]*\}/)?.[0] ?? "";
   assert.match(list, /min-height: 0/);
   assert.match(list, /overflow-y: auto/);
+  // Rows are flex items of that list: without flex-shrink: 0 a constrained
+  // list first compresses them below their 40px height instead of scrolling.
+  const row = globalStyles.match(/\.work-panel-launcher-row \{[^}]*\}/)?.[0] ?? "";
+  assert.match(row, /flex-shrink: 0/);
   // The title stays pinned; only the rows scroll.
   const title = globalStyles.match(/\.work-panel-launcher-title \{[^}]*\}/)?.[0] ?? "";
   assert.doesNotMatch(title, /overflow-y/);
