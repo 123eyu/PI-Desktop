@@ -504,6 +504,7 @@
 .work-panel-launcher {
   display: flex;
   width: 100%;
+  min-height: 0;
   flex-direction: column;
   gap: 8px;
   padding: 14px 10px;
@@ -518,8 +519,10 @@
 
 .work-panel-launcher-list {
   display: flex;
+  min-height: 0;
   flex-direction: column;
   gap: 2px;
+  overflow-y: auto;
 }
 
 .work-panel-launcher-row {
