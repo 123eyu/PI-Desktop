@@ -1,5 +1,9 @@
 # Unreleased changes
 
+- Fixed the composer context ring staying at the pre-compaction figure after
+  `/compact` or an automatic compaction until another turn ran (#2015). The
+  ring now shows the compacted context's estimated size as soon as the
+  checkpoint is installed, and after reopening the session.
 - Fixed prompt cache misses after a conversation's agent runtime is rebuilt
   (#1972). Rebuilding happens after a restart or when the thinking level, mode,
   project rules, or model settings change. Assistant replies now keep the
