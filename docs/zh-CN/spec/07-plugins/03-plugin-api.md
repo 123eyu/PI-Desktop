@@ -292,6 +292,7 @@ pi.workspace.get(): Promise<{
   name: string;
   projectId?: string;
   roots?: Array<{ path: string; name: string; primary: boolean }>;
+  remote?: { path: string; readOnly: true }; // 仅 SSH 项目，见下文
 } | null>
 
 pi.fs.readText(pathFromRoot: string): Promise<string>
@@ -1078,11 +1079,18 @@ type PluginApiError = {
  | "RATE_LIMITED" // a rolling window is exhausted (e.g. bus publishes)
  | "CONFIRMATION_REQUIRED" // a dangerous desktop operation without confirm: true
  | "INTERNAL"
+ | string // 见下文
  message: string
 }
 ```
 
-所有 API 失败都会引发携带 `code` 的错误。
+所有 API 失败都会引发携带 `code` 的错误。上面列出的是常见取值，不是封闭枚举：宿主
+会原样转发出错层设置的 code，没有 code 的错误到达插件时为 `PLUGIN_API_FAILED`。
+桌面宿主目前还会抛出 `INVALID_PARAMS`（session、usage、project、desktop API 的
+输入校验；其他 API 用 `INVALID_ARGUMENT`）、`UNAVAILABLE`（浏览器等宿主服务缺失）、
+`PLUGIN_UNLOADED`（调用期间插件被卸载或重载）、`CONFLICT`（speech 协议已被占用）、
+`PROVIDER_ERROR`（speech 适配器返回空结果）、`WORKSPACE_CHANGED`、`OPEN_FAILED`、
+`REVEAL_FAILED` 和 `CONNECT_FAILED`。只对自己处理的 code 分支，其余按通用失败处理。
 
 ## 5. 事件（主机 -> 插件）
 
@@ -1124,6 +1132,10 @@ pi.events.off(event, handler)
   / 结束。投递与其它事件一样是即发即忘；载荷里的快照就是答案，漏掉一次只需调用
   一次 `pi.session.getActive()` 补齐。不需要权限，且其中回合 id 与
   `session:turnEnded` 报告的身份一致。
+
+- `net:websocket:open` / `net:websocket:message` / `net:websocket:close` /
+  `net:websocket:error` —— 只发给持有该 socket 的插件；见 §3 `net` 下的
+  `net.websocket`。
 
 抛出的处理程序会被记录下来，并且不会影响其他侦听器或插件。
 
