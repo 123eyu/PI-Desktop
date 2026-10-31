@@ -70,7 +70,22 @@ impl FileResources {
             // Execution still reports the original permission/path/I/O failure.
             return Self::fence(exclusive);
         };
-        let Ok(file) = File::open(&address) else {
+        // Classification must never wait for a FIFO reader/writer or open a
+        // device. Recheck the opened object as the binding can change here.
+        if !std::fs::metadata(&address).is_ok_and(|metadata| metadata.is_file()) {
+            return Self::fence(exclusive);
+        }
+        #[cfg(unix)]
+        let opened = {
+            use std::os::unix::fs::OpenOptionsExt;
+            std::fs::OpenOptions::new()
+                .read(true)
+                .custom_flags(libc::O_NONBLOCK)
+                .open(&address)
+        };
+        #[cfg(not(unix))]
+        let opened = File::open(&address);
+        let Ok(file) = opened else {
             return Self::fence(exclusive);
         };
         let Ok(metadata) = file.metadata() else {
@@ -263,5 +278,33 @@ mod tests {
                 false
             )
             .is_err());
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn fifo_identity_classification_does_not_wait_for_a_writer() {
+        use std::os::unix::ffi::OsStrExt;
+        use std::os::unix::fs::OpenOptionsExt;
+        let dir = tempfile::tempdir().unwrap();
+        let fifo = dir.path().join("pipe");
+        let name = std::ffi::CString::new(fifo.as_os_str().as_bytes()).unwrap();
+        assert_eq!(unsafe { libc::mkfifo(name.as_ptr(), 0o600) }, 0);
+        let root = dir.path().to_owned();
+        let (tx, rx) = std::sync::mpsc::channel();
+        let worker = std::thread::spawn(move || {
+            let resource = claims(&root, "Write", "pipe");
+            tx.send(resource.identity.is_none()).unwrap();
+        });
+        let result = rx.recv_timeout(std::time::Duration::from_secs(2));
+        // Unblock a regressed O_RDONLY open before joining, so a failing test
+        // cannot strand the test process on a FIFO indefinitely.
+        let _unblock = std::fs::OpenOptions::new()
+            .read(true)
+            .write(true)
+            .custom_flags(libc::O_NONBLOCK)
+            .open(&fifo)
+            .unwrap();
+        worker.join().unwrap();
+        assert!(result.unwrap());
     }
 }

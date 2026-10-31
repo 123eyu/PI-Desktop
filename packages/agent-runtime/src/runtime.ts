@@ -9199,9 +9199,6 @@ Do not invent objections or turn speculative risks into blockers. Stop when the 
     userMessageId: string | undefined,
     durableTurnId: string,
   ): Promise<{ turnId: string }> {
-    await this.batchPlanner.negotiate(Boolean(this.remoteWorkspace));
-    this.rebuildToolCatalog();
-    this.setAgentTools(this.activeTools());
     const selectedTools = this.selectedMcpTools(input);
     const modelInput = typeof input !== "string" && input.sessionMessage
       ? { ...input, text: formatSessionMessage(input.text, input.sessionMessage), sessionMessage: undefined }
@@ -9215,11 +9212,6 @@ Do not invent objections or turn speculative risks into blockers. Stop when the 
     this.turnSubagentUsage = undefined;
     // Capabilities and path-scoped instruction claims belong to one prompt.
     this.subagentOverrideProviders = {};
-    this.resetDeferredToolsForPrompt();
-    if (selectedTools.length) {
-      this.activateDeferredTools(selectedTools);
-      this.setAgentTools(this.activeTools());
-    }
     this.pathInstructionClaims.clear();
     this.pendingUserMessageId = userMessageId;
     this.resetRunRecoveryState();
@@ -9237,6 +9229,14 @@ Do not invent objections or turn speculative risks into blockers. Stop when the 
     this.requestStartedAt = Date.now();
     this.setAgentActivity({ phase: "starting", since: Date.now() });
     try {
+      // Publish turn ownership before the first await. Status polling and Stop
+      // must include capability negotiation, not observe a falsely idle turn.
+      await this.batchPlanner.negotiate(Boolean(this.remoteWorkspace));
+      if (this.runCancelled || this.disposed) throw turnAbortedError("Turn aborted during Host capability negotiation");
+      this.rebuildToolCatalog();
+      this.resetDeferredToolsForPrompt();
+      if (selectedTools.length) this.activateDeferredTools(selectedTools);
+      this.setAgentTools(this.activeTools());
       const content = promptContent(modelInput);
       const incomingUserMessage: AgentMessage = {
         role: "user",

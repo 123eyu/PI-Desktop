@@ -643,6 +643,22 @@ function assistantMessage(overrides: {
 }
 
 describe("parallel file batches", () => {
+  it("owns the turn during capability negotiation and honors Stop before provider dispatch", async () => {
+    let release: (value: unknown) => void = () => {};
+    const capability = new Promise((resolve) => { release = resolve; });
+    const runtime = createRuntime({ host: { call: vi.fn((method: string) => method === "tools.fileBatchCapabilities" ? capability : Promise.resolve(undefined)) } });
+    const agent = (runtime as unknown as { agent: Agent }).agent;
+    const prompt = vi.spyOn(agent, "prompt").mockResolvedValue();
+    const pending = runtime.prompt("Wait for capabilities", undefined, "held-capability-turn");
+    expect(runtime.getStatus()).toMatchObject({ currentTurnId: "held-capability-turn", isRunning: true });
+    const stopping = runtime.abort();
+    release({ version: 1, supported: true });
+    await pending.catch(() => undefined);
+    await stopping;
+    expect(prompt).not.toHaveBeenCalled();
+    expect(runtime.getStatus().isRunning).toBe(false);
+    await runtime.dispose();
+  });
   it.each([false, true])("keeps hard-link aliases ordered without Host identity support (write first: %s)", async (writeFirst) => {
     const root = await mkdtemp(join(tmpdir(), "pi-batch-alias-"));
     await writeFile(join(root, "actual.txt"), "before");
